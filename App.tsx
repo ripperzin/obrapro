@@ -325,6 +325,32 @@ const App: React.FC = () => {
     }]);
   };
 
+  const deleteProject = async (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    if (!window.confirm(`ATENÇÃO: Tem certeza que deseja excluir a obra "${project.name}"?\n\nEsta ação apagará TODAS as unidades, despesas e históricos associados.\n\nEssa ação não pode ser desfeita.`)) return;
+
+    // Supabase deve estar configurado com ON DELETE CASCADE, mas por segurança tentamos deletar o projeto direto
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', projectId);
+
+    if (error) {
+      console.error('Erro ao excluir projeto:', error);
+      alert('Erro ao excluir projeto: ' + error.message);
+      return;
+    }
+
+    setProjects(prev => prev.filter(p => p.id !== projectId));
+
+    // Se o projeto excluído estava selecionado, voltar para lista
+    if (selectedProjectId === projectId) {
+      setSelectedProjectId(null);
+    }
+  };
+
   const filteredProjects = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === UserRole.ADMIN) return projects;
@@ -379,6 +405,8 @@ const App: React.FC = () => {
               projects={filteredProjects}
               onSelect={setSelectedProjectId}
               onAdd={addProject}
+              onUpdate={updateProject}
+              onDelete={deleteProject}
               isAdmin={currentUser.role === UserRole.ADMIN}
             />
           )
