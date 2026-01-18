@@ -179,8 +179,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                           }`}>{stage}%</span>
 
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 transition-all duration-500 shadow-sm ${isCompleted
-                            ? 'bg-blue-600 border-blue-600 text-white shadow-blue-200'
-                            : 'bg-white border-slate-200 text-transparent'
+                          ? 'bg-blue-600 border-blue-600 text-white shadow-blue-200'
+                          : 'bg-white border-slate-200 text-transparent'
                           } ${isCurrent ? 'ring-4 ring-blue-100 scale-110' : ''}`}>
                           {isCompleted && <i className="fa-solid fa-check text-[10px]"></i>}
                         </div>
@@ -280,19 +280,19 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
             </div>
             <div className="max-h-[500px] overflow-y-auto space-y-4 pr-2 scrollbar-hide">
               {project.logs.slice().reverse().map(log => (
-                <div key={log.id} className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 text-sm">
+                <div key={log.id} className="bg-white p-6 rounded-[2rem] border-4 border-blue-600 shadow-sm text-sm mb-4">
                   <div className="flex justify-between items-start mb-3">
                     <span className="font-black text-slate-800 uppercase text-[10px] tracking-widest">{log.action}: {log.field}</span>
                     <span className="text-[10px] font-bold text-slate-400">{new Date(log.timestamp).toLocaleTimeString('pt-BR')}</span>
                   </div>
                   <p className="text-xs text-slate-500 mb-4">Usuário: <span className="text-blue-600 font-bold">{log.userName}</span></p>
                   <div className="flex items-center gap-4">
-                    <div className="flex-1 bg-white p-4 rounded-[1.2rem] border border-slate-100">
+                    <div className="flex-1 bg-white p-4 rounded-[1.2rem] border-2 border-blue-600">
                       <p className="text-[8px] uppercase font-black text-slate-400 mb-1">De</p>
                       <p className="truncate text-slate-600 font-bold text-xs">{log.oldValue}</p>
                     </div>
                     <i className="fa-solid fa-chevron-right text-slate-300 text-xs"></i>
-                    <div className="flex-1 bg-blue-50 p-4 rounded-[1.2rem] border border-blue-100">
+                    <div className="flex-1 bg-blue-50 p-4 rounded-[1.2rem] border-2 border-blue-600">
                       <p className="text-[8px] uppercase font-black text-blue-400 mb-1">Para</p>
                       <p className="truncate text-blue-700 font-bold text-xs">{log.newValue}</p>
                     </div>
@@ -586,11 +586,11 @@ const ExpensesSection: React.FC<{
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-slate-50 p-7 rounded-[2.5rem] border border-slate-100">
+        <div className="bg-white p-7 rounded-[2.5rem] border-4 border-blue-600 shadow-sm">
           <p className="text-[10px] text-slate-400 font-black uppercase mb-1">Total Desembolsado</p>
           <p className="text-3xl font-black text-slate-800">{formatCurrency(project.expenses.reduce((a, b) => a + b.value, 0))}</p>
         </div>
-        <div className="bg-blue-50 p-7 rounded-[2.5rem] border border-blue-100">
+        <div className="bg-white p-7 rounded-[2.5rem] border-4 border-blue-600 shadow-sm">
           <p className="text-[10px] text-blue-400 font-black uppercase mb-1">Volume de Lançamentos</p>
           <p className="text-3xl font-black text-blue-800">
             {project.expenses.length} <span className="text-xs opacity-40 uppercase ml-1">Notas</span>
@@ -619,9 +619,9 @@ const ExpensesSection: React.FC<{
         </form>
       )}
 
-      <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 border-b border-slate-100 text-slate-400 font-black uppercase text-[9px] tracking-widest">
+      <div className="bg-white rounded-[2.5rem] border-4 border-blue-600 overflow-hidden shadow-sm">
+        <table className="w-full text-left text-sm border-collapse">
+          <thead className="bg-slate-50 border-b-2 border-blue-600 text-slate-400 font-black uppercase text-[9px] tracking-widest">
             <tr>
               <th className="px-10 py-6">Data</th>
               <th className="px-10 py-6">Descrição</th>
@@ -630,8 +630,8 @@ const ExpensesSection: React.FC<{
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {project.expenses.map(exp => (
-              <tr key={exp.id} className="hover:bg-slate-50/50 transition">
+            {project.expenses.map((exp, index) => (
+              <tr key={exp.id} className={`hover:bg-slate-50/50 transition border-2 border-blue-600 rounded-[1rem] m-2 block md:table-row md:border-b md:border-slate-100 md:rounded-none`}>
                 <td className="px-10 py-6">
                   {isAdmin ? (
                     <input
