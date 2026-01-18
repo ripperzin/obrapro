@@ -8,10 +8,12 @@ interface ProjectDetailProps {
   project: Project;
   user: User;
   onUpdate: (id: string, updates: Partial<Project>, logMsg?: string) => void;
+  onDeleteUnit: (projectId: string, unitId: string) => void;
 }
 
-const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate }) => {
+const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, onDeleteUnit }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'logs'>('info');
+  const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
 
   const isAdmin = user.role === UserRole.ADMIN;
   const canSeeUnits = user.canSeeUnits || isAdmin;
@@ -209,6 +211,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate }
               user={user}
               onAddUnit={handleAddUnit}
               onUpdateUnit={handleUpdateUnit}
+              onDeleteUnit={onDeleteUnit}
               logChange={logChange}
             />
           </div>
@@ -267,9 +270,11 @@ const UnitsSection: React.FC<{
   user: User,
   onAddUnit: (u: any) => void,
   onUpdateUnit: (id: string, updates: Partial<Unit>) => void,
+  onDeleteUnit: (projectId: string, unitId: string) => void,
   logChange: (a: string, f: string, o: string, n: string) => void
-}> = ({ project, user, onAddUnit, onUpdateUnit, logChange }) => {
+}> = ({ project, user, onAddUnit, onUpdateUnit, onDeleteUnit, logChange }) => {
   const [showAdd, setShowAdd] = useState(false);
+  const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     identifier: '',
     area: 0,
@@ -286,7 +291,7 @@ const UnitsSection: React.FC<{
     ? project.expenses.reduce((min, e) => e.date < min ? e.date : min, project.expenses[0].date)
     : null;
 
-  const handleLocalUpdateUnit = (unitId: string, updates: Partial<Unit>) => {
+  const handleUpdateUnit = (unitId: string, updates: Partial<Unit>) => {
     onUpdateUnit(unitId, updates);
   };
 
@@ -351,34 +356,79 @@ const UnitsSection: React.FC<{
             : null;
 
           const roiMensal = (roi !== null && months !== null && months > 0) ? roi / months : null;
+          const isEditing = editingUnitId === unit.id;
 
           return (
-            <div key={unit.id} className="bg-white border-2 border-blue-500 rounded-[2.5rem] p-7 shadow-sm hover:shadow-2xl transition-all group relative overflow-hidden">
+            <div key={unit.id} className={`bg-white border-2 rounded-[2.5rem] p-7 shadow-sm hover:shadow-2xl transition-all group relative overflow-hidden ${isEditing ? 'border-orange-400' : 'border-blue-500'}`}>
               <div className="flex justify-between items-start mb-8 relative z-10">
-                <div>
-                  <h5 className="font-black text-slate-800 text-xl group-hover:text-blue-600 transition-colors">{unit.identifier}</h5>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <h5 className="font-black text-slate-800 text-xl group-hover:text-blue-600 transition-colors">{unit.identifier}</h5>
+                    <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${unit.status === 'Sold' ? 'bg-green-600 text-white' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
+                      {unit.status === 'Sold' ? 'Vendida' : 'À Venda'}
+                    </div>
+                  </div>
                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{unit.area} m² de área total</p>
                 </div>
-                <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${unit.status === 'Sold' ? 'bg-green-600 text-white' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
-                  {unit.status === 'Sold' ? 'Vendida' : 'À Venda'}
+
+                <div className="flex items-center gap-2">
+                  {isEditing ? (
+                    <button
+                      onClick={() => setEditingUnitId(null)}
+                      className="w-10 h-10 flex items-center justify-center bg-green-600 text-white rounded-full hover:bg-green-700 transition shadow-lg shadow-green-100"
+                      title="Confirmar Edição"
+                    >
+                      <i className="fa-solid fa-check"></i>
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setEditingUnitId(unit.id)}
+                        className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-600 rounded-full hover:bg-blue-600 hover:text-white transition"
+                        title="Editar Unidade"
+                      >
+                        <i className="fa-solid fa-pen-to-square"></i>
+                      </button>
+                      <button
+                        onClick={() => onDeleteUnit(project.id, unit.id)}
+                        className="w-10 h-10 flex items-center justify-center bg-red-50 text-red-600 rounded-full hover:bg-red-600 hover:text-white transition"
+                        title="Excluir Unidade"
+                      >
+                        <i className="fa-solid fa-trash"></i>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
               <div className="space-y-5 mb-8 relative z-10">
-                <div className="bg-slate-50 p-4 rounded-[1.8rem] flex justify-between items-center border-2 border-blue-200">
+                <div className={`bg-slate-50 p-4 rounded-[1.8rem] flex justify-between items-center border-2 ${isEditing ? 'border-orange-100' : 'border-blue-200'}`}>
                   <span className="text-slate-400 font-black uppercase tracking-widest text-[9px] ml-2">Investimento</span>
-                  <span className="font-black text-slate-700 text-base mr-2">{formatCurrency(unit.cost)}</span>
+                  {isEditing ? (
+                    <div className="relative">
+                      <span className="absolute left-[-22px] top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300">R$</span>
+                      <input
+                        type="number"
+                        className="w-28 bg-white p-2 rounded-xl text-right font-black text-slate-700 outline-none focus:ring-2 focus:ring-orange-500 transition text-sm"
+                        defaultValue={unit.cost}
+                        onBlur={(e) => handleUpdateUnit(unit.id, { cost: Number(e.target.value) })}
+                      />
+                    </div>
+                  ) : (
+                    <span className="font-black text-slate-700 text-base mr-2">{formatCurrency(unit.cost)}</span>
+                  )}
                 </div>
 
-                <div className="p-4 rounded-[1.8rem] flex justify-between items-center border-2 border-blue-100 bg-white">
+                <div className={`p-4 rounded-[1.8rem] flex justify-between items-center border-2 bg-white ${isEditing ? 'border-orange-200' : 'border-blue-100'}`}>
                   <span className="text-blue-400 font-black uppercase tracking-widest text-[9px] ml-2">Venda Estimada</span>
                   <div className="relative">
                     <span className="absolute left-[-22px] top-1/2 -translate-y-1/2 text-[10px] font-black text-blue-300">R$</span>
                     <input
                       type="number"
-                      className="w-28 bg-blue-50/30 p-2 rounded-xl text-right font-black text-blue-700 outline-none focus:ring-2 focus:ring-blue-500 transition text-sm"
+                      disabled={!isEditing}
+                      className={`w-28 p-2 rounded-xl text-right font-black outline-none transition text-sm ${isEditing ? 'bg-orange-50/50 text-orange-700 focus:ring-2 focus:ring-orange-500' : 'bg-blue-50/30 text-blue-700'}`}
                       defaultValue={unit.valorEstimadoVenda || 0}
-                      onBlur={(e) => handleLocalUpdateUnit(unit.id, { valorEstimadoVenda: Number(e.target.value) })}
+                      onBlur={(e) => handleUpdateUnit(unit.id, { valorEstimadoVenda: Number(e.target.value) })}
                     />
                   </div>
                 </div>
@@ -386,26 +436,28 @@ const UnitsSection: React.FC<{
                 <div className="pt-6 mt-4 border-t border-slate-50">
                   {canEditVenda ? (
                     <div className="space-y-4">
-                      <div className="p-4 rounded-[1.8rem] border-2 border-blue-400 space-y-2">
+                      <div className={`p-4 rounded-[1.8rem] border-2 space-y-2 ${isEditing ? 'border-orange-200' : 'border-blue-400'}`}>
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-4">Valor Realizado</label>
                         <div className="relative">
                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-300">R$</span>
                           <input
                             type="number"
-                            className="w-full pl-10 pr-4 py-3.5 bg-slate-900 text-white rounded-[1.2rem] text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/20 transition"
+                            disabled={!isEditing}
+                            className={`w-full pl-10 pr-4 py-3.5 rounded-[1.2rem] text-sm font-black outline-none transition ${isEditing ? 'bg-orange-50 text-orange-900 border border-orange-200 focus:ring-4 focus:ring-orange-500/10' : 'bg-slate-900 text-white focus:ring-4 focus:ring-blue-500/20'}`}
                             placeholder="0,00"
                             defaultValue={unit.saleValue}
-                            onBlur={(e) => handleLocalUpdateUnit(unit.id, { saleValue: e.target.value === "" ? undefined : Number(e.target.value) })}
+                            onBlur={(e) => handleUpdateUnit(unit.id, { saleValue: e.target.value === "" ? undefined : Number(e.target.value) })}
                           />
                         </div>
                       </div>
-                      <div className="p-4 rounded-[1.8rem] border-2 border-blue-400 space-y-2">
+                      <div className={`p-4 rounded-[1.8rem] border-2 space-y-2 ${isEditing ? 'border-orange-200' : 'border-blue-400'}`}>
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-4">Data da Venda</label>
                         <input
                           type="date"
-                          className="w-full px-5 py-3.5 bg-slate-100 text-slate-700 rounded-[1.2rem] text-xs font-black outline-none border-2 border-transparent focus:border-blue-500 transition"
+                          disabled={!isEditing}
+                          className={`w-full px-5 py-3.5 rounded-[1.2rem] text-xs font-black outline-none border-2 transition ${isEditing ? 'bg-white border-orange-500 text-orange-700' : 'bg-slate-100 border-transparent text-slate-700 focus:border-blue-500'}`}
                           defaultValue={unit.saleDate}
-                          onBlur={(e) => handleLocalUpdateUnit(unit.id, { saleDate: e.target.value === "" ? undefined : e.target.value })}
+                          onBlur={(e) => handleUpdateUnit(unit.id, { saleDate: e.target.value === "" ? undefined : e.target.value })}
                         />
                       </div>
                     </div>

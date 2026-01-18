@@ -204,7 +204,7 @@ const App: React.FC = () => {
       if (unitsError) {
         alert('Erro ao salvar unidades: ' + unitsError.message);
         console.error('Erro ao salvar unidades:', unitsError);
-        return; // Interrompe para não atualizar o estado local com dados não salvos
+        return;
       }
     }
 
@@ -272,6 +272,59 @@ const App: React.FC = () => {
     }
   };
 
+  const deleteUnit = async (projectId: string, unitId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    const unitToDelete = project.units.find(u => u.id === unitId);
+    if (!unitToDelete) return;
+
+    if (!window.confirm(`Tem certeza que deseja excluir a unidade "${unitToDelete.identifier}"?`)) return;
+
+    // 1. Deletar do Supabase
+    const { error } = await supabase
+      .from('units')
+      .delete()
+      .eq('id', unitId);
+
+    if (error) {
+      alert('Erro ao excluir unidade: ' + error.message);
+      return;
+    }
+
+    // 2. Atualizar estado local e recalcular totais do projeto
+    const newUnits = project.units.filter(u => u.id !== unitId);
+    const updates: Partial<Project> = {
+      units: newUnits,
+      expectedTotalCost: newUnits.reduce((a, b) => a + b.cost, 0),
+      expectedTotalSales: newUnits.reduce((a, b) => a + (b.saleValue || b.valorEstimadoVenda || 0), 0)
+    };
+
+    // Atualizar tabela de projetos no banco com novos totais
+    await supabase
+      .from('projects')
+      .update({
+        expected_total_cost: updates.expectedTotalCost,
+        expected_total_sales: updates.expectedTotalSales
+      })
+      .eq('id', projectId);
+
+    // Atualizar estado local
+    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...updates } : p));
+
+    // Log da exclusão
+    await supabase.from('logs').insert([{
+      id: generateId(),
+      project_id: projectId,
+      user_id: currentUser?.id,
+      user_name: currentUser?.login,
+      action: 'Exclusão',
+      field: 'Unidade',
+      old_value: unitToDelete.identifier,
+      new_value: '-'
+    }]);
+  };
+
   const filteredProjects = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === UserRole.ADMIN) return projects;
@@ -319,6 +372,7 @@ const App: React.FC = () => {
               project={selectedProject!}
               user={currentUser}
               onUpdate={updateProject}
+              onDeleteUnit={deleteUnit}
             />
           ) : (
             <ProjectsDashboard
