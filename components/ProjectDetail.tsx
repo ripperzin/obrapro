@@ -78,9 +78,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate }
 
     let finalUpdates = { ...updates };
     const currentSaleValue = updates.hasOwnProperty('saleValue') ? updates.saleValue : oldUnit.saleValue;
-    const currentSaleDate = updates.hasOwnProperty('saleDate') ? updates.saleDate : oldUnit.saleDate;
 
-    if (currentSaleValue && currentSaleValue > 0 && currentSaleDate && currentSaleDate !== "") {
+    if (currentSaleValue && currentSaleValue > 0) {
       finalUpdates.status = 'Sold';
     } else {
       finalUpdates.status = 'Available';
@@ -343,18 +342,18 @@ const UnitsSection: React.FC<{
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {project.units.map(unit => {
-          const roi = unit.status === 'Sold' && unit.saleValue && unit.cost > 0
+          const roi = (unit.saleValue && unit.saleValue > 0 && unit.cost > 0)
             ? (unit.saleValue - unit.cost) / unit.cost
             : null;
 
-          const months = roi !== null && unit.saleDate && firstExpenseDate
+          const months = (roi !== null && unit.saleDate && firstExpenseDate)
             ? calculateMonthsBetween(firstExpenseDate, unit.saleDate)
             : null;
 
-          const roiMensal = (roi !== null && months !== null) ? roi / months : null;
+          const roiMensal = (roi !== null && months !== null && months > 0) ? roi / months : null;
 
           return (
-            <div key={unit.id} className="bg-white border border-slate-100 rounded-[2.5rem] p-7 shadow-sm hover:shadow-2xl transition-all group relative overflow-hidden">
+            <div key={unit.id} className="bg-white border-2 border-indigo-600/10 rounded-[2.5rem] p-7 shadow-sm hover:shadow-2xl transition-all group relative overflow-hidden">
               <div className="flex justify-between items-start mb-8 relative z-10">
                 <div>
                   <h5 className="font-black text-slate-800 text-xl group-hover:text-blue-600 transition-colors">{unit.identifier}</h5>
@@ -366,18 +365,18 @@ const UnitsSection: React.FC<{
               </div>
 
               <div className="space-y-5 mb-8 relative z-10">
-                <div className="bg-slate-50 p-4 rounded-[1.8rem] flex justify-between items-center border border-slate-100">
+                <div className="bg-slate-50 p-4 rounded-[1.8rem] flex justify-between items-center border-2 border-indigo-50">
                   <span className="text-slate-400 font-black uppercase tracking-widest text-[9px] ml-2">Investimento</span>
                   <span className="font-black text-slate-700 text-base mr-2">{formatCurrency(unit.cost)}</span>
                 </div>
 
-                <div className="p-4 rounded-[1.8rem] flex justify-between items-center border-2 border-blue-50 bg-white">
+                <div className="p-4 rounded-[1.8rem] flex justify-between items-center border-2 border-blue-100 bg-white">
                   <span className="text-blue-400 font-black uppercase tracking-widest text-[9px] ml-2">Venda Estimada</span>
                   <div className="relative">
                     <span className="absolute left-[-22px] top-1/2 -translate-y-1/2 text-[10px] font-black text-blue-300">R$</span>
                     <input
                       type="number"
-                      className="w-28 bg-blue-50/50 p-2 rounded-xl text-right font-black text-blue-700 outline-none focus:ring-2 focus:ring-blue-500 transition text-sm"
+                      className="w-28 bg-blue-50/30 p-2 rounded-xl text-right font-black text-blue-700 outline-none focus:ring-2 focus:ring-blue-500 transition text-sm"
                       defaultValue={unit.valorEstimadoVenda || 0}
                       onBlur={(e) => handleLocalUpdateUnit(unit.id, { valorEstimadoVenda: Number(e.target.value) })}
                     />
@@ -387,7 +386,7 @@ const UnitsSection: React.FC<{
                 <div className="pt-6 mt-4 border-t border-slate-50">
                   {canEditVenda ? (
                     <div className="space-y-4">
-                      <div className="space-y-2">
+                      <div className="p-4 rounded-[1.8rem] border-2 border-slate-100 space-y-2">
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-4">Valor Realizado</label>
                         <div className="relative">
                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-300">R$</span>
@@ -400,7 +399,7 @@ const UnitsSection: React.FC<{
                           />
                         </div>
                       </div>
-                      <div className="space-y-2">
+                      <div className="p-4 rounded-[1.8rem] border-2 border-slate-100 space-y-2">
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-4">Data da Venda</label>
                         <input
                           type="date"
@@ -422,12 +421,12 @@ const UnitsSection: React.FC<{
               {roi !== null && (
                 <div className="flex gap-3 pt-6 border-t border-slate-50 relative z-10">
                   <div className="flex-1 bg-green-50 p-4 rounded-[1.5rem] text-center border border-green-100 shadow-sm">
-                    <p className="text-[8px] font-black text-green-400 uppercase mb-1">ROI Real</p>
-                    <p className="text-lg font-black text-green-700">{(roi * 100).toFixed(1)}%</p>
+                    <p className="text-[9px] font-black text-green-600 uppercase tracking-widest mb-1">ROI Real</p>
+                    <p className="text-lg font-black text-green-700">{(roi * 100).toFixed(2)}%</p>
                   </div>
-                  <div className="flex-1 bg-indigo-50 p-4 rounded-[1.5rem] text-center border border-indigo-100 shadow-sm">
-                    <p className="text-[8px] font-black text-indigo-400 uppercase mb-1">ROI Mensal</p>
-                    <p className="text-lg font-black text-indigo-700">{roiMensal !== null ? `${(roiMensal * 100).toFixed(2)}%` : '-'}</p>
+                  <div className="flex-1 bg-blue-50 p-4 rounded-[1.5rem] text-center border border-blue-100 shadow-sm">
+                    <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1">ROI Mensal</p>
+                    <p className="text-lg font-black text-blue-700">{roiMensal !== null ? `${(roiMensal * 100).toFixed(2)}%` : '--'}</p>
                   </div>
                 </div>
               )}
