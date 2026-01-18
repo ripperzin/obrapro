@@ -1,17 +1,54 @@
 
 import React, { useState } from 'react';
+import { supabase } from '../supabaseClient';
 
 interface LoginPageProps {
-  onLogin: (user: string, pass: string) => void;
+  onLoginSuccess: (session: any) => void;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
-  const [login, setLogin] = useState('');
+const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+  const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin(login, pass);
+    setLoading(true);
+    setError(null);
+
+    const loginEmail = email.includes('@') ? email : `${email}@obrapro.com`;
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: loginEmail,
+      password: pass,
+    });
+
+    if (error) {
+      setError(error.message);
+    } else {
+      onLoginSuccess(data.session);
+    }
+    setLoading(false);
+  };
+
+  const handleSignUp = async () => {
+    setLoading(true);
+    setError(null);
+
+    const loginEmail = email.includes('@') ? email : `${email}@obrapro.com`;
+
+    const { data, error } = await supabase.auth.signUp({
+      email: loginEmail,
+      password: pass,
+    });
+
+    if (error) {
+      setError(error.message);
+    } else {
+      alert('Cadastro realizado! Você já pode tentar logar.');
+    }
+    setLoading(false);
   };
 
   return (
@@ -33,16 +70,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">Login</label>
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">Login / E-mail</label>
             <div className="relative">
               <i className="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
-              <input 
+              <input
                 required
-                type="text" 
+                type="text"
                 className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="victoravila"
-                value={login}
-                onChange={e => setLogin(e.target.value)}
+                placeholder="Ex: victoravila"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
               />
             </div>
           </div>
@@ -51,9 +88,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">Senha</label>
             <div className="relative">
               <i className="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
-              <input 
+              <input
                 required
-                type="password" 
+                type="password"
                 className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 placeholder="••••••••"
                 value={pass}
@@ -62,11 +99,23 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             </div>
           </div>
 
-          <button 
+          {error && <p className="text-red-500 text-xs text-center">{error}</p>}
+
+          <button
             type="submit"
-            className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition shadow-lg shadow-blue-500/20 mt-4 active:scale-95"
+            disabled={loading}
+            className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition shadow-lg shadow-blue-500/20 mt-4 active:scale-95 disabled:opacity-50"
           >
-            Acessar Sistema
+            {loading ? 'Carregando...' : 'Acessar Sistema'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSignUp}
+            disabled={loading}
+            className="w-full py-2 text-slate-400 hover:text-white text-xs font-bold transition"
+          >
+            Criar conta
           </button>
         </form>
 

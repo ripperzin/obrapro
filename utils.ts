@@ -7,7 +7,7 @@ export const formatPercent = (value: number) => {
   return `${value.toFixed(2)}%`;
 };
 
-export const generateId = () => Math.random().toString(36).substr(2, 9);
+export const generateId = () => crypto.randomUUID();
 
 export const calculateMonthsBetween = (d1: string, d2: string) => {
   const date1 = new Date(d1);
