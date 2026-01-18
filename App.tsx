@@ -13,6 +13,7 @@ import ProjectsDashboard from './components/ProjectsDashboard';
 import ProjectDetail from './components/ProjectDetail';
 import GeneralDashboard from './components/GeneralDashboard';
 import UserManagement from './components/UserManagement';
+import MobileNav from './components/MobileNav';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -363,8 +364,10 @@ const App: React.FC = () => {
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
 
+
+
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="flex min-h-screen bg-slate-100 font-sans">
       <Sidebar
         role={currentUser.role}
         activeTab={activeTab}
@@ -372,7 +375,7 @@ const App: React.FC = () => {
         onLogout={logout}
       />
 
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto pb-24 md:pb-8">
         <header className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">
@@ -425,6 +428,13 @@ const App: React.FC = () => {
           />
         )}
       </main>
+
+      <MobileNav
+        role={currentUser.role}
+        activeTab={activeTab}
+        setActiveTab={(tab) => { setActiveTab(tab); setSelectedProjectId(null); }}
+        onLogout={logout}
+      />
     </div>
   );
 };
