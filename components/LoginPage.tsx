@@ -76,7 +76,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <input
                 required
                 type="text"
-                className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="w-full pl-11 pr-4 py-3 bg-white border-2 border-slate-200 rounded-xl text-slate-800 outline-none focus:border-blue-500 transition shadow-sm placeholder-slate-400 font-bold"
                 placeholder="Ex: victoravila"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
@@ -91,7 +91,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <input
                 required
                 type="password"
-                className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="w-full pl-11 pr-4 py-3 bg-white border-2 border-slate-200 rounded-xl text-slate-800 outline-none focus:border-blue-500 transition shadow-sm placeholder-slate-400 font-bold"
                 placeholder="••••••••"
                 value={pass}
                 onChange={e => setPass(e.target.value)}

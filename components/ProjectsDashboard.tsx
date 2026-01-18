@@ -38,7 +38,7 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
     <div className="space-y-6">
       {isAdmin && (
         <div className="flex justify-end">
-          <button 
+          <button
             onClick={() => setShowAddModal(true)}
             className="px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-100 font-bold"
           >
@@ -55,8 +55,8 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {projects.map(p => (
-            <div 
-              key={p.id} 
+            <div
+              key={p.id}
               onClick={() => onSelect(p.id)}
               className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group"
             >
@@ -68,13 +68,13 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                   {p.progress}%
                 </span>
               </div>
-              
+
               <h3 className="text-xl font-black text-slate-800 mb-2">{p.name}</h3>
               <p className="text-sm text-slate-500 mb-6 font-medium">{STAGE_NAMES[p.progress]}</p>
 
               <div className="w-full bg-slate-100 rounded-full h-3 mb-2 overflow-hidden">
-                <div 
-                  className="bg-blue-600 h-full rounded-full transition-all duration-500" 
+                <div
+                  className="bg-blue-600 h-full rounded-full transition-all duration-500"
                   style={{ width: `${p.progress}%` }}
                 ></div>
               </div>
@@ -99,17 +99,17 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               <div className="space-y-2">
                 <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">Nome do Empreendimento</label>
-                <input 
+                <input
                   required
-                  type="text" 
-                  className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl outline-none transition-all font-bold"
+                  type="text"
+                  className="w-full p-4 bg-white border-2 border-slate-200 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-slate-800"
                   placeholder="Ex: Residencial Aurora"
                   value={formData.name}
-                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
               <div className="pt-4 flex gap-4">
-                <button 
+                <button
                   type="submit"
                   className="flex-1 py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-100 font-black"
                 >

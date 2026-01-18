@@ -324,19 +324,19 @@ const UnitsSection: React.FC<{
         >
           <div className="space-y-2">
             <label className="text-[10px] font-black text-blue-600 uppercase ml-3">Identificador</label>
-            <input required className="w-full p-4 bg-white border-2 border-transparent rounded-full text-sm font-black outline-none focus:border-blue-500 shadow-sm" placeholder="Ex: Casa 01" value={formData.identifier} onChange={e => setFormData({ ...formData, identifier: e.target.value })} />
+            <input required className="w-full p-4 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800 shadow-sm" placeholder="Ex: Casa 01" value={formData.identifier} onChange={e => setFormData({ ...formData, identifier: e.target.value })} />
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-black text-blue-600 uppercase ml-3">Área (m²)</label>
-            <input required type="number" className="w-full p-4 bg-white border-2 border-transparent rounded-full text-sm font-black outline-none focus:border-blue-500 shadow-sm" value={formData.area} onChange={e => setFormData({ ...formData, area: Number(e.target.value) })} />
+            <input required type="number" className="w-full p-4 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800 shadow-sm" value={formData.area} onChange={e => setFormData({ ...formData, area: Number(e.target.value) })} />
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-black text-blue-600 uppercase ml-3">Custo (R$)</label>
-            <input required type="number" className="w-full p-4 bg-slate-100 border-2 border-transparent rounded-full text-sm font-black outline-none focus:border-blue-500 shadow-inner" value={formData.cost} onChange={e => setFormData({ ...formData, cost: Number(e.target.value) })} />
+            <input required type="number" className="w-full p-4 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800 shadow-sm" value={formData.cost} onChange={e => setFormData({ ...formData, cost: Number(e.target.value) })} />
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-black text-blue-600 uppercase ml-3">Estimativa Venda</label>
-            <input required type="number" className="w-full p-4 bg-slate-100 border-2 border-transparent rounded-full text-sm font-black outline-none focus:border-blue-500 shadow-inner" value={formData.valorEstimadoVenda} onChange={e => setFormData({ ...formData, valorEstimadoVenda: Number(e.target.value) })} />
+            <input required type="number" className="w-full p-4 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800 shadow-sm" value={formData.valorEstimadoVenda} onChange={e => setFormData({ ...formData, valorEstimadoVenda: Number(e.target.value) })} />
           </div>
           <div className="flex gap-3 h-[58px] mt-auto">
             <button type="submit" className="flex-1 bg-blue-600 text-white rounded-full font-black text-xs shadow-lg shadow-blue-200 uppercase tracking-widest">Salvar</button>
@@ -402,60 +402,77 @@ const UnitsSection: React.FC<{
               </div>
 
               <div className="space-y-5 mb-8 relative z-10">
-                <div className={`bg-slate-50 p-4 rounded-[1.8rem] flex justify-between items-center border-2 ${isEditing ? 'border-orange-100' : 'border-blue-200'}`}>
+                {/* INVESTIMENTO */}
+                <div className={`p-4 rounded-[1.8rem] flex justify-between items-center border-2 transition-colors ${isEditing ? 'bg-white border-blue-500' : 'bg-white border-slate-100'}`}>
                   <span className="text-slate-400 font-black uppercase tracking-widest text-[9px] ml-2">Investimento</span>
                   {isEditing ? (
                     <div className="relative">
                       <span className="absolute left-[-22px] top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300">R$</span>
                       <input
                         type="number"
-                        className="w-28 bg-white p-2 rounded-xl text-right font-black text-slate-700 outline-none focus:ring-2 focus:ring-orange-500 transition text-sm"
+                        className="w-28 bg-white p-2 border-2 border-slate-200 rounded-xl text-right font-black text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition text-sm"
                         defaultValue={unit.cost}
                         onBlur={(e) => handleUpdateUnit(unit.id, { cost: Number(e.target.value) })}
                       />
                     </div>
                   ) : (
-                    <span className="font-black text-slate-700 text-base mr-2">{formatCurrency(unit.cost)}</span>
+                    <span className="font-black text-slate-800 text-base mr-2">{formatCurrency(unit.cost)}</span>
                   )}
                 </div>
 
-                <div className={`p-4 rounded-[1.8rem] flex justify-between items-center border-2 bg-white ${isEditing ? 'border-orange-200' : 'border-blue-100'}`}>
+                {/* VENDA ESTIMADA */}
+                <div className={`p-4 rounded-[1.8rem] flex justify-between items-center border-2 transition-colors ${isEditing ? 'bg-white border-blue-500' : 'bg-white border-slate-100'}`}>
                   <span className="text-blue-400 font-black uppercase tracking-widest text-[9px] ml-2">Venda Estimada</span>
                   <div className="relative">
-                    <span className="absolute left-[-22px] top-1/2 -translate-y-1/2 text-[10px] font-black text-blue-300">R$</span>
-                    <input
-                      type="number"
-                      disabled={!isEditing}
-                      className={`w-28 p-2 rounded-xl text-right font-black outline-none transition text-sm ${isEditing ? 'bg-orange-50/50 text-orange-700 focus:ring-2 focus:ring-orange-500' : 'bg-blue-50/30 text-blue-700'}`}
-                      defaultValue={unit.valorEstimadoVenda || 0}
-                      onBlur={(e) => handleUpdateUnit(unit.id, { valorEstimadoVenda: Number(e.target.value) })}
-                    />
+                    {isEditing ? (
+                      <>
+                        <span className="absolute left-[-22px] top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300">R$</span>
+                        <input
+                          type="number"
+                          className="w-28 p-2 bg-white border-2 border-slate-200 rounded-xl text-right font-black outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition text-sm text-slate-800"
+                          defaultValue={unit.valorEstimadoVenda || 0}
+                          onBlur={(e) => handleUpdateUnit(unit.id, { valorEstimadoVenda: Number(e.target.value) })}
+                        />
+                      </>
+                    ) : (
+                      <span className="font-black text-blue-600 text-base mr-2">{formatCurrency(unit.valorEstimadoVenda || 0)}</span>
+                    )}
                   </div>
                 </div>
 
+                {/* VALOR REALIZADO & DATA */}
                 <div className="pt-6 mt-4 border-t border-slate-50">
                   {canEditVenda ? (
                     <div className="space-y-4">
-                      <div className={`p-4 rounded-[1.8rem] border-2 space-y-2 ${isEditing ? 'border-orange-200' : 'border-blue-400'}`}>
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-4">Valor Realizado</label>
+                      {/* VALOR REALIZADO - DESTAQUE ESCURO */}
+                      <div className={`p-4 rounded-[1.8rem] border-2 space-y-2 ${isEditing ? 'bg-white border-blue-500' : 'bg-slate-900 border-slate-900'}`}>
+                        <label className={`text-[9px] font-black uppercase ml-4 ${isEditing ? 'text-slate-400' : 'text-slate-500'}`}>Valor Realizado</label>
                         <div className="relative">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-300">R$</span>
+                          <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black ${isEditing ? 'text-slate-300' : 'text-slate-600'}`}>R$</span>
                           <input
                             type="number"
                             disabled={!isEditing}
-                            className={`w-full pl-10 pr-4 py-3.5 rounded-[1.2rem] text-sm font-black outline-none transition ${isEditing ? 'bg-orange-50 text-orange-900 border border-orange-200 focus:ring-4 focus:ring-orange-500/10' : 'bg-slate-900 text-white focus:ring-4 focus:ring-blue-500/20'}`}
+                            className={`w-full pl-10 pr-4 py-3.5 rounded-[1.2rem] text-sm font-black outline-none transition ${isEditing
+                              ? 'bg-white text-slate-900 border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'
+                              : 'bg-transparent text-white border-none cursor-default'
+                              }`}
                             placeholder="0,00"
                             defaultValue={unit.saleValue}
                             onBlur={(e) => handleUpdateUnit(unit.id, { saleValue: e.target.value === "" ? undefined : Number(e.target.value) })}
                           />
                         </div>
                       </div>
-                      <div className={`p-4 rounded-[1.8rem] border-2 space-y-2 ${isEditing ? 'border-orange-200' : 'border-blue-400'}`}>
+
+                      {/* DATA DA VENDA - FUNDO CINZA */}
+                      <div className={`p-4 rounded-[1.8rem] border-2 space-y-2 ${isEditing ? 'bg-white border-blue-500' : 'bg-slate-50 border-slate-100'}`}>
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-4">Data da Venda</label>
                         <input
                           type="date"
                           disabled={!isEditing}
-                          className={`w-full px-5 py-3.5 rounded-[1.2rem] text-xs font-black outline-none border-2 transition ${isEditing ? 'bg-white border-orange-500 text-orange-700' : 'bg-slate-100 border-transparent text-slate-700 focus:border-blue-500'}`}
+                          className={`w-full px-5 py-3.5 rounded-[1.2rem] text-xs font-black outline-none border-2 transition ${isEditing
+                            ? 'bg-white border-slate-200 text-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'
+                            : 'bg-transparent border-transparent text-slate-500 cursor-default'
+                            }`}
                           defaultValue={unit.saleDate}
                           onBlur={(e) => handleUpdateUnit(unit.id, { saleDate: e.target.value === "" ? undefined : e.target.value })}
                         />
@@ -485,8 +502,8 @@ const UnitsSection: React.FC<{
             </div>
           );
         })}
-      </div>
-    </div>
+      </div >
+    </div >
   );
 };
 
@@ -541,15 +558,15 @@ const ExpensesSection: React.FC<{
         <form className="p-8 bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-4" onSubmit={(e) => { e.preventDefault(); onAddExpense(formData); setShowAdd(false); }}>
           <div className="md:col-span-1 space-y-2">
             <label className="text-[10px] font-black text-slate-500 uppercase ml-4">Descrição</label>
-            <input required className="w-full px-6 py-3.5 bg-white border border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500" placeholder="Ex: Cimento, Pintor..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+            <input required className="w-full px-6 py-3.5 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800" placeholder="Ex: Cimento, Pintor..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-500 uppercase ml-4">Valor (R$)</label>
-            <input required type="number" className="w-full px-6 py-3.5 bg-slate-100 border border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500" value={formData.value} onChange={e => setFormData({ ...formData, value: Number(e.target.value) })} />
+            <input required type="number" className="w-full px-6 py-3.5 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800" value={formData.value} onChange={e => setFormData({ ...formData, value: Number(e.target.value) })} />
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-500 uppercase ml-4">Data</label>
-            <input required type="date" className="w-full px-6 py-3.5 bg-white border border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+            <input required type="date" className="w-full px-6 py-3.5 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
           </div>
           <div className="flex gap-3 h-[52px] mt-auto">
             <button type="submit" className="flex-1 bg-blue-600 text-white rounded-full font-black text-xs uppercase tracking-widest">Salvar</button>
@@ -575,7 +592,7 @@ const ExpensesSection: React.FC<{
                   {isAdmin ? (
                     <input
                       type="date"
-                      className="p-2 border border-slate-100 rounded-xl text-xs bg-transparent outline-none focus:border-blue-600 font-black text-slate-600"
+                      className="p-2 bg-white border-2 border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 font-black text-slate-800"
                       defaultValue={exp.date}
                       onBlur={(e) => handleEditExpense(exp.id, 'date', e.target.value)}
                     />
@@ -596,7 +613,7 @@ const ExpensesSection: React.FC<{
                   {isAdmin ? (
                     <input
                       type="number"
-                      className="p-2 bg-blue-50/50 border border-blue-100 rounded-xl text-xs text-right w-28 outline-none focus:ring-2 focus:ring-blue-500 font-black text-blue-700"
+                      className="p-2 bg-white border-2 border-slate-200 rounded-xl text-xs text-right w-28 outline-none focus:border-blue-500 font-black text-slate-800"
                       defaultValue={exp.value}
                       onBlur={(e) => handleEditExpense(exp.id, 'value', Number(e.target.value))}
                     />

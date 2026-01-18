@@ -48,7 +48,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, projec
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-bold text-slate-800">Equipe e Permissões</h3>
-        <button 
+        <button
           onClick={() => setShowAdd(true)}
           className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-bold text-sm"
         >
@@ -61,15 +61,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, projec
           <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-500 uppercase">Login</label>
-              <input required className="w-full p-2.5 bg-slate-50 border rounded-lg" value={formData.login} onChange={e => setFormData({...formData, login: e.target.value})} />
+              <input required className="w-full p-2.5 bg-white border-2 border-slate-200 rounded-xl text-slate-800 outline-none focus:border-blue-500" value={formData.login} onChange={e => setFormData({ ...formData, login: e.target.value })} />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-500 uppercase">Senha</label>
-              <input required type="password" className="w-full p-2.5 bg-slate-50 border rounded-lg" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+              <input required type="password" className="w-full p-2.5 bg-white border-2 border-slate-200 rounded-xl text-slate-800 outline-none focus:border-blue-500" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-500 uppercase">Perfil</label>
-              <select className="w-full p-2.5 bg-slate-50 border rounded-lg" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})}>
+              <select className="w-full p-2.5 bg-white border-2 border-slate-200 rounded-xl text-slate-800 outline-none focus:border-blue-500" value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value as UserRole })}>
                 <option value={UserRole.STANDARD}>Usuário Padrão</option>
                 <option value={UserRole.ADMIN}>Administrador</option>
               </select>
@@ -103,11 +103,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, projec
                     <button
                       key={p.id}
                       onClick={() => toggleProjectAccess(u.id, p.id)}
-                      className={`text-[10px] font-bold px-2 py-1 rounded transition ${
-                        u.allowedProjectIds.includes(p.id) 
-                          ? 'bg-blue-600 text-white' 
+                      className={`text-[10px] font-bold px-2 py-1 rounded transition ${u.allowedProjectIds.includes(p.id)
+                          ? 'bg-blue-600 text-white'
                           : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                      }`}
+                        }`}
                     >
                       {p.name}
                     </button>
@@ -121,9 +120,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, projec
               <button
                 disabled={u.role === UserRole.ADMIN}
                 onClick={() => toggleUnitsAccess(u.id)}
-                className={`flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-bold ${
-                  u.canSeeUnits ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                }`}
+                className={`flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-bold ${u.canSeeUnits ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  }`}
               >
                 <i className={`fa-solid ${u.canSeeUnits ? 'fa-eye' : 'fa-eye-slash'}`}></i>
                 <span>{u.canSeeUnits ? 'Ativo' : 'Bloqueado'}</span>
