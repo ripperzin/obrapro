@@ -586,8 +586,10 @@ const ExpensesSection: React.FC<{
                 <td className="px-10 py-6 font-black text-slate-800">{exp.description}</td>
                 <td className="px-10 py-6">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500 border border-slate-200">{exp.userName[0].toUpperCase()}</div>
-                    <span className="text-slate-500 font-bold">{exp.userName}</span>
+                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500 border border-slate-200">
+                      {(exp.userName && exp.userName[0]) ? exp.userName[0].toUpperCase() : '-'}
+                    </div>
+                    <span className="text-slate-500 font-bold">{exp.userName || 'Sistema'}</span>
                   </div>
                 </td>
                 <td className="px-10 py-6 text-right">
