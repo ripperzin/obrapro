@@ -109,21 +109,39 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100">
-        <div className="flex flex-wrap gap-3 mb-10 p-1.5 bg-slate-50 rounded-[2rem] w-fit">
-          <button onClick={() => setActiveTab('info')} className={`px-8 py-3.5 rounded-full font-black text-sm transition-all ${activeTab === 'info' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-800'}`}>
-            <i className="fa-solid fa-gauge-high mr-2"></i> Gestão
-          </button>
-          {canSeeUnits && (
-            <button onClick={() => setActiveTab('units')} className={`px-8 py-3.5 rounded-full font-black text-sm transition-all ${activeTab === 'units' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-800'}`}>
-              <i className="fa-solid fa-house-user mr-2"></i> Unidades
-            </button>
-          )}
-          <button onClick={() => setActiveTab('expenses')} className={`px-8 py-3.5 rounded-full font-black text-sm transition-all ${activeTab === 'expenses' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-800'}`}>
-            <i className="fa-solid fa-wallet mr-2"></i> Despesas
-          </button>
-          <button onClick={() => setActiveTab('logs')} className={`px-8 py-3.5 rounded-full font-black text-sm transition-all ${activeTab === 'logs' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-800'}`}>
-            <i className="fa-solid fa-fingerprint mr-2"></i> Auditoria
-          </button>
+        <div className="flex flex-wrap gap-4 mb-10 w-full justify-center">
+          {['info', 'units', 'expenses', 'logs'].map((tab) => {
+            if (tab === 'units' && !canSeeUnits) return null;
+
+            const labels: Record<string, string> = {
+              info: 'Gestão',
+              units: 'Unidades',
+              expenses: 'Despesas',
+              logs: 'Auditoria'
+            };
+
+            const icons: Record<string, string> = {
+              info: 'fa-gauge-high',
+              units: 'fa-house-user',
+              expenses: 'fa-wallet',
+              logs: 'fa-fingerprint'
+            };
+
+            const isActive = activeTab === tab;
+
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab as any)}
+                className={`px-8 py-3 rounded-full font-black text-xs uppercase tracking-widest transition-all duration-300 transform ${isActive
+                  ? 'bg-blue-600 text-white shadow-xl shadow-blue-200 scale-105 border-4 border-blue-600'
+                  : 'bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50'
+                  }`}
+              >
+                <i className={`fa-solid ${icons[tab]} mr-2`}></i> {labels[tab]}
+              </button>
+            );
+          })}
         </div>
 
         {activeTab === 'info' && (
@@ -133,30 +151,56 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                 <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Cronograma de Obra</h3>
                 <span className="bg-blue-600 text-white px-5 py-2 rounded-full font-black text-xs shadow-lg shadow-blue-100">{project.progress}%</span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-11 gap-2">
-                {PROGRESS_STAGES.map(stage => (
-                  <button
-                    key={stage}
-                    disabled={!isAdmin && stage < project.progress}
-                    onClick={() => handleStageChange(stage)}
-                    className={`flex flex-col items-center p-4 rounded-[1.5rem] border-2 transition-all ${project.progress === stage
-                      ? 'bg-blue-600 border-blue-600 text-white scale-105 shadow-xl shadow-blue-100'
-                      : project.progress > stage
-                        ? 'bg-blue-50 border-blue-100 text-blue-600 opacity-60'
-                        : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'
-                      }`}
-                  >
-                    <span className="text-[10px] font-black uppercase mb-1">{stage}%</span>
-                    <div className="w-2 h-2 rounded-full bg-current mb-2"></div>
-                    <span className="text-[9px] font-bold text-center leading-tight">{STAGE_NAMES[stage]}</span>
-                  </button>
-                ))}
+              <div className="relative pt-8 pb-4 px-4">
+                {/* Linha de Fundo */}
+                <div className="absolute top-[4.5rem] left-0 w-full h-1.5 bg-slate-100 rounded-full z-0"></div>
+
+                {/* Linha de Progresso */}
+                <div
+                  className="absolute top-[4.5rem] left-0 h-1.5 bg-blue-600 rounded-full z-0 transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(37,99,235,0.5)]"
+                  style={{ width: `${project.progress}%` }}
+                ></div>
+
+                {/* Etapas */}
+                <div className="relative z-10 flex justify-between w-full">
+                  {PROGRESS_STAGES.map(stage => {
+                    const isCompleted = project.progress >= stage;
+                    const isCurrent = project.progress === stage;
+
+                    return (
+                      <button
+                        key={stage}
+                        disabled={!isAdmin && stage < project.progress}
+                        onClick={() => handleStageChange(stage)}
+                        className={`group flex flex-col items-center gap-3 transition-all duration-300 ${isCurrent ? 'scale-110' : 'hover:scale-105'
+                          }`}
+                      >
+                        <span className={`text-[10px] font-black transition-colors ${isCompleted ? 'text-blue-600' : 'text-slate-300'
+                          }`}>{stage}%</span>
+
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 transition-all duration-500 shadow-sm ${isCompleted
+                            ? 'bg-blue-600 border-blue-600 text-white shadow-blue-200'
+                            : 'bg-white border-slate-200 text-transparent'
+                          } ${isCurrent ? 'ring-4 ring-blue-100 scale-110' : ''}`}>
+                          {isCompleted && <i className="fa-solid fa-check text-[10px]"></i>}
+                        </div>
+
+                        <span className={`text-[9px] font-bold uppercase tracking-wider text-center max-w-[60px] leading-tight transition-colors ${isCompleted ? 'text-blue-700' : 'text-slate-300'
+                          }`}>
+                          {STAGE_NAMES[stage]}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100">
-                <h4 className="font-black text-slate-800 mb-6 uppercase text-sm tracking-widest">Saúde Financeira</h4>
+              <div className="bg-white p-8 rounded-[2.5rem] border-4 border-blue-600 shadow-xl relative overflow-hidden group hover:shadow-2xl transition-all">
+                <h4 className="font-black text-slate-800 mb-6 uppercase text-sm tracking-widest flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-600"></span> Saúde Financeira
+                </h4>
                 <div className="space-y-6">
                   <div className="flex justify-between text-sm font-bold">
                     <span className="text-slate-500">Orçamento vs Realizado</span>
@@ -169,11 +213,11 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                     ></div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-[1.5rem] border border-slate-100">
+                    <div className="bg-slate-50 p-4 rounded-[1.5rem] border border-slate-100">
                       <p className="text-[10px] text-slate-400 font-black uppercase mb-1">Custo Previsto</p>
                       <p className="font-black text-slate-700 text-lg">{formatCurrency(totalUnitsCost)}</p>
                     </div>
-                    <div className="bg-white p-4 rounded-[1.5rem] border border-slate-100">
+                    <div className="bg-slate-50 p-4 rounded-[1.5rem] border border-slate-100">
                       <p className="text-[10px] text-slate-400 font-black uppercase mb-1">Despesas Reais</p>
                       <p className="font-black text-slate-800 text-lg">{formatCurrency(totalActualExpenses)}</p>
                     </div>
