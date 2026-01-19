@@ -7,7 +7,7 @@ import { formatCurrency, generateId, calculateMonthsBetween } from '../utils';
 interface ProjectDetailProps {
   project: Project;
   user: User;
-  onUpdate: (id: string, updates: Partial<Project>, logMsg?: string) => void;
+  onUpdate: (id: string, updates: Partial<Project>, logMsg?: string) => Promise<void>;
   onDeleteUnit: (projectId: string, unitId: string) => void;
 }
 
@@ -63,16 +63,32 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
     onUpdate(project.id, { progress: newStage }, `Progresso: ${oldName} -> ${newName}`);
   };
 
-  const handleAddUnit = (unit: Omit<Unit, 'id'>) => {
-    const newUnit = { ...unit, id: generateId() };
-    const newUnits = [...project.units, newUnit];
+  const handleAddUnit = async (unit: Omit<Unit, 'id'>): Promise<void> => {
+    console.log('=== DEBUG: handleAddUnit chamado ===');
+    console.log('Input unit:', unit);
 
-    onUpdate(project.id, {
+    const newUnit: Unit = {
+      ...unit,
+      id: generateId(),
+      status: 'Available',
+      saleValue: undefined,
+      saleDate: undefined
+    };
+    console.log('New unit with ID:', newUnit);
+
+    const newUnits = [...project.units, newUnit];
+    console.log('All units after add:', newUnits);
+
+    // Persistir no banco e aguardar
+    await onUpdate(project.id, {
       units: newUnits,
       expectedTotalCost: newUnits.reduce((a, b) => a + b.cost, 0),
       expectedTotalSales: newUnits.reduce((a, b) => a + (b.saleValue || b.valorEstimadoVenda || 0), 0)
     });
+
+    // Log após confirmação do salvamento
     logChange('Inclusão', 'Unidade', '-', unit.identifier);
+    console.log('=== DEBUG: handleAddUnit concluído ===');
   };
 
   const handleUpdateUnit = (unitId: string, updates: Partial<Unit>) => {
@@ -312,12 +328,13 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
 const UnitsSection: React.FC<{
   project: Project,
   user: User,
-  onAddUnit: (u: any) => void,
+  onAddUnit: (u: any) => Promise<void>,
   onUpdateUnit: (id: string, updates: Partial<Unit>) => void,
   onDeleteUnit: (projectId: string, unitId: string) => void,
   logChange: (a: string, f: string, o: string, n: string) => void
 }> = ({ project, user, onAddUnit, onUpdateUnit, onDeleteUnit, logChange }) => {
   const [showAdd, setShowAdd] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     identifier: '',
@@ -339,6 +356,30 @@ const UnitsSection: React.FC<{
     onUpdateUnit(unitId, updates);
   };
 
+  const handleSubmitNewUnit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    console.log('=== DEBUG: Formulário enviado ===');
+    console.log('FormData:', formData);
+
+    try {
+      await onAddUnit(formData);
+      console.log('=== DEBUG: Unidade adicionada com sucesso ===');
+      setShowAdd(false);
+      setFormData({
+        identifier: '',
+        area: 0,
+        cost: 0,
+        valorEstimadoVenda: 0,
+        status: 'Available'
+      });
+    } catch (error) {
+      console.error('=== DEBUG: Erro ao adicionar unidade ===', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-10">
       <div className="flex justify-between items-center px-2">
@@ -353,18 +394,7 @@ const UnitsSection: React.FC<{
       {showAdd && (
         <form
           className="p-8 bg-blue-50 border-2 border-blue-100 rounded-[2.5rem] grid grid-cols-1 md:grid-cols-5 gap-6 animate-in slide-in-from-top-6"
-          onSubmit={(e) => {
-            e.preventDefault();
-            onAddUnit(formData);
-            setShowAdd(false);
-            setFormData({
-              identifier: '',
-              area: 0,
-              cost: 0,
-              valorEstimadoVenda: 0,
-              status: 'Available'
-            });
-          }}
+          onSubmit={handleSubmitNewUnit}
         >
           <div className="space-y-2">
             <label className="text-[10px] font-black text-blue-600 uppercase ml-3">Identificador</label>
@@ -383,7 +413,9 @@ const UnitsSection: React.FC<{
             <input required type="number" className="w-full p-4 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800 shadow-sm" value={formData.valorEstimadoVenda} onChange={e => setFormData({ ...formData, valorEstimadoVenda: Number(e.target.value) })} />
           </div>
           <div className="flex gap-3 h-[58px] mt-auto">
-            <button type="submit" className="flex-1 bg-blue-600 text-white rounded-full font-black text-xs shadow-lg shadow-blue-200 uppercase tracking-widest">Salvar</button>
+            <button type="submit" disabled={isSaving} className="flex-1 bg-blue-600 text-white rounded-full font-black text-xs shadow-lg shadow-blue-200 uppercase tracking-widest disabled:opacity-50">
+              {isSaving ? 'Salvando...' : 'Salvar'}
+            </button>
             <button type="button" onClick={() => setShowAdd(false)} className="w-14 bg-white text-slate-400 rounded-full border border-slate-200 hover:text-red-500 transition"><i className="fa-solid fa-xmark"></i></button>
           </div>
         </form>
@@ -463,7 +495,7 @@ const UnitsSection: React.FC<{
               <div className="space-y-5 mb-8 relative z-10">
                 {/* INVESTIMENTO */}
                 <div className={`p-4 rounded-[1.8rem] flex justify-between items-center border-2 transition-colors ${isEditing ? 'bg-white border-blue-500' : 'bg-white border-slate-100'}`}>
-                  <span className="text-slate-400 font-black uppercase tracking-widest text-[9px] ml-2">Investimento</span>
+                  <span className="text-slate-400 font-black uppercase tracking-widest text-[9px] ml-2">Custo Estimado</span>
                   {isEditing ? (
                     <div className="relative">
                       <span className="absolute left-[-22px] top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300">R$</span>
@@ -477,7 +509,7 @@ const UnitsSection: React.FC<{
                   ) : (
                     <div className="text-right">
                       <span className="font-black text-slate-800 text-base mr-2">{formatCurrency(unit.cost)}</span>
-                      {isCompleted && <p className="text-[10px] text-red-500 font-medium -mt-1 mr-2">custo estimado</p>}
+
                     </div>
                   )}
                 </div>
@@ -520,7 +552,7 @@ const UnitsSection: React.FC<{
                     <div className="space-y-4">
                       {/* VALOR REALIZADO - DESTAQUE ESCURO */}
                       <div className={`p-4 rounded-[1.8rem] border-2 space-y-2 ${isEditing ? 'bg-white border-blue-500' : 'bg-slate-900 border-slate-900'}`}>
-                        <label className={`text-[9px] font-black uppercase ml-4 ${isEditing ? 'text-slate-400' : 'text-slate-500'}`}>Valor Realizado</label>
+                        <label className={`text-[9px] font-black uppercase ml-4 ${isEditing ? 'text-slate-400' : 'text-slate-500'}`}>Valor de Venda</label>
                         <div className="relative">
                           <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black ${isEditing ? 'text-slate-300' : 'text-slate-600'}`}>R$</span>
                           <input
@@ -566,7 +598,7 @@ const UnitsSection: React.FC<{
                   }`}>
                   <span className={`text-[9px] font-black uppercase tracking-widest ${isCompleted ? 'text-green-600' : 'text-blue-600'
                     }`}>
-                    {isCompleted ? 'ROI Real' : 'ROI Estimado'}
+                    {isCompleted ? 'Margem' : 'ROI Estimado'}
                   </span>
                   <span className={`text-2xl font-black ${isCompleted ? 'text-green-700' : 'text-blue-700'
                     }`}>
@@ -578,7 +610,7 @@ const UnitsSection: React.FC<{
                   }`}>
                   <span className={`text-[9px] font-black uppercase tracking-widest ${isCompleted ? 'text-green-600' : 'text-blue-600'
                     }`}>
-                    ROI Mensal
+                    Margem Mensal
                   </span>
                   <span className={`text-2xl font-black ${isCompleted ? 'text-green-700' : 'text-blue-700'
                     }`}>

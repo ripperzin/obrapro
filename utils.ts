@@ -7,7 +7,18 @@ export const formatPercent = (value: number) => {
   return `${value.toFixed(2)}%`;
 };
 
-export const generateId = () => crypto.randomUUID();
+export const generateId = () => {
+  // Fallback para contextos não seguros (HTTP)
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // UUID v4 alternativo
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
 
 export const calculateMonthsBetween = (d1: string, d2: string) => {
   const date1 = new Date(d1);

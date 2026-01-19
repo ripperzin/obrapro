@@ -186,6 +186,10 @@ const App: React.FC = () => {
 
     // 3. Persistência de Unidades (se houver atualização)
     if (updates.units) {
+      console.log('=== DEBUG: Salvando unidades ===');
+      console.log('Project ID:', projectId);
+      console.log('Units to save:', updates.units);
+
       const unitsToUpsert = updates.units.map(u => ({
         id: u.id,
         project_id: projectId,
@@ -198,9 +202,15 @@ const App: React.FC = () => {
         sale_date: u.saleDate
       }));
 
-      const { error: unitsError } = await supabase
+      console.log('Units formatted for Supabase:', unitsToUpsert);
+
+      const { data: upsertData, error: unitsError } = await supabase
         .from('units')
-        .upsert(unitsToUpsert, { onConflict: 'id' });
+        .upsert(unitsToUpsert, { onConflict: 'id' })
+        .select();
+
+      console.log('Supabase upsert result - data:', upsertData);
+      console.log('Supabase upsert result - error:', unitsError);
 
       if (unitsError) {
         alert('Erro ao salvar unidades: ' + unitsError.message);
@@ -379,11 +389,24 @@ const App: React.FC = () => {
         <header className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">
-              {activeTab === 'projects' && (selectedProjectId ? 'Detalhes da Obra' : 'Obras')}
+              {activeTab === 'projects' && (selectedProjectId && selectedProject ? selectedProject.name : 'Obras')}
               {activeTab === 'general' && 'Visão Geral Financeira'}
               {activeTab === 'users' && 'Gestão de Usuários'}
             </h1>
-            <p className="text-slate-500">Bem-vindo, {currentUser.login}</p>
+            {activeTab === 'projects' && selectedProject ? (
+              <div className="flex items-center gap-4 mt-1">
+                <span className="text-green-600 font-semibold text-sm">
+                  <i className="fa-solid fa-check-circle mr-1"></i>
+                  {selectedProject.units.filter(u => u.status === 'Sold').length} vendidas
+                </span>
+                <span className="text-blue-600 font-semibold text-sm">
+                  <i className="fa-solid fa-tag mr-1"></i>
+                  {selectedProject.units.filter(u => u.status === 'Available').length} à venda
+                </span>
+              </div>
+            ) : (
+              <p className="text-slate-500">Bem-vindo, {currentUser.login}</p>
+            )}
           </div>
           {selectedProjectId && (
             <button
