@@ -11,10 +11,9 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({ projects }) => {
    const unitsInventory = projects.reduce((acc, p) => {
       p.units.forEach(u => {
          // Potencial de Venda agora considera o valorEstimadoVenda (campo novo ou zero)
-         acc.totalPotentialSale += (u.valorEstimadoVenda || 0);
-
          if (u.status === 'Available') {
             acc.availableCount += 1;
+            acc.totalPotentialSale += (u.valorEstimadoVenda || 0);
          } else {
             acc.soldCount += 1;
             acc.realizedValue += (u.saleValue || 0);
