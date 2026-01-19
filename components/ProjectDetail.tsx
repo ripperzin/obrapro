@@ -391,8 +391,23 @@ const UnitsSection: React.FC<{
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {project.units.map(unit => {
-          const roi = (unit.saleValue && unit.saleValue > 0 && unit.cost > 0)
-            ? (unit.saleValue - unit.cost) / unit.cost
+          // Lógica de Custo Real (Obra 100% Concluída)
+          const isCompleted = project.progress === 100;
+          const totalExpenses = project.expenses.reduce((sum, exp) => sum + exp.value, 0);
+
+          // Calcular a área total REAL baseada na soma das unidades para garantir rateio de 100%
+          const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
+
+          // Custo Real = (Área Unidade / Soma Área Unidades) * Total Despesas
+          const realCost = (isCompleted && totalUnitsArea > 0)
+            ? (unit.area / totalUnitsArea) * totalExpenses
+            : unit.cost;
+
+          // Base para ROI: Se concluída usa realCost, senão unit.cost
+          const costBase = isCompleted ? realCost : unit.cost;
+
+          const roi = (unit.saleValue && unit.saleValue > 0 && costBase > 0)
+            ? (unit.saleValue - costBase) / costBase
             : null;
 
           const months = (roi !== null && unit.saleDate && firstExpenseDate)
@@ -460,7 +475,10 @@ const UnitsSection: React.FC<{
                       />
                     </div>
                   ) : (
-                    <span className="font-black text-slate-800 text-base mr-2">{formatCurrency(unit.cost)}</span>
+                    <div className="text-right">
+                      <span className="font-black text-slate-800 text-base mr-2">{formatCurrency(unit.cost)}</span>
+                      {isCompleted && <p className="text-[10px] text-red-500 font-medium -mt-1 mr-2">custo estimado</p>}
+                    </div>
                   )}
                 </div>
 
@@ -483,6 +501,18 @@ const UnitsSection: React.FC<{
                     )}
                   </div>
                 </div>
+
+                {/* CUSTO REAL (Apenas se 100% concluída) */}
+                {isCompleted && (
+                  <div className="p-4 rounded-[1.8rem] flex justify-between items-center border-2 border-red-100 bg-red-50/50 mt-4">
+                    <div className="flex flex-col">
+                      <span className="text-red-500 font-black uppercase tracking-widest text-[9px] ml-2">Custo Real</span>
+                    </div>
+                    <div>
+                      <span className="font-black text-red-600 text-base mr-2">{formatCurrency(realCost)}</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* VALOR REALIZADO & DATA */}
                 <div className="pt-6 mt-4 border-t border-slate-50">
@@ -531,18 +561,31 @@ const UnitsSection: React.FC<{
                 </div>
               </div>
 
-              {roi !== null && (
-                <div className="flex gap-3 pt-6 border-t border-slate-50 relative z-10">
-                  <div className="flex-1 bg-green-50 p-4 rounded-[1.5rem] text-center border border-green-100 shadow-sm">
-                    <p className="text-[9px] font-black text-green-600 uppercase tracking-widest mb-1">ROI Real</p>
-                    <p className="text-lg font-black text-green-700">{(roi * 100).toFixed(2)}%</p>
-                  </div>
-                  <div className="flex-1 bg-blue-50 p-4 rounded-[1.5rem] text-center border border-blue-100 shadow-sm">
-                    <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1">ROI Mensal</p>
-                    <p className="text-lg font-black text-blue-700">{roiMensal !== null ? `${(roiMensal * 100).toFixed(2)}%` : '--'}</p>
-                  </div>
+              <div className="flex gap-4 mt-8 border-t border-slate-50 pt-6">
+                <div className={`flex-1 p-4 rounded-[1.8rem] flex flex-col items-center justify-center space-y-1 transition-colors border ${isCompleted ? 'bg-green-50 border-green-100' : 'bg-blue-50 border-blue-100'
+                  }`}>
+                  <span className={`text-[9px] font-black uppercase tracking-widest ${isCompleted ? 'text-green-600' : 'text-blue-600'
+                    }`}>
+                    {isCompleted ? 'ROI Real' : 'ROI Estimado'}
+                  </span>
+                  <span className={`text-2xl font-black ${isCompleted ? 'text-green-700' : 'text-blue-700'
+                    }`}>
+                    {roi !== null ? `${(roi * 100).toFixed(2)}%` : '-'}
+                  </span>
                 </div>
-              )}
+
+                <div className={`flex-1 p-4 rounded-[1.8rem] flex flex-col items-center justify-center space-y-1 transition-colors border ${isCompleted ? 'bg-green-50 border-green-100' : 'bg-blue-50 border-blue-100'
+                  }`}>
+                  <span className={`text-[9px] font-black uppercase tracking-widest ${isCompleted ? 'text-green-600' : 'text-blue-600'
+                    }`}>
+                    ROI Mensal
+                  </span>
+                  <span className={`text-2xl font-black ${isCompleted ? 'text-green-700' : 'text-blue-700'
+                    }`}>
+                    {roiMensal !== null ? `${(roiMensal * 100).toFixed(2)}%` : '-'}
+                  </span>
+                </div>
+              </div>
             </div>
           );
         })}
