@@ -444,6 +444,8 @@ const App: React.FC = () => {
             userName={currentUser.login}
             onSelectProject={setSelectedProjectId}
             onAddProject={addProject}
+            onUpdate={updateProject}
+            onDelete={deleteProject}
             isAdmin={currentUser.role === UserRole.ADMIN}
           />
         )}

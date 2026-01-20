@@ -3,6 +3,9 @@ import React, { useState, useMemo } from 'react';
 import { Project, User, UserRole, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense } from '../types';
 import { PROGRESS_STAGES } from '../constants';
 import { formatCurrency, formatCurrencyAbbrev, generateId, calculateMonthsBetween } from '../utils';
+import MoneyInput from './MoneyInput';
+import DateInput from './DateInput';
+import ConfirmModal from './ConfirmModal';
 
 interface ProjectDetailProps {
   project: Project;
@@ -449,6 +452,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               onAddExpense={handleAddExpense}
               onUpdate={(expenses) => onUpdate(project.id, { expenses })}
               logChange={logChange}
+              onDeleteExpense={onDeleteExpense}
             />
           </div>
         )}
@@ -555,6 +559,7 @@ const UnitsSection: React.FC<{
     valorEstimadoVenda: 0,
     status: 'Available' as 'Available' | 'Sold'
   });
+  const [unitToDelete, setUnitToDelete] = useState<string | null>(null);
 
   const isAdmin = user.role === UserRole.ADMIN;
   const isCompleted = project.progress === ProgressStage.COMPLETED;
@@ -606,6 +611,22 @@ const UnitsSection: React.FC<{
         )}
       </div>
 
+      <ConfirmModal
+        isOpen={!!unitToDelete}
+        onClose={() => setUnitToDelete(null)}
+        onConfirm={() => {
+          if (unitToDelete) {
+            onDeleteUnit(project.id, unitToDelete);
+            setUnitToDelete(null);
+          }
+        }}
+        title="Excluir Unidade?"
+        message="Tem certeza que deseja excluir esta unidade? Esta ação não pode ser desfeita."
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        variant="danger"
+      />
+
       {/* Formulário Nova Unidade - Dark Theme */}
       {showAdd && (
         <form
@@ -614,19 +635,27 @@ const UnitsSection: React.FC<{
         >
           <div className="space-y-2">
             <label className="text-[10px] font-black text-blue-400 uppercase ml-3">Identificador</label>
-            <input required className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white placeholder-slate-500" placeholder="Ex: Casa 01" value={formData.identifier} onChange={e => setFormData({ ...formData, identifier: e.target.value })} />
+            <input required onFocus={(e) => e.target.select()} className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white placeholder-slate-500" placeholder="Ex: Casa 01" value={formData.identifier} onChange={e => setFormData({ ...formData, identifier: e.target.value })} />
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-black text-blue-400 uppercase ml-3">Área (m²)</label>
-            <input required type="number" className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.area} onChange={e => setFormData({ ...formData, area: Number(e.target.value) })} />
+            <input required onFocus={(e) => e.target.select()} type="number" className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.area} onChange={e => setFormData({ ...formData, area: Number(e.target.value) })} />
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-black text-blue-400 uppercase ml-3">Custo (R$)</label>
-            <input required type="number" className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.cost} onChange={e => setFormData({ ...formData, cost: Number(e.target.value) })} />
+            <MoneyInput
+              className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white"
+              value={formData.cost}
+              onBlur={(val) => setFormData({ ...formData, cost: val })}
+            />
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-black text-blue-400 uppercase ml-3">Est. Venda</label>
-            <input required type="number" className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.valorEstimadoVenda} onChange={e => setFormData({ ...formData, valorEstimadoVenda: Number(e.target.value) })} />
+            <MoneyInput
+              className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white"
+              value={formData.valorEstimadoVenda}
+              onBlur={(val) => setFormData({ ...formData, valorEstimadoVenda: val })}
+            />
           </div>
           <div className="flex gap-2 mt-auto">
             <button type="submit" disabled={isSaving} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-black text-xs uppercase tracking-widest disabled:opacity-50 shadow-lg shadow-blue-600/30">
@@ -699,7 +728,7 @@ const UnitsSection: React.FC<{
                         <i className="fa-solid fa-pen-to-square text-sm"></i>
                       </button>
                       <button
-                        onClick={() => onDeleteUnit(project.id, unit.id)}
+                        onClick={() => setUnitToDelete(unit.id)}
                         className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-400 rounded-lg hover:bg-red-600 hover:text-white transition border border-slate-700"
                         title="Excluir"
                       >
@@ -715,11 +744,10 @@ const UnitsSection: React.FC<{
                 <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-slate-700">
                   <span className="text-slate-500 font-bold text-[10px] uppercase">Custo Estimado</span>
                   {isEditing ? (
-                    <input
-                      type="number"
+                    <MoneyInput
                       className="w-28 bg-slate-700 p-2 border border-slate-600 rounded-lg text-right font-bold text-white text-sm outline-none focus:border-blue-500"
-                      defaultValue={unit.cost}
-                      onBlur={(e) => handleUpdateUnit(unit.id, { cost: Number(e.target.value) })}
+                      value={unit.cost}
+                      onBlur={(val) => handleUpdateUnit(unit.id, { cost: val })}
                     />
                   ) : (
                     <span className="font-bold text-white">{formatCurrency(unit.cost)}</span>
@@ -729,11 +757,10 @@ const UnitsSection: React.FC<{
                 <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-slate-700">
                   <span className="text-blue-400 font-bold text-[10px] uppercase">Venda Estimada</span>
                   {isEditing ? (
-                    <input
-                      type="number"
+                    <MoneyInput
                       className="w-28 bg-slate-700 p-2 border border-slate-600 rounded-lg text-right font-bold text-white text-sm outline-none focus:border-blue-500"
-                      defaultValue={unit.valorEstimadoVenda || 0}
-                      onBlur={(e) => handleUpdateUnit(unit.id, { valorEstimadoVenda: Number(e.target.value) })}
+                      value={unit.valorEstimadoVenda || 0}
+                      onBlur={(val) => handleUpdateUnit(unit.id, { valorEstimadoVenda: val })}
                     />
                   ) : (
                     <span className="font-bold text-blue-400">{formatCurrency(unit.valorEstimadoVenda || 0)}</span>
@@ -754,30 +781,28 @@ const UnitsSection: React.FC<{
                 <div className="space-y-3 pt-4 border-t border-slate-700">
                   <div className="p-4 bg-slate-800 rounded-xl border border-slate-700">
                     <label className="text-[9px] font-black text-slate-500 uppercase mb-2 block">Valor de Venda</label>
-                    <input
-                      type="number"
+                    <MoneyInput
                       disabled={!isEditing}
                       className={`w-full p-3 rounded-lg text-sm font-bold outline-none transition ${isEditing
                         ? 'bg-slate-700 border border-slate-600 text-white focus:border-blue-500'
                         : 'bg-transparent text-white cursor-default border-none'
                         }`}
                       placeholder="R$ 0,00"
-                      defaultValue={unit.saleValue}
-                      onBlur={(e) => handleUpdateUnit(unit.id, { saleValue: e.target.value === "" ? undefined : Number(e.target.value) })}
+                      value={unit.saleValue || 0}
+                      onBlur={(val) => handleUpdateUnit(unit.id, { saleValue: val === 0 ? undefined : val })}
                     />
                   </div>
 
                   <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700">
                     <label className="text-[9px] font-black text-slate-500 uppercase mb-2 block">Data da Venda</label>
-                    <input
-                      type="date"
+                    <DateInput
                       disabled={!isEditing}
                       className={`w-full p-3 rounded-lg text-sm font-bold outline-none transition ${isEditing
                         ? 'bg-slate-700 border border-slate-600 text-white focus:border-blue-500'
                         : 'bg-transparent text-slate-400 cursor-default border-none'
                         }`}
-                      defaultValue={unit.saleDate}
-                      onBlur={(e) => handleUpdateUnit(unit.id, { saleDate: e.target.value === "" ? undefined : e.target.value })}
+                      value={unit.saleDate}
+                      onBlur={(val) => handleUpdateUnit(unit.id, { saleDate: val === "" ? undefined : val })}
                     />
                   </div>
                 </div>
@@ -821,21 +846,24 @@ const ExpensesSection: React.FC<{
   user: User,
   onAddExpense: (e: any) => void,
   onUpdate: (e: Expense[]) => void,
-  logChange: (a: string, f: string, o: string, n: string) => void
-}> = ({ project, user, onAddExpense, onUpdate, logChange }) => {
+  logChange: (a: string, f: string, o: string, n: string) => void,
+  onDeleteExpense: (id: string) => void
+}> = ({ project, user, onAddExpense, onUpdate, logChange, onDeleteExpense }) => {
   const [showAdd, setShowAdd] = useState(false);
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     description: '',
     value: 0,
     date: new Date().toISOString().split('T')[0]
   });
+  const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
 
   const isAdmin = user.role === UserRole.ADMIN;
 
-  const handleEditExpense = (expId: string, field: 'value' | 'date', newVal: any) => {
+  const handleEditExpense = (expId: string, field: 'value' | 'date' | 'description', newVal: any) => {
     if (!isAdmin) return;
     const oldExp = project.expenses.find(e => e.id === expId)!;
-    const oldVal = String(oldExp[field]);
+    const oldVal = String(oldExp[field as keyof Expense]);
     const updatedExpenses = project.expenses.map(e => e.id === expId ? { ...e, [field]: newVal } : e);
     onUpdate(updatedExpenses);
     logChange('Alteração', `Despesa ${oldExp.description} - ${field}`, oldVal, String(newVal));
@@ -848,10 +876,28 @@ const ExpensesSection: React.FC<{
           <i className="fa-solid fa-wallet text-green-400"></i>
           Fluxo de Despesas
         </h3>
-        <button onClick={() => setShowAdd(true)} className="bg-green-600 text-white px-6 py-3 rounded-full font-black text-sm hover:bg-green-700 transition shadow-lg shadow-green-600/30 flex items-center gap-2">
-          <i className="fa-solid fa-plus"></i> Nova Despesa
-        </button>
+        {isAdmin && (
+          <button onClick={() => setShowAdd(true)} className="bg-green-600 text-white px-6 py-3 rounded-full font-black text-sm hover:bg-green-700 transition shadow-lg shadow-green-600/30 flex items-center gap-2">
+            <i className="fa-solid fa-plus"></i> Nova Despesa
+          </button>
+        )}
       </div>
+
+      <ConfirmModal
+        isOpen={!!expenseToDelete}
+        onClose={() => setExpenseToDelete(null)}
+        onConfirm={() => {
+          if (expenseToDelete) {
+            onDeleteExpense(expenseToDelete);
+            setExpenseToDelete(null);
+          }
+        }}
+        title="Excluir Despesa?"
+        message="Tem certeza que deseja remover esta despesa do fluxo de caixa? Isso afetará os cálculos financeiros da obra."
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        variant="danger"
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -872,11 +918,15 @@ const ExpensesSection: React.FC<{
         <form className="p-6 glass border border-slate-700 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4 animate-fade-in" onSubmit={(e) => { e.preventDefault(); onAddExpense(formData); setShowAdd(false); }}>
           <div className="md:col-span-1 space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Descrição</label>
-            <input required className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white placeholder-slate-500" placeholder="Ex: Cimento, Pintor..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+            <input required onFocus={(e) => e.target.select()} className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white placeholder-slate-500" placeholder="Ex: Cimento, Pintor..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Valor (R$)</label>
-            <input required type="number" className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.value} onChange={e => setFormData({ ...formData, value: Number(e.target.value) })} />
+            <MoneyInput
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white"
+              value={formData.value}
+              onBlur={(val) => setFormData({ ...formData, value: val })}
+            />
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Data</label>
@@ -893,53 +943,83 @@ const ExpensesSection: React.FC<{
       <div className="space-y-4">
         {/* Mobile: Lista de Cards */}
         <div className="md:hidden space-y-3">
-          {project.expenses.map((exp) => (
-            <div key={exp.id} className="glass p-4 rounded-xl border border-slate-700 relative overflow-hidden">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Data</div>
-                  {isAdmin ? (
-                    <input
-                      type="date"
-                      className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white outline-none focus:border-blue-500"
-                      defaultValue={exp.date}
-                      onBlur={(e) => handleEditExpense(exp.id, 'date', e.target.value)}
-                    />
-                  ) : (
-                    <div className="text-sm font-bold text-slate-300">{new Date(exp.date).toLocaleDateString('pt-BR')}</div>
+          {project.expenses.map((exp) => {
+            const isEditing = editingExpenseId === exp.id;
+            return (
+              <div key={exp.id} className={`glass rounded-2xl p-6 border transition-all ${isEditing ? 'border-orange-500' : 'border-slate-700'}`}>
+                <div className="flex justify-between items-start mb-6">
+                  <div className="flex-1">
+                    <div className="mb-1">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Descrição</span>
+                      {isEditing ? (
+                        <input
+                          onFocus={(e) => e.target.select()}
+                          className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm font-bold text-white w-full outline-none"
+                          value={exp.description}
+                          onChange={(e) => handleEditExpense(exp.id, 'description', e.target.value)}
+                        />
+                      ) : (
+                        <h5 className="font-black text-white text-lg">{exp.description}</h5>
+                      )}
+                    </div>
+                  </div>
+
+                  {isAdmin && (
+                    <div className="flex items-center gap-2 ml-4">
+                      {isEditing ? (
+                        <button onClick={() => setEditingExpenseId(null)} className="w-9 h-9 flex items-center justify-center bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500 hover:text-white transition">
+                          <i className="fa-solid fa-check"></i>
+                        </button>
+                      ) : (
+                        <>
+                          <button onClick={() => setEditingExpenseId(exp.id)} className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-400 rounded-lg hover:bg-blue-600 hover:text-white transition border border-slate-700">
+                            <i className="fa-solid fa-pen-to-square text-sm"></i>
+                          </button>
+                          <button onClick={() => setExpenseToDelete(exp.id)} className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-400 rounded-lg hover:bg-red-600 hover:text-white transition border border-slate-700">
+                            <i className="fa-solid fa-trash text-sm"></i>
+                          </button>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
-                <div className="text-right">
-                  <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Valor</div>
-                  {isAdmin ? (
-                    <input
-                      type="number"
-                      className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white text-right w-24 outline-none focus:border-blue-500"
-                      defaultValue={exp.value}
-                      onBlur={(e) => handleEditExpense(exp.id, 'value', Number(e.target.value))}
-                    />
-                  ) : (
-                    <div className="text-lg font-black text-green-400">{formatCurrency(exp.value)}</div>
-                  )}
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-500 mb-2">Data</div>
+                    {isEditing ? (
+                      <DateInput
+                        className="bg-slate-700 border border-slate-600 rounded px-2 py-2 text-sm font-bold text-white w-full text-center outline-none"
+                        value={exp.date}
+                        onBlur={(val) => handleEditExpense(exp.id, 'date', val)}
+                      />
+                    ) : (
+                      <div className="text-sm font-bold text-slate-300">{new Date(exp.date).toLocaleDateString('pt-BR')}</div>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] uppercase font-bold text-slate-500 mb-2">Valor</div>
+                    {isEditing ? (
+                      <MoneyInput
+                        className="bg-slate-700 border border-slate-600 rounded px-2 py-2 text-sm font-bold text-white text-right w-full outline-none"
+                        value={exp.value}
+                        onBlur={(val) => handleEditExpense(exp.id, 'value', val)}
+                      />
+                    ) : (
+                      <div className="text-lg font-black text-green-400">{formatCurrency(exp.value)}</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-4 border-t border-slate-700/50">
+                  <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[8px] font-black text-slate-400 border border-slate-600">
+                    {(exp.userName && exp.userName[0]) ? exp.userName[0].toUpperCase() : '-'}
+                  </div>
+                  <div className="text-xs text-slate-400 font-bold">{exp.userName || 'Sistema'}</div>
                 </div>
               </div>
-
-              <div className="mb-3">
-                <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Descrição</div>
-                <div className="text-base font-bold text-white">{exp.description}</div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-3 border-t border-slate-700/50">
-                <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[8px] font-black text-slate-400 border border-slate-600">
-                  {(exp.userName && exp.userName[0]) ? exp.userName[0].toUpperCase() : '-'}
-                </div>
-                <div className="text-xs text-slate-400 font-bold">{exp.userName || 'Sistema'}</div>
-                {isAdmin && (
-                  <button onClick={() => onDeleteExpense(exp.id)} className="ml-auto text-red-400 hover:text-red-300 text-xs uppercase font-bold px-2 py-1 bg-red-400/10 rounded-lg">Excluir</button>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {project.expenses.length === 0 && (
             <div className="text-center py-10 text-slate-500">Nenhuma despesa registrada.</div>
           )}
@@ -958,50 +1038,73 @@ const ExpensesSection: React.FC<{
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {project.expenses.map((exp) => (
-                <tr key={exp.id} className="hover:bg-slate-800/50 transition">
-                  <td className="px-6 py-4">
-                    {isAdmin ? (
-                      <input
-                        type="date"
-                        className="p-2 bg-slate-800 border border-slate-700 rounded-lg text-xs outline-none focus:border-blue-500 font-bold text-white"
-                        defaultValue={exp.date}
-                        onBlur={(e) => handleEditExpense(exp.id, 'date', e.target.value)}
-                      />
-                    ) : (
-                      <span className="font-bold text-slate-300">{new Date(exp.date).toLocaleDateString('pt-BR')}</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 font-bold text-white">{exp.description}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-600">
-                        {(exp.userName && exp.userName[0]) ? exp.userName[0].toUpperCase() : '-'}
-                      </div>
-                      <span className="text-slate-400 font-bold">{exp.userName || 'Sistema'}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    {isAdmin ? (
-                      <input
-                        type="number"
-                        className="p-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-right w-28 outline-none focus:border-blue-500 font-bold text-green-400"
-                        defaultValue={exp.value}
-                        onBlur={(e) => handleEditExpense(exp.id, 'value', Number(e.target.value))}
-                      />
-                    ) : (
-                      <span className="font-bold text-green-400">{formatCurrency(exp.value)}</span>
-                    )}
-                  </td>
-                  {isAdmin && (
-                    <td className="px-6 py-4 text-center">
-                      <button onClick={() => onDeleteExpense(exp.id)} className="w-8 h-8 rounded-lg bg-red-400/10 text-red-400 hover:bg-red-400/20 transition flex items-center justify-center">
-                        <i className="fa-solid fa-trash-can"></i>
-                      </button>
+              {project.expenses.map((exp) => {
+                const isEditing = editingExpenseId === exp.id;
+                return (
+                  <tr key={exp.id} className="hover:bg-slate-800/50 transition">
+                    <td className="px-6 py-4 w-40">
+                      {isEditing ? (
+                        <DateInput
+                          className="p-2 bg-slate-700 border border-slate-600 rounded-lg text-xs outline-none focus:border-blue-500 font-bold text-white w-28 text-center"
+                          value={exp.date}
+                          onBlur={(val) => handleEditExpense(exp.id, 'date', val)}
+                        />
+                      ) : (
+                        <span className="font-bold text-slate-300">{new Date(exp.date).toLocaleDateString('pt-BR')}</span>
+                      )}
                     </td>
-                  )}
-                </tr>
-              ))}
+                    <td className="px-6 py-4 font-bold text-white">
+                      {isEditing ? (
+                        <input
+                          onFocus={(e) => e.target.select()}
+                          className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs font-bold text-white w-full outline-none"
+                          value={exp.description}
+                          onChange={(e) => handleEditExpense(exp.id, 'description', e.target.value)}
+                        />
+                      ) : exp.description}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-600">
+                          {(exp.userName && exp.userName[0]) ? exp.userName[0].toUpperCase() : '-'}
+                        </div>
+                        <span className="text-slate-400 font-bold">{exp.userName || 'Sistema'}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right w-40">
+                      {isEditing ? (
+                        <MoneyInput
+                          className="p-2 bg-slate-700 border border-slate-600 rounded-lg text-xs text-right w-28 outline-none focus:border-blue-500 font-bold text-green-400"
+                          value={exp.value}
+                          onBlur={(val) => handleEditExpense(exp.id, 'value', val)}
+                        />
+                      ) : (
+                        <span className="font-bold text-green-400">{formatCurrency(exp.value)}</span>
+                      )}
+                    </td>
+                    {isAdmin && (
+                      <td className="px-6 py-4 text-center w-32">
+                        <div className="flex items-center justify-center gap-2">
+                          {isEditing ? (
+                            <button onClick={() => setEditingExpenseId(null)} className="w-8 h-8 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white transition flex items-center justify-center">
+                              <i className="fa-solid fa-check"></i>
+                            </button>
+                          ) : (
+                            <>
+                              <button onClick={() => setEditingExpenseId(exp.id)} className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:bg-blue-600 hover:text-white transition border border-slate-700 flex items-center justify-center">
+                                <i className="fa-solid fa-pen-to-square"></i>
+                              </button>
+                              <button onClick={() => setExpenseToDelete(exp.id)} className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:bg-red-400 hover:text-white transition border border-slate-700 flex items-center justify-center">
+                                <i className="fa-solid fa-trash-can"></i>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

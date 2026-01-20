@@ -11,9 +11,24 @@ interface ProjectsDashboardProps {
   isAdmin: boolean;
 }
 
+import ConfirmModal from './ConfirmModal';
+
+interface ProjectsDashboardProps {
+  projects: Project[];
+  onSelect: (id: string) => void;
+  onAdd: (project: any) => void;
+  onUpdate?: (id: string, updates: Partial<Project>, logMsg?: string) => void;
+  onDelete?: (id: string) => void;
+  isAdmin: boolean;
+}
+
 const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelect, onAdd, onUpdate, onDelete, isAdmin }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+
+  // State for delete confirmation
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     name: '',
     unitCount: 0,
@@ -50,9 +65,16 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
     setShowModal(true);
   };
 
-  const handleDelete = (e: React.MouseEvent, projectId: string) => {
+  const requestDelete = (e: React.MouseEvent, projectId: string) => {
     e.stopPropagation();
-    if (onDelete) onDelete(projectId);
+    setProjectToDelete(projectId);
+  };
+
+  const handleConfirmDelete = () => {
+    if (projectToDelete && onDelete) {
+      onDelete(projectToDelete);
+      setProjectToDelete(null);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -99,17 +121,25 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                   <span className="px-4 py-2 bg-slate-50 rounded-full text-xs font-black text-slate-600 border border-slate-100">
                     {p.progress}%
                   </span>
+                  {/* Buttons always visible for now based on user request, or kept under isAdmin if strict. 
+                      User asked to "place edit and delete for each work", suggesting they might not be seeing them.
+                      I'll assume they are admin, but just in case, I'll keep the isAdmin check if that's the intended logic,
+                      BUT if the user is having trouble finding them, maybe I should make them more prominent or remove the check?
+                      The codebase seems to rely on isAdmin for these privileges. I will keep isAdmin but ensure the buttons are distinct.
+                   */}
                   {isAdmin && (
                     <>
                       <button
                         onClick={(e) => openEditModal(e, p)}
                         className="w-8 h-8 flex items-center justify-center bg-blue-50 border border-blue-200 text-blue-600 rounded-full hover:bg-blue-100 transition"
+                        title="Editar Obra"
                       >
                         <i className="fa-solid fa-pen text-xs"></i>
                       </button>
                       <button
-                        onClick={(e) => handleDelete(e, p.id)}
+                        onClick={(e) => requestDelete(e, p.id)}
                         className="w-8 h-8 flex items-center justify-center bg-red-50 border border-red-200 text-red-600 rounded-full hover:bg-red-100 transition"
+                        title="Excluir Obra"
                       >
                         <i className="fa-solid fa-trash text-xs"></i>
                       </button>
@@ -171,8 +201,20 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!projectToDelete}
+        onClose={() => setProjectToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Excluir Obra?"
+        message="Tem certeza que deseja excluir esta obra? Todas as unidades, despesas e históricos associados serão perdidos permanentemente."
+        confirmText="Sim, Excluir"
+        cancelText="Cancelar"
+        variant="danger"
+      />
     </div>
   );
 };
 
 export default ProjectsDashboard;
+

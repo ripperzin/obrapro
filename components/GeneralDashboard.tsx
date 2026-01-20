@@ -3,11 +3,15 @@ import React, { useState } from 'react';
 import { Project, ProgressStage } from '../types';
 import { formatCurrency, calculateMonthsBetween } from '../utils';
 
+import ConfirmModal from './ConfirmModal';
+
 interface GeneralDashboardProps {
    projects: Project[];
    userName?: string;
    onSelectProject?: (id: string) => void;
    onAddProject?: (project: any) => void;
+   onUpdate?: (id: string, updates: Partial<Project>, logMsg?: string) => void;
+   onDelete?: (id: string) => void;
    isAdmin?: boolean;
 }
 
@@ -16,10 +20,22 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    userName = 'Usuário',
    onSelectProject,
    onAddProject,
+   onUpdate,
+   onDelete,
    isAdmin = false
 }) => {
    const [showModal, setShowModal] = useState(false);
-   const [formData, setFormData] = useState({ name: '' });
+   const [editingProject, setEditingProject] = useState<Project | null>(null);
+   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
+
+   const [formData, setFormData] = useState({
+      name: '',
+      unitCount: 0,
+      totalArea: 0,
+      expectedTotalCost: 0,
+      expectedTotalSales: 0,
+      progress: ProgressStage.PLANNING
+   });
 
    const unitsInventory = projects.reduce((acc, p) => {
       p.units.forEach(u => {
@@ -91,20 +107,55 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    const circumference = 2 * Math.PI * 90;
    const strokeDashoffset = circumference - (circumference * salesPerformance / 100);
 
+   const requestDelete = (e: React.MouseEvent, projectId: string) => {
+      e.stopPropagation();
+      setProjectToDelete(projectId);
+   };
+
+   const handleConfirmDelete = () => {
+      if (projectToDelete && onDelete) {
+         onDelete(projectToDelete);
+         setProjectToDelete(null);
+      }
+   };
+
+   const openEditModal = (e: React.MouseEvent, project: Project) => {
+      e.stopPropagation();
+      setEditingProject(project);
+      setFormData({
+         name: project.name,
+         unitCount: 0,
+         totalArea: 0,
+         expectedTotalCost: 0,
+         expectedTotalSales: 0,
+         progress: project.progress
+      });
+      setShowModal(true);
+   };
+
+   const openAddModal = () => {
+      setEditingProject(null);
+      setFormData({
+         name: '',
+         unitCount: 0,
+         totalArea: 0,
+         expectedTotalCost: 0,
+         expectedTotalSales: 0,
+         progress: ProgressStage.PLANNING
+      });
+      setShowModal(true);
+   };
+
    const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      if (onAddProject) {
-         onAddProject({
-            name: formData.name,
-            unitCount: 0,
-            totalArea: 0,
-            expectedTotalCost: 0,
-            expectedTotalSales: 0,
-            progress: ProgressStage.PLANNING
-         });
+
+      if (editingProject && onUpdate) {
+         onUpdate(editingProject.id, { name: formData.name }, `Nome da obra alterado para ${formData.name}`);
+      } else if (onAddProject) {
+         onAddProject(formData);
       }
+
       setShowModal(false);
-      setFormData({ name: '' });
    };
 
    return (
@@ -197,6 +248,24 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                            </span>
                         </div>
                         <i className="fa-solid fa-chevron-right text-slate-500"></i>
+
+                        {/* Mobile Actions */}
+                        {isAdmin && (
+                           <div className="flex gap-2 ml-2">
+                              <button
+                                 onClick={(e) => openEditModal(e, p)}
+                                 className="w-8 h-8 flex items-center justify-center bg-slate-700/50 text-blue-400 rounded-full hover:bg-blue-600 hover:text-white transition"
+                              >
+                                 <i className="fa-solid fa-pen text-xs"></i>
+                              </button>
+                              <button
+                                 onClick={(e) => requestDelete(e, p.id)}
+                                 className="w-8 h-8 flex items-center justify-center bg-slate-700/50 text-red-400 rounded-full hover:bg-red-600 hover:text-white transition"
+                              >
+                                 <i className="fa-solid fa-trash text-xs"></i>
+                              </button>
+                           </div>
+                        )}
                      </div>
                   );
                })}
@@ -342,7 +411,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   </h3>
                   {isAdmin && onAddProject && (
                      <button
-                        onClick={() => setShowModal(true)}
+                        onClick={openAddModal}
                         className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-600/30 font-bold flex items-center gap-2"
                      >
                         <i className="fa-solid fa-plus"></i>
@@ -378,6 +447,26 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                                        Ver Detalhes →
                                     </span>
                                  </div>
+
+                                 {/* Desktop Actions Overlay */}
+                                 {isAdmin && (
+                                    <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                       <button
+                                          onClick={(e) => openEditModal(e, p)}
+                                          className="w-8 h-8 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm text-blue-400 rounded-lg hover:bg-blue-600 hover:text-white transition shadow-lg border border-slate-700"
+                                          title="Editar Obra"
+                                       >
+                                          <i className="fa-solid fa-pen text-xs"></i>
+                                       </button>
+                                       <button
+                                          onClick={(e) => requestDelete(e, p.id)}
+                                          className="w-8 h-8 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm text-red-400 rounded-lg hover:bg-red-600 hover:text-white transition shadow-lg border border-slate-700"
+                                          title="Excluir Obra"
+                                       >
+                                          <i className="fa-solid fa-trash text-xs"></i>
+                                       </button>
+                                    </div>
+                                 )}
                               </div>
                               <div className="p-5">
                                  <p className="text-white font-bold text-lg truncate">{p.name}</p>
@@ -408,7 +497,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
             <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
                <div className="glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-700">
                   <div className="p-6 border-b border-slate-700 flex justify-between items-center">
-                     <h2 className="text-xl font-black text-white">Nova Obra</h2>
+                     <h2 className="text-xl font-black text-white">{editingProject ? 'Editar Obra' : 'Nova Obra'}</h2>
                      <button
                         onClick={() => setShowModal(false)}
                         className="w-10 h-10 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:text-red-400 hover:border-red-400 transition"
@@ -427,19 +516,30 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                            className="w-full px-6 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white shadow-sm text-sm placeholder-slate-500"
                            placeholder="Ex: Residencial Aurora"
                            value={formData.name}
-                           onChange={e => setFormData({ name: e.target.value })}
+                           onChange={e => setFormData({ ...formData, name: e.target.value })}
                         />
                      </div>
                      <button
                         type="submit"
                         className="w-full py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-600/30 font-black uppercase text-sm tracking-widest"
                      >
-                        Criar Projeto
+                        {editingProject ? 'Salvar Alterações' : 'Criar Projeto'}
                      </button>
                   </form>
                </div>
             </div>
          )}
+
+         <ConfirmModal
+            isOpen={!!projectToDelete}
+            onClose={() => setProjectToDelete(null)}
+            onConfirm={handleConfirmDelete}
+            title="Excluir Obra?"
+            message="Tem certeza que deseja excluir esta obra? Todas as unidades, despesas e históricos associados serão perdidos permanentemente."
+            confirmText="Sim, Excluir"
+            cancelText="Cancelar"
+            variant="danger"
+         />
       </div>
    );
 };
