@@ -75,6 +75,26 @@ const App: React.FC = () => {
       if (projectsError) {
         console.error('Erro ao buscar projetos:', projectsError);
       } else if (projectsData) {
+        // Buscar Diário separadamente para evitar erro de agregação do PostgREST
+        const projectIds = projectsData.map((p: any) => p.id);
+        let diaryMap: Record<string, any[]> = {};
+
+        if (projectIds.length > 0) {
+          const { data: diaryData, error: diaryError } = await supabase
+            .from('diary_entries')
+            .select('*')
+            .in('project_id', projectIds);
+
+          if (diaryError) console.error('Erro ao buscar diário:', diaryError);
+
+          if (diaryData) {
+            diaryData.forEach((d: any) => {
+              if (!diaryMap[d.project_id]) diaryMap[d.project_id] = [];
+              diaryMap[d.project_id].push(d);
+            });
+          }
+        }
+
         const mappedProjects = projectsData.map((p: any) => ({
           ...p,
           id: p.id,
@@ -106,6 +126,14 @@ const App: React.FC = () => {
             title: d.title,
             category: d.category,
             url: d.url,
+            createdAt: d.created_at
+          })),
+          diary: (diaryMap[p.id] || []).map((d: any) => ({
+            id: d.id,
+            date: d.date,
+            content: d.content,
+            photos: d.photos || [],
+            author: d.author,
             createdAt: d.created_at
           }))
         }));
@@ -156,7 +184,7 @@ const App: React.FC = () => {
     }
 
     if (data) {
-      const newProject: Project = { ...data, units: [], expenses: [], logs: [], documents: [] };
+      const newProject: Project = { ...data, units: [], expenses: [], logs: [], documents: [], diary: [] };
       setProjects([...projects, newProject]);
 
       // Log no Supabase
@@ -335,7 +363,41 @@ const App: React.FC = () => {
       }
     }
 
-    // 7. Atualização do estado local
+    // 7. Persistência de Diário
+    if (updates.diary !== undefined) {
+      const currentProject = projects.find(p => p.id === projectId);
+      const currentEntryIds = currentProject?.diary.map(d => d.id) || [];
+      const newEntryIds = updates.diary.map(d => d.id);
+
+      const deletedEntryIds = currentEntryIds.filter(id => !newEntryIds.includes(id));
+
+      if (deletedEntryIds.length > 0) {
+        await supabase.from('diary_entries').delete().in('id', deletedEntryIds);
+      }
+
+      if (updates.diary.length > 0) {
+        const entriesToUpsert = updates.diary.map(d => ({
+          id: d.id,
+          project_id: projectId,
+          date: d.date,
+          content: d.content,
+          photos: d.photos,
+          author: d.author,
+          created_at: d.createdAt,
+          user_id: currentUser?.id
+        }));
+
+        const { error: diaryError } = await supabase
+          .from('diary_entries')
+          .upsert(entriesToUpsert, { onConflict: 'id' });
+
+        if (diaryError) {
+          console.error('Erro ao salvar diário:', diaryError);
+        }
+      }
+    }
+
+    // 8. Atualização do estado local
     setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...updates } : p));
 
     // 7. Log adicional opcional

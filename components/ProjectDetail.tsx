@@ -9,6 +9,7 @@ import DateInput from './DateInput';
 import ConfirmModal from './ConfirmModal';
 import AttachmentUpload from './AttachmentUpload';
 import DocumentsSection from './DocumentsSection';
+import DiarySection from './DiarySection';
 
 interface ProjectDetailProps {
   project: Project;
@@ -18,7 +19,7 @@ interface ProjectDetailProps {
 }
 
 const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, onDeleteUnit }) => {
-  const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'documents' | 'logs'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'documents' | 'diary' | 'logs'>('info');
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
 
   const isAdmin = user.role === UserRole.ADMIN;
@@ -163,13 +164,26 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
     onUpdate(project.id, { documents: newDocuments }, `Removido documento: ${doc.title}`);
   };
 
+  const handleAddDiaryEntry = (entry: any) => {
+    const newEntry = {
+      id: generateId(),
+      date: entry.date,
+      content: entry.content,
+      photos: entry.photos,
+      author: entry.author,
+      createdAt: new Date().toISOString()
+    };
+    const newDiary = [...(project.diary || []), newEntry];
+    onUpdate(project.id, { diary: newDiary }, `Diário: nova entrada`);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Container Principal - Dark Theme */}
       <div className="glass rounded-3xl p-8">
         {/* Navegação de Abas - Dark Theme */}
         <div className="flex flex-wrap gap-3 mb-10 w-full justify-center">
-          {['info', 'units', 'expenses', 'documents', 'logs'].map((tab) => {
+          {['info', 'units', 'expenses', 'documents', 'diary', 'logs'].map((tab) => {
             if (tab === 'units' && !canSeeUnits) return null;
 
             const labels: Record<string, string> = {
@@ -177,6 +191,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               units: 'Unidades',
               expenses: 'Despesas',
               documents: 'Documentos',
+              diary: 'Diário',
               logs: 'Auditoria'
             };
 
@@ -185,6 +200,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               units: 'fa-house-user',
               expenses: 'fa-wallet',
               documents: 'fa-folder-open',
+              diary: 'fa-book-open',
               logs: 'fa-fingerprint'
             };
 
@@ -489,6 +505,18 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               onAdd={handleAddDocument}
               onDelete={handleDeleteDocument}
               isAdmin={isAdmin}
+            />
+          </div>
+        )}
+
+        {/* ===== ABA DIÁRIO ===== */}
+        {activeTab === 'diary' && (
+          <div className="animate-fade-in">
+            <DiarySection
+              diary={project.diary || []}
+              onAdd={handleAddDiaryEntry}
+              isAdmin={isAdmin}
+              currentUserName={user.login}
             />
           </div>
         )}

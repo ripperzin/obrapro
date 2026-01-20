@@ -6,7 +6,8 @@ interface AttachmentUploadProps {
     onChange: (url: string | undefined) => void;
     disabled?: boolean;
     className?: string;
-    bucketName?: string; // Novo prop opcional
+    bucketName?: string;
+    minimal?: boolean; // Novo prop
 }
 
 const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
@@ -14,7 +15,8 @@ const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
     onChange,
     disabled = false,
     className = '',
-    bucketName = 'expense-attachments' // Default
+    bucketName = 'expense-attachments',
+    minimal = false // Novo defeult
 }) => {
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -146,17 +148,14 @@ const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={disabled || uploading}
-                        className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-slate-800 border-2 border-dashed border-slate-600 rounded-xl text-slate-400 hover:border-blue-500 hover:text-blue-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={`w-full flex items-center justify-center gap-2 bg-slate-800 border-2 border-dashed border-slate-600 rounded-xl text-slate-400 hover:border-blue-500 hover:text-blue-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${minimal ? 'h-full p-0' : 'px-4 py-3'}`}
                     >
                         {uploading ? (
-                            <>
-                                <i className="fa-solid fa-spinner fa-spin"></i>
-                                <span className="text-sm font-bold">Enviando...</span>
-                            </>
+                            <i className="fa-solid fa-spinner fa-spin"></i>
                         ) : (
                             <>
-                                <i className="fa-solid fa-camera text-lg"></i>
-                                <span className="text-sm font-bold">Anexar Foto/PDF</span>
+                                <i className={`fa-solid fa-camera ${minimal ? 'text-xl' : 'text-lg'}`}></i>
+                                {!minimal && <span className="text-sm font-bold">Anexar Foto/PDF</span>}
                             </>
                         )}
                     </button>
