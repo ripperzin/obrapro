@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Project, ProgressStage } from '../types';
-import { formatCurrency, calculateMonthsBetween } from '../utils';
+import { formatCurrency, calculateMonthsBetween, formatCurrencyAbbrev } from '../utils';
 
 import ConfirmModal from './ConfirmModal';
 
@@ -163,36 +163,100 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
          {/* ===== MOBILE LAYOUT (Variação C - Estilo App Banco) ===== */}
          <div className="block md:hidden space-y-6">
             {/* Resumo Geral Card - Glassmorphism */}
-            <div className="glass rounded-3xl p-6">
-               <h2 className="text-white font-bold text-lg mb-4">Resumo Geral</h2>
-               <div className="grid grid-cols-4 gap-3">
-                  <div className="text-center">
-                     <div className="w-10 h-10 mx-auto bg-blue-500/20 rounded-xl flex items-center justify-center mb-2">
-                        <i className="fa-solid fa-house-circle-check text-blue-400"></i>
+            <div className="glass rounded-3xl p-5 space-y-4">
+               <div className="flex justify-between items-end mb-2">
+                  <h2 className="text-white font-bold text-lg">Resumo Geral</h2>
+                  <span className="text-slate-400 text-xs">{formattedDate}</span>
+               </div>
+
+               {/* Row 1: Sales & Stock (Square Grid) */}
+               <div className="grid grid-cols-2 gap-3">
+                  {/* Sales - Green Theme */}
+                  <div className="bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/20 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 relative overflow-hidden group">
+                     <div className="absolute top-0 right-0 p-2 opacity-20">
+                        <i className="fa-solid fa-check-circle text-4xl text-green-500 transform rotate-12"></i>
                      </div>
-                     <p className="text-white font-bold text-lg">{unitsInventory.soldCount}</p>
-                     <p className="text-slate-400 text-[10px] font-medium">Vendidas</p>
+                     <i className="fa-solid fa-house-circle-check text-green-400 text-2xl mb-1"></i>
+                     <p className="text-white font-black text-3xl">{unitsInventory.soldCount}</p>
+                     <p className="text-green-400 text-[10px] font-bold uppercase tracking-widest">Vendidas</p>
                   </div>
-                  <div className="text-center">
-                     <div className="w-10 h-10 mx-auto bg-orange-500/20 rounded-xl flex items-center justify-center mb-2">
-                        <i className="fa-solid fa-key text-orange-400"></i>
+
+                  {/* Stock - Orange Theme */}
+                  <div className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border border-orange-500/20 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 relative overflow-hidden">
+                     <div className="absolute top-0 right-0 p-2 opacity-20">
+                        <i className="fa-solid fa-box-open text-4xl text-orange-500 transform rotate-12"></i>
                      </div>
-                     <p className="text-white font-bold text-lg">{unitsInventory.availableCount}</p>
-                     <p className="text-slate-400 text-[10px] font-medium">Estoque</p>
+                     <i className="fa-solid fa-key text-orange-400 text-2xl mb-1"></i>
+                     <p className="text-white font-black text-3xl">{unitsInventory.availableCount}</p>
+                     <p className="text-orange-400 text-[10px] font-bold uppercase tracking-widest">Estoque</p>
                   </div>
-                  <div className="text-center">
-                     <div className="w-10 h-10 mx-auto bg-green-500/20 rounded-xl flex items-center justify-center mb-2">
-                        <i className="fa-solid fa-money-bill-trend-up text-green-400"></i>
+               </div>
+
+               {/* Row 2: Revenue (Horizontal) */}
+               <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 relative overflow-hidden">
+                  <div className="flex justify-between items-center mb-1">
+                     <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                           <i className="fa-solid fa-money-bill-trend-up text-green-400 text-xs"></i>
+                        </div>
+                        <span className="text-slate-300 text-xs font-bold uppercase tracking-wider">Receita Realizada</span>
                      </div>
-                     <p className="text-white font-bold text-sm">{formatCurrency(unitsInventory.realizedValue).replace('R$', '').trim()}</p>
-                     <p className="text-slate-400 text-[10px] font-medium">Faturado</p>
+                     <span className="text-green-400 text-xs font-bold">100%</span>
                   </div>
-                  <div className="text-center">
-                     <div className="w-10 h-10 mx-auto bg-purple-500/20 rounded-xl flex items-center justify-center mb-2">
-                        <i className="fa-solid fa-chart-line text-purple-400"></i>
+                  <div className="mt-2">
+                     <p className="text-white font-black text-2xl tracking-tight">{formatCurrency(unitsInventory.realizedValue)}</p>
+                     <div className="w-full h-1.5 bg-slate-700 rounded-full mt-3 overflow-hidden">
+                        <div className="h-full bg-green-500 w-full rounded-full"></div>
                      </div>
-                     <p className="text-white font-bold text-sm">{formatCurrency(unitsInventory.totalPotentialSale).replace('R$', '').trim()}</p>
-                     <p className="text-slate-400 text-[10px] font-medium">Potencial</p>
+                  </div>
+               </div>
+
+               {/* Row 3: Potential (Horizontal) */}
+               <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 relative overflow-hidden">
+                  <div className="flex justify-between items-center mb-1">
+                     <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                           <i className="fa-solid fa-chart-pie text-purple-400 text-xs"></i>
+                        </div>
+                        <span className="text-slate-300 text-xs font-bold uppercase tracking-wider">Potencial de Vendas</span>
+                     </div>
+                  </div>
+                  <div className="mt-2">
+                     <p className="text-white font-black text-2xl tracking-tight">{formatCurrencyAbbrev(unitsInventory.totalPotentialSale)}</p>
+                     <div className="w-full h-1.5 bg-slate-700 rounded-full mt-3 overflow-hidden">
+                        <div className="h-full bg-purple-500 w-2/3 rounded-full"></div>
+                     </div>
+                  </div>
+               </div>
+
+               {/* Row 4: Margins (Square Grid) */}
+               <div className="grid grid-cols-2 gap-3">
+                  {/* Avg Margin */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
+                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Margem Média</p>
+                     <p className="text-green-400 font-black text-2xl">{(avgRoi * 100).toFixed(0)}%</p>
+                     <div className="w-12 h-1 bg-green-500/30 rounded-full mt-1"></div>
+                  </div>
+
+                  {/* Monthly Margin */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
+                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Margem Mensal</p>
+                     <p className="text-blue-400 font-black text-2xl">{(avgMonthlyRoi * 100).toFixed(1)}%</p>
+                     <div className="w-12 h-1 bg-blue-500/30 rounded-full mt-1"></div>
+                  </div>
+               </div>
+
+               {/* Row 5: Conversion (Horizontal) */}
+               <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex items-center justify-between">
+                  <div className="flex flex-col">
+                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Conversão de Vendas</p>
+                     <p className="text-white font-black text-2xl mt-1">{salesPerformance.toFixed(1)}%</p>
+                  </div>
+                  <div className="h-10 w-32 bg-slate-700 rounded-full overflow-hidden relative">
+                     <div
+                        className="h-full bg-blue-500 absolute top-0 left-0 transition-all duration-1000"
+                        style={{ width: `${salesPerformance}%` }}
+                     ></div>
                   </div>
                </div>
             </div>

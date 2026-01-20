@@ -18,7 +18,7 @@ import MobileNav from './components/MobileNav';
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users'>('projects');
+  const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users'>('general');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   const [users, setUsers] = useState<User[]>([INITIAL_ADMIN]);

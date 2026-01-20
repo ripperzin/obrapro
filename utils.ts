@@ -3,14 +3,14 @@ export const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
-// Abbreviated currency for mobile (e.g., R$ 1.35M, R$ 645K)
+// Abbreviated currency for mobile (e.g., 1.35M, 645K)
 export const formatCurrencyAbbrev = (value: number) => {
   if (value >= 1000000) {
-    return `R$ ${(value / 1000000).toFixed(2)}M`;
+    return `${(value / 1000000).toFixed(1)}M`;
   } else if (value >= 1000) {
-    return `R$ ${(value / 1000).toFixed(0)}K`;
+    return `${(value / 1000).toFixed(0)}K`;
   }
-  return `R$ ${value.toFixed(0)}`;
+  return value.toFixed(0);
 };
 
 export const formatPercent = (value: number) => {
