@@ -6,13 +6,15 @@ interface AttachmentUploadProps {
     onChange: (url: string | undefined) => void;
     disabled?: boolean;
     className?: string;
+    bucketName?: string; // Novo prop opcional
 }
 
 const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
     value,
     onChange,
     disabled = false,
-    className = ''
+    className = '',
+    bucketName = 'expense-attachments' // Default
 }) => {
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -42,19 +44,31 @@ const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
             // Gerar nome único para o arquivo
             const fileExt = file.name.split('.').pop();
             const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-            const filePath = `expenses/${fileName}`;
+            // Se for bucket de projeto, organizar por pastas talvez? Por simplicidade, flat ou pasta documents
+            // Vamos usar prefixo 'documents/' se o bucket for project-documents, ou deixar flat
+            // Mas para expenses era 'expenses/'. Vamos manter simples: nome do arquivo direto ou com prefixo genérico
+            // Para expenses o código original fazia "expenses/${fileName}".
+            // Vamos dinamizar o prefixo? Ou assumir que o bucket tem pastas.
+            // O code original tinha const filePath = `expenses/${fileName}`;
+            // Se eu passar bucket 'project-documents', o path 'expenses/...' fica estranho.
+
+            let filePath = '';
+            if (bucketName === 'expense-attachments') {
+                filePath = `expenses/${fileName}`;
+            } else {
+                filePath = `docs/${fileName}`;
+            }
 
             // Upload para Supabase Storage
             const { error: uploadError } = await supabase.storage
-                .from('expense-attachments')
+                .from(bucketName)
                 .upload(filePath, file);
 
             if (uploadError) {
                 throw uploadError;
             }
 
-            // Salvar apenas o path (não a URL pública)
-            // O path será usado para gerar signed URLs quando necessário
+            // Salvar apenas o path
             onChange(filePath);
         } catch (err: any) {
             console.error('Erro no upload:', err);
@@ -68,9 +82,8 @@ const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
         if (!value) return;
 
         try {
-            // O value agora é diretamente o path do arquivo
             await supabase.storage
-                .from('expense-attachments')
+                .from(bucketName)
                 .remove([value]);
         } catch (err) {
             console.error('Erro ao remover arquivo:', err);
@@ -102,7 +115,7 @@ const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
             // Se é um path (formato novo), gera signed URL
             try {
                 const { data, error } = await supabase.storage
-                    .from('expense-attachments')
+                    .from(bucketName)
                     .createSignedUrl(value, 3600); // URL válida por 1 hora
 
                 if (error) throw error;

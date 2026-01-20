@@ -68,7 +68,8 @@ const App: React.FC = () => {
           *,
           units (*),
           expenses (*),
-          logs (*)
+          logs (*),
+          documents (*)
         `);
 
       if (projectsError) {
@@ -99,6 +100,13 @@ const App: React.FC = () => {
             userName: l.user_name,
             oldValue: l.old_value,
             newValue: l.new_value
+          })),
+          documents: (p.documents || []).map((d: any) => ({
+            id: d.id,
+            title: d.title,
+            category: d.category,
+            url: d.url,
+            createdAt: d.created_at
           }))
         }));
         setProjects(mappedProjects);
@@ -148,7 +156,7 @@ const App: React.FC = () => {
     }
 
     if (data) {
-      const newProject: Project = { ...data, units: [], expenses: [], logs: [] };
+      const newProject: Project = { ...data, units: [], expenses: [], logs: [], documents: [] };
       setProjects([...projects, newProject]);
 
       // Log no Supabase
@@ -294,7 +302,40 @@ const App: React.FC = () => {
       }
     }
 
-    // 6. Atualização do estado local
+    // 6. Persistência de Documentos
+    if (updates.documents !== undefined) {
+      const currentProject = projects.find(p => p.id === projectId);
+      const currentDocIds = currentProject?.documents.map(d => d.id) || [];
+      const newDocIds = updates.documents.map(d => d.id);
+
+      const deletedDocIds = currentDocIds.filter(id => !newDocIds.includes(id));
+
+      if (deletedDocIds.length > 0) {
+        await supabase.from('documents').delete().in('id', deletedDocIds);
+      }
+
+      if (updates.documents.length > 0) {
+        const docsToUpsert = updates.documents.map(d => ({
+          id: d.id,
+          project_id: projectId,
+          title: d.title,
+          category: d.category,
+          url: d.url,
+          created_at: d.createdAt
+        }));
+
+        const { error: docError } = await supabase
+          .from('documents')
+          .upsert(docsToUpsert, { onConflict: 'id' });
+
+        if (docError) {
+          alert('Erro ao salvar documentos: ' + docError.message);
+          console.error('Erro ao salvar documentos:', docError);
+        }
+      }
+    }
+
+    // 7. Atualização do estado local
     setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...updates } : p));
 
     // 7. Log adicional opcional

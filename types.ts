@@ -103,6 +103,31 @@ export interface LogEntry {
   newValue: string;
 }
 
+export interface DiaryEntry {
+  id: string;
+  date: string;
+  content: string;
+  photos: string[]; // URLs das fotos
+  author: string;
+  createdAt: string;
+}
+
+export interface StageEvidence {
+  stage: ProgressStage;
+  photos: string[];
+  date: string;
+  notes?: string;
+  user: string;
+}
+
+export interface ProjectDocument {
+  id: string;
+  title: string;
+  category: 'Técnico' | 'Legal' | 'Financeiro' | 'Outros';
+  url: string;
+  createdAt: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -114,4 +139,7 @@ export interface Project {
   units: Unit[];
   expenses: Expense[];
   logs: LogEntry[];
+  documents: ProjectDocument[];
+  diary: DiaryEntry[];
+  stageEvidence: StageEvidence[];
 }

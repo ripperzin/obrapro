@@ -8,6 +8,7 @@ import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import ConfirmModal from './ConfirmModal';
 import AttachmentUpload from './AttachmentUpload';
+import DocumentsSection from './DocumentsSection';
 
 interface ProjectDetailProps {
   project: Project;
@@ -17,7 +18,7 @@ interface ProjectDetailProps {
 }
 
 const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, onDeleteUnit }) => {
-  const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'logs'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'documents' | 'logs'>('info');
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
 
   const isAdmin = user.role === UserRole.ADMIN;
@@ -143,19 +144,39 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
     logChange('Exclusão', `Despesa - ${expense?.description || id}`, '-', '-');
   };
 
+  const handleAddDocument = (doc: any) => {
+    const newDoc = {
+      id: generateId(),
+      title: doc.title,
+      category: doc.category,
+      url: doc.url,
+      createdAt: new Date().toISOString()
+    };
+    const newDocuments = [...(project.documents || []), newDoc];
+    onUpdate(project.id, { documents: newDocuments }, `Adicionado documento: ${doc.title}`);
+  };
+
+  const handleDeleteDocument = (id: string) => {
+    const doc = (project.documents || []).find(d => d.id === id);
+    if (!doc) return;
+    const newDocuments = (project.documents || []).filter(d => d.id !== id);
+    onUpdate(project.id, { documents: newDocuments }, `Removido documento: ${doc.title}`);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Container Principal - Dark Theme */}
       <div className="glass rounded-3xl p-8">
         {/* Navegação de Abas - Dark Theme */}
         <div className="flex flex-wrap gap-3 mb-10 w-full justify-center">
-          {['info', 'units', 'expenses', 'logs'].map((tab) => {
+          {['info', 'units', 'expenses', 'documents', 'logs'].map((tab) => {
             if (tab === 'units' && !canSeeUnits) return null;
 
             const labels: Record<string, string> = {
               info: 'Gestão',
               units: 'Unidades',
               expenses: 'Despesas',
+              documents: 'Documentos',
               logs: 'Auditoria'
             };
 
@@ -163,6 +184,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               info: 'fa-gauge-high',
               units: 'fa-house-user',
               expenses: 'fa-wallet',
+              documents: 'fa-folder-open',
               logs: 'fa-fingerprint'
             };
 
@@ -455,6 +477,18 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               onUpdate={(expenses) => onUpdate(project.id, { expenses })}
               logChange={logChange}
               onDeleteExpense={onDeleteExpense}
+            />
+          </div>
+        )}
+
+        {/* ===== ABA DOCUMENTOS ===== */}
+        {activeTab === 'documents' && (
+          <div className="animate-fade-in">
+            <DocumentsSection
+              documents={project.documents || []}
+              onAdd={handleAddDocument}
+              onDelete={handleDeleteDocument}
+              isAdmin={isAdmin}
             />
           </div>
         )}
