@@ -377,7 +377,7 @@ const App: React.FC = () => {
 
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans">
+    <div className="flex min-h-screen bg-slate-900 font-sans">
       <Sidebar
         role={currentUser.role}
         activeTab={activeTab}
@@ -388,30 +388,30 @@ const App: React.FC = () => {
       <main className="flex-1 p-4 md:p-8 overflow-y-auto pb-24 md:pb-8">
         <header className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">
+            <h1 className="text-2xl font-bold text-white">
               {activeTab === 'projects' && (selectedProjectId && selectedProject ? selectedProject.name : 'Obras')}
-              {activeTab === 'general' && 'Visão Geral Financeira'}
+              {activeTab === 'general' && selectedProjectId && selectedProject ? selectedProject.name : ''}
               {activeTab === 'users' && 'Gestão de Usuários'}
             </h1>
-            {activeTab === 'projects' && selectedProject ? (
+            {selectedProject && selectedProjectId ? (
               <div className="flex items-center gap-4 mt-1">
-                <span className="text-green-600 font-semibold text-sm">
+                <span className="text-green-400 font-semibold text-sm">
                   <i className="fa-solid fa-check-circle mr-1"></i>
                   {selectedProject.units.filter(u => u.status === 'Sold').length} vendidas
                 </span>
-                <span className="text-blue-600 font-semibold text-sm">
+                <span className="text-blue-400 font-semibold text-sm">
                   <i className="fa-solid fa-tag mr-1"></i>
                   {selectedProject.units.filter(u => u.status === 'Available').length} à venda
                 </span>
               </div>
-            ) : (
-              <p className="text-slate-500">Bem-vindo, {currentUser.login}</p>
-            )}
+            ) : activeTab === 'users' ? (
+              <p className="text-slate-400">Bem-vindo, {currentUser.login}</p>
+            ) : null}
           </div>
           {selectedProjectId && (
             <button
               onClick={() => setSelectedProjectId(null)}
-              className="px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition shadow-sm"
+              className="px-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg hover:bg-slate-700 transition shadow-sm"
             >
               <i className="fa-solid fa-arrow-left mr-2"></i> Voltar
             </button>
@@ -438,8 +438,23 @@ const App: React.FC = () => {
           )
         )}
 
-        {activeTab === 'general' && (
-          <GeneralDashboard projects={filteredProjects} />
+        {activeTab === 'general' && !selectedProjectId && (
+          <GeneralDashboard
+            projects={filteredProjects}
+            userName={currentUser.login}
+            onSelectProject={setSelectedProjectId}
+            onAddProject={addProject}
+            isAdmin={currentUser.role === UserRole.ADMIN}
+          />
+        )}
+
+        {activeTab === 'general' && selectedProjectId && selectedProject && (
+          <ProjectDetail
+            project={selectedProject}
+            user={currentUser}
+            onUpdate={updateProject}
+            onDeleteUnit={deleteUnit}
+          />
         )}
 
         {activeTab === 'users' && currentUser.role === UserRole.ADMIN && (

@@ -103,13 +103,13 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                     <>
                       <button
                         onClick={(e) => openEditModal(e, p)}
-                        className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-400 rounded-full hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition"
+                        className="w-8 h-8 flex items-center justify-center bg-blue-50 border border-blue-200 text-blue-600 rounded-full hover:bg-blue-100 transition"
                       >
                         <i className="fa-solid fa-pen text-xs"></i>
                       </button>
                       <button
                         onClick={(e) => handleDelete(e, p.id)}
-                        className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-400 rounded-full hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition"
+                        className="w-8 h-8 flex items-center justify-center bg-red-50 border border-red-200 text-red-600 rounded-full hover:bg-red-100 transition"
                       >
                         <i className="fa-solid fa-trash text-xs"></i>
                       </button>
@@ -127,7 +127,7 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                   style={{ width: `${p.progress}%` }}
                 ></div>
               </div>
-              <div className="flex justify-between text-[10px] font-black text-slate-300 uppercase tracking-widest px-1">
+              <div className="flex justify-between text-xs font-black text-slate-500 uppercase tracking-widest px-1">
                 <span>Início</span>
                 <span>Entrega</span>
               </div>

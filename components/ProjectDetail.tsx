@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
-import { Project, User, UserRole, ProgressStage, STAGE_NAMES, Unit, Expense } from '../types';
+import { Project, User, UserRole, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense } from '../types';
 import { PROGRESS_STAGES } from '../constants';
-import { formatCurrency, generateId, calculateMonthsBetween } from '../utils';
+import { formatCurrency, formatCurrencyAbbrev, generateId, calculateMonthsBetween } from '../utils';
 
 interface ProjectDetailProps {
   project: Project;
@@ -122,10 +122,28 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
     logChange('Inclusão', 'Despesa', '-', exp.description);
   };
 
+  const handleEditExpense = (id: string, field: keyof Expense, value: any) => {
+    const oldExpense = project.expenses.find(e => e.id === id);
+    if (!oldExpense) return;
+
+    const newExpenses = project.expenses.map(e => e.id === id ? { ...e, [field]: value } : e);
+    onUpdate(project.id, { expenses: newExpenses });
+    logChange('Alteração', `Despesa - ${field}`, String(oldExpense[field]), String(value));
+  };
+
+  const onDeleteExpense = (id: string) => {
+    const expense = project.expenses.find(e => e.id === id);
+    const newExpenses = project.expenses.filter(e => e.id !== id);
+    onUpdate(project.id, { expenses: newExpenses });
+    logChange('Exclusão', `Despesa - ${expense?.description || id}`, '-', '-');
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100">
-        <div className="flex flex-wrap gap-4 mb-10 w-full justify-center">
+    <div className="space-y-6 animate-fade-in">
+      {/* Container Principal - Dark Theme */}
+      <div className="glass rounded-3xl p-8">
+        {/* Navegação de Abas - Dark Theme */}
+        <div className="flex flex-wrap gap-3 mb-10 w-full justify-center">
           {['info', 'units', 'expenses', 'logs'].map((tab) => {
             if (tab === 'units' && !canSeeUnits) return null;
 
@@ -149,9 +167,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
-                className={`px-8 py-3 rounded-full font-black text-xs uppercase tracking-widest transition-all duration-300 transform ${isActive
-                  ? 'bg-blue-600 text-white shadow-xl shadow-blue-200 scale-105 border-4 border-blue-600'
-                  : 'bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50'
+                className={`px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest transition-all duration-300 ${isActive
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                  : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 hover:text-white'
                   }`}
               >
                 <i className={`fa-solid ${icons[tab]} mr-2`}></i> {labels[tab]}
@@ -160,25 +178,59 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
           })}
         </div>
 
+        {/* ===== ABA GESTÃO - Redesign Premium ===== */}
         {activeTab === 'info' && (
-          <div className="space-y-10 animate-in fade-in duration-500">
-            <div className="space-y-6">
-              <div className="flex justify-between items-center px-2">
-                <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Cronograma de Obra</h3>
-                <span className="bg-blue-600 text-white px-5 py-2 rounded-full font-black text-xs shadow-lg shadow-blue-100">{project.progress}%</span>
+          <div className="animate-fade-in space-y-8">
+            {/* Cronograma de Obra - Opção F: Stepper Dots */}
+            <div className="glass rounded-2xl p-4 md:p-6 border border-slate-700">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-black text-white text-xs md:text-sm uppercase tracking-widest flex items-center gap-2">
+                  <i className="fa-solid fa-timeline text-blue-400"></i>
+                  <span className="hidden sm:inline">Cronograma</span>
+                  <span className="sm:hidden">Progresso</span>
+                </h3>
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1.5 rounded-full font-black text-[10px] shadow-lg">
+                  {project.progress}%
+                </div>
               </div>
-              <div className="relative pt-8 pb-4 px-4">
-                {/* Linha de Fundo */}
-                <div className="absolute top-[4.5rem] left-0 w-full h-1.5 bg-slate-100 rounded-full z-0"></div>
 
-                {/* Linha de Progresso */}
+              {/* Etapa Atual em Destaque */}
+              {(() => {
+                const currentStage = project.progress;
+                const currentStageName = STAGE_NAMES[currentStage] || 'Planejamento';
+                const isCompleted = currentStage === 100;
+                const nextStages = PROGRESS_STAGES.filter(s => s > currentStage);
+
+                return (
+                  <div className="text-center mb-4">
+                    <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">
+                      {isCompleted ? '🏆 OBRA CONCLUÍDA' : '🔨 ETAPA ATUAL'}
+                    </div>
+                    <div className={`text-lg md:text-xl font-black ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
+                      {currentStageName}
+                    </div>
+                    {!isCompleted && nextStages.length > 0 && (
+                      <div className="text-[10px] text-orange-400 mt-1">
+                        Falta: {nextStages.slice(0, 2).map(s => STAGE_NAMES[s].split(' ')[0]).join(', ')}
+                        {nextStages.length > 2 && ` +${nextStages.length - 2}`}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Stepper Dots */}
+              <div className="relative py-3">
+                {/* Linha de fundo */}
+                <div className="absolute top-1/2 left-0 right-0 h-[3px] bg-slate-700 rounded-full -translate-y-1/2"></div>
+                {/* Linha de progresso */}
                 <div
-                  className="absolute top-[4.5rem] left-0 h-1.5 bg-blue-600 rounded-full z-0 transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(37,99,235,0.5)]"
+                  className="absolute top-1/2 left-0 h-[3px] rounded-full -translate-y-1/2 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500"
                   style={{ width: `${project.progress}%` }}
                 ></div>
 
-                {/* Etapas */}
-                <div className="relative z-10 flex justify-between w-full">
+                {/* Dots */}
+                <div className="relative flex justify-between">
                   {PROGRESS_STAGES.map(stage => {
                     const isCompleted = project.progress >= stage;
                     const isCurrent = project.progress === stage;
@@ -188,23 +240,19 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                         key={stage}
                         disabled={!isAdmin && stage < project.progress}
                         onClick={() => handleStageChange(stage)}
-                        className={`group flex flex-col items-center gap-3 transition-all duration-300 ${isCurrent ? 'scale-110' : 'hover:scale-105'
-                          }`}
+                        className="group"
+                        title={STAGE_NAMES[stage]}
                       >
-                        <span className={`text-[10px] font-black transition-colors ${isCompleted ? 'text-blue-600' : 'text-slate-300'
-                          }`}>{stage}%</span>
-
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 transition-all duration-500 shadow-sm ${isCompleted
-                          ? 'bg-blue-600 border-blue-600 text-white shadow-blue-200'
-                          : 'bg-white border-slate-200 text-transparent'
-                          } ${isCurrent ? 'ring-4 ring-blue-100 scale-110' : ''}`}>
-                          {isCompleted && <i className="fa-solid fa-check text-[10px]"></i>}
+                        <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full flex items-center justify-center transition-all ${isCompleted
+                          ? isCurrent
+                            ? 'bg-orange-500 ring-2 ring-orange-400/50 scale-125'
+                            : 'bg-gradient-to-br from-blue-500 to-purple-500'
+                          : 'bg-slate-700 border border-slate-600'
+                          } group-hover:scale-110`}>
+                          {isCompleted && !isCurrent && (
+                            <i className="fa-solid fa-check text-white text-[6px] md:text-[8px]"></i>
+                          )}
                         </div>
-
-                        <span className={`text-[9px] font-bold uppercase tracking-wider text-center max-w-[60px] leading-tight transition-colors ${isCompleted ? 'text-blue-700' : 'text-slate-300'
-                          }`}>
-                          {STAGE_NAMES[stage]}
-                        </span>
                       </button>
                     );
                   })}
@@ -212,60 +260,175 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="bg-white p-8 rounded-[2.5rem] border-4 border-blue-600 shadow-xl relative overflow-hidden group hover:shadow-2xl transition-all">
-                <h4 className="font-black text-slate-800 mb-6 uppercase text-sm tracking-widest flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-600"></span> Saúde Financeira
-                </h4>
-                <div className="space-y-6">
-                  <div className="flex justify-between text-sm font-bold">
-                    <span className="text-slate-500">Orçamento vs Realizado</span>
-                    <span className={budgetUsage > 90 ? 'text-red-600 font-black' : 'text-blue-600 font-black'}>{budgetUsage.toFixed(1)}%</span>
-                  </div>
-                  <div className="w-full bg-slate-200 h-5 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-700 ${budgetUsage > 100 ? 'bg-red-500' : 'bg-blue-600'}`}
-                      style={{ width: `${Math.min(budgetUsage, 100)}%` }}
-                    ></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50 p-4 rounded-[1.5rem] border border-slate-100">
-                      <p className="text-[10px] text-slate-400 font-black uppercase mb-1">Custo Previsto</p>
-                      <p className="font-black text-slate-700 text-lg">{formatCurrency(totalUnitsCost)}</p>
+            {/* Cards Grid - Design Premium */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+              {/* Card SAÚDE FINANCEIRA - Opção B: Barra Horizontal */}
+              <div className="glass rounded-2xl p-4 md:p-6 border border-slate-700">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-black text-white uppercase text-xs md:text-sm tracking-widest flex items-center gap-2">
+                    <div className="w-7 h-7 md:w-8 md:h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                      <i className="fa-solid fa-chart-pie text-blue-400 text-sm"></i>
                     </div>
-                    <div className="bg-slate-50 p-4 rounded-[1.5rem] border border-slate-100">
-                      <p className="text-[10px] text-slate-400 font-black uppercase mb-1">Despesas Reais</p>
-                      <p className="font-black text-slate-800 text-lg">{formatCurrency(totalActualExpenses)}</p>
-                    </div>
+                    <span className="hidden sm:inline">Saúde Financeira</span>
+                    <span className="sm:hidden">Financeiro</span>
+                  </h4>
+                  <span className={`px-3 py-1 rounded-full text-xs font-black ${budgetUsage > 100 ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}>
+                    {budgetUsage.toFixed(0)}%
+                  </span>
+                </div>
+
+                {/* Barra de Progresso Horizontal */}
+                <div className="h-2 bg-slate-700 rounded-full mb-4 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${budgetUsage > 100 ? 'bg-gradient-to-r from-red-500 to-orange-500' : 'bg-gradient-to-r from-blue-500 to-purple-500'}`}
+                    style={{ width: `${Math.min(budgetUsage, 100)}%` }}
+                  ></div>
+                </div>
+
+                {/* Valores em Grid */}
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[9px] md:text-[10px] text-blue-400 font-bold uppercase">Realizado</p>
+                    <p className="text-xl md:text-2xl font-black text-white">{formatCurrency(totalActualExpenses)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase">Orçamento Total</p>
+                    <p className="text-base md:text-lg font-bold text-slate-300">{formatCurrency(totalUnitsCost)}</p>
+                  </div>
+                  <div className={`flex items-center gap-2 text-xs md:text-sm ${totalUnitsCost - totalActualExpenses >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    <span className={`w-2 h-2 rounded-full ${totalUnitsCost - totalActualExpenses >= 0 ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                    <span>Saldo: <strong>{formatCurrency(totalUnitsCost - totalActualExpenses)}</strong></span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-                <h4 className="font-black mb-6 uppercase text-sm tracking-widest opacity-80 relative z-10">Expectativa de Vendas</h4>
-                <div className="space-y-6 relative z-10">
-                  <div className="flex justify-between items-end">
-                    <div>
-                      <p className="text-[10px] font-black uppercase opacity-60">Valor Est. de Venda</p>
-                      <p className="text-4xl font-black">{formatCurrency(totalEstimatedSales)}</p>
+              {/* Card VENDAS - Opção A: Grid Compacto */}
+              <div className="rounded-2xl p-4 md:p-6 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 50%, #2dd4bf 100%)' }}>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+
+                <div className="flex items-center justify-between mb-4 relative z-10">
+                  <h4 className="font-black text-white uppercase text-xs md:text-sm tracking-widest flex items-center gap-2">
+                    <div className="w-7 h-7 md:w-8 md:h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                      <i className="fa-solid fa-chart-line text-white text-sm"></i>
                     </div>
-                    <i className="fa-solid fa-chart-line text-5xl opacity-20 mb-1"></i>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="bg-white/15 backdrop-blur-md p-5 rounded-[1.8rem] border border-white/10">
-                      <p className="text-[10px] font-black uppercase opacity-70 mb-2">Estimativa de Lucro Bruto</p>
-                      <p className="text-2xl font-black text-white">{formatCurrency(estimatedGrossProfit)}</p>
+                    Vendas
+                  </h4>
+                  {(() => {
+                    const soldUnits = project.units.filter(u => u.status === 'Sold').length;
+                    const totalUnits = project.units.length;
+                    const salesPercent = totalUnits > 0 ? (soldUnits / totalUnits) * 100 : 0;
+                    return (
+                      <span className="px-3 py-1 rounded-full text-xs font-black bg-white/20 text-white">
+                        {salesPercent.toFixed(0)}% Meta
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                <div className="relative z-10 space-y-3">
+                  {/* Grid 2x2 com números grandes */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white/15 backdrop-blur-sm p-3 rounded-xl border border-white/20 text-center">
+                      <p className="text-[9px] md:text-[10px] text-white/70 font-bold uppercase">✅ Vendidas</p>
+                      <p className="text-3xl md:text-4xl font-black text-white">{project.units.filter(u => u.status === 'Sold').length}</p>
+                    </div>
+                    <div className="bg-white/15 backdrop-blur-sm p-3 rounded-xl border border-white/20 text-center">
+                      <p className="text-[9px] md:text-[10px] text-white/70 font-bold uppercase">🏷️ À Venda</p>
+                      <p className="text-3xl md:text-4xl font-black text-white">{project.units.filter(u => u.status === 'Available').length}</p>
                     </div>
                   </div>
+                  {/* Total Vendido */}
+                  <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl border border-white/30 text-center">
+                    <p className="text-[9px] md:text-[10px] text-white/70 font-bold uppercase">💰 Total Vendido</p>
+                    <p className="text-lg md:text-xl font-black text-white">{formatCurrency(totalUnitsSales)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Linha de Métricas Complementares */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+              {/* Margem Média */}
+              <div className="glass rounded-xl p-3 md:p-4 border border-green-500/30 bg-green-500/5">
+                <div className="text-center md:text-left">
+                  <p className="text-[8px] md:text-[9px] text-green-400 font-bold uppercase mb-1">📈 Margem</p>
+                  <p className="text-xl md:text-2xl font-black text-green-400">
+                    {(() => {
+                      const isCompleted = project.progress === 100;
+                      const totalExpenses = project.expenses.reduce((sum, exp) => sum + exp.value, 0);
+                      const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
+                      let totalRoi = 0, soldCount = 0;
+                      project.units.forEach(unit => {
+                        if (unit.status === 'Sold' && unit.saleValue && unit.saleValue > 0) {
+                          const realCost = (isCompleted && totalUnitsArea > 0) ? (unit.area / totalUnitsArea) * totalExpenses : unit.cost;
+                          const costBase = realCost > 0 ? realCost : unit.cost;
+                          if (costBase > 0) { totalRoi += (unit.saleValue - costBase) / costBase; soldCount++; }
+                        }
+                      });
+                      return `${(soldCount > 0 ? (totalRoi / soldCount) * 100 : 0).toFixed(1)}%`;
+                    })()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Margem Mensal */}
+              <div className="glass rounded-xl p-3 md:p-4 border border-purple-500/30 bg-purple-500/5">
+                <div className="text-center md:text-left">
+                  <p className="text-[8px] md:text-[9px] text-purple-400 font-bold uppercase mb-1">📅 Mensal</p>
+                  <p className="text-xl md:text-2xl font-black text-purple-400">
+                    {(() => {
+                      const isCompleted = project.progress === 100;
+                      const totalExpenses = project.expenses.reduce((sum, exp) => sum + exp.value, 0);
+                      const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
+                      const firstExpenseDate = project.expenses.length > 0 ? project.expenses.reduce((min, e) => e.date < min ? e.date : min, project.expenses[0].date) : null;
+                      let totalMonthlyRoi = 0, soldCount = 0;
+                      project.units.forEach(unit => {
+                        if (unit.status === 'Sold' && unit.saleValue && unit.saleValue > 0) {
+                          const realCost = (isCompleted && totalUnitsArea > 0) ? (unit.area / totalUnitsArea) * totalExpenses : unit.cost;
+                          const costBase = realCost > 0 ? realCost : unit.cost;
+                          if (costBase > 0) {
+                            const roi = (unit.saleValue - costBase) / costBase;
+                            const months = (unit.saleDate && firstExpenseDate) ? calculateMonthsBetween(firstExpenseDate, unit.saleDate) : null;
+                            const roiMensal = (months !== null && months > 0) ? roi / months : 0;
+                            totalMonthlyRoi += roiMensal; soldCount++;
+                          }
+                        }
+                      });
+                      return `${(soldCount > 0 ? (totalMonthlyRoi / soldCount) * 100 : 0).toFixed(1)}%`;
+                    })()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Potencial de Venda */}
+              <div className="glass rounded-xl p-3 md:p-4 border border-orange-500/30 bg-orange-500/5">
+                <div className="text-center md:text-left">
+                  <p className="text-[8px] md:text-[9px] text-orange-400 font-bold uppercase mb-1">💎 Potencial</p>
+                  <p className="text-lg md:text-xl font-black text-orange-400">
+                    <span className="md:hidden">{formatCurrencyAbbrev(project.units.filter(u => u.status === 'Available').reduce((sum, u) => sum + (u.valorEstimadoVenda || 0), 0))}</span>
+                    <span className="hidden md:inline">{formatCurrency(project.units.filter(u => u.status === 'Available').reduce((sum, u) => sum + (u.valorEstimadoVenda || 0), 0))}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Lucro Estimado */}
+              <div className="glass rounded-xl p-3 md:p-4 border border-cyan-500/30 bg-cyan-500/5">
+                <div className="text-center md:text-left">
+                  <p className="text-[8px] md:text-[9px] text-cyan-400 font-bold uppercase mb-1">💰 Lucro</p>
+                  <p className="text-lg md:text-xl font-black text-cyan-400">
+                    <span className="md:hidden">{formatCurrencyAbbrev(estimatedGrossProfit)}</span>
+                    <span className="hidden md:inline">{formatCurrency(estimatedGrossProfit)}</span>
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         )}
 
+        {/* ===== ABA UNIDADES ===== */}
         {activeTab === 'units' && (
-          <div className="animate-in fade-in duration-300">
+          <div className="animate-fade-in">
             <UnitsSection
               project={project}
               user={user}
@@ -277,8 +440,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
           </div>
         )}
 
+        {/* ===== ABA DESPESAS ===== */}
         {activeTab === 'expenses' && (
-          <div className="animate-in fade-in duration-300">
+          <div className="animate-fade-in">
             <ExpensesSection
               project={project}
               user={user}
@@ -289,33 +453,81 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
           </div>
         )}
 
+        {/* ===== ABA AUDITORIA - Timeline Design ===== */}
         {activeTab === 'logs' && (
-          <div className="animate-in fade-in duration-300">
-            <div className="bg-amber-50 border border-amber-100 p-5 rounded-[2rem] text-amber-800 text-xs mb-6 font-bold flex items-center">
-              <i className="fa-solid fa-shield-halved mr-3 text-lg opacity-50"></i> Todas as alterações nesta obra são registradas automaticamente.
-            </div>
-            <div className="max-h-[500px] overflow-y-auto space-y-4 pr-2 scrollbar-hide">
-              {project.logs.slice().reverse().map(log => (
-                <div key={log.id} className="bg-white p-6 rounded-[2rem] border-4 border-blue-600 shadow-sm text-sm mb-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <span className="font-black text-slate-800 uppercase text-[10px] tracking-widest">{log.action}: {log.field}</span>
-                    <span className="text-[10px] font-bold text-slate-400">{new Date(log.timestamp).toLocaleTimeString('pt-BR')}</span>
-                  </div>
-                  <p className="text-xs text-slate-500 mb-4">Usuário: <span className="text-blue-600 font-bold">{log.userName}</span></p>
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1 bg-white p-4 rounded-[1.2rem] border-2 border-blue-600">
-                      <p className="text-[8px] uppercase font-black text-slate-400 mb-1">De</p>
-                      <p className="truncate text-slate-600 font-bold text-xs">{log.oldValue}</p>
-                    </div>
-                    <i className="fa-solid fa-chevron-right text-slate-300 text-xs"></i>
-                    <div className="flex-1 bg-blue-50 p-4 rounded-[1.2rem] border-2 border-blue-600">
-                      <p className="text-[8px] uppercase font-black text-blue-400 mb-1">Para</p>
-                      <p className="truncate text-blue-700 font-bold text-xs">{log.newValue}</p>
-                    </div>
-                  </div>
+          <div className="space-y-6 animate-fade-in">
+            {(!project.logs || project.logs.length === 0) ? (
+              <div className="text-center py-20">
+                <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                  <i className="fa-solid fa-fingerprint text-3xl text-slate-600"></i>
                 </div>
-              ))}
-            </div>
+                <p className="text-slate-500 font-bold">Nenhum registro de atividade encontrado.</p>
+              </div>
+            ) : (
+              <div className="glass rounded-2xl p-4 md:p-6 border border-slate-700">
+                <h3 className="font-black text-white text-sm uppercase tracking-widest mb-6 flex items-center gap-2">
+                  <i className="fa-solid fa-list-ul text-blue-400"></i>
+                  Histórico de Alterações
+                </h3>
+
+                <div className="relative border-l-2 border-slate-700 ml-3 md:ml-6 space-y-8">
+                  {project.logs.length > 0 && [...project.logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((log, index) => (
+                    <div key={log.id || index} className="relative pl-6 md:pl-8 group">
+                      {/* Timestamp Dot */}
+                      <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-900 border-2 border-blue-500 group-hover:scale-125 transition-transform flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                      </div>
+
+                      {/* Content Card */}
+                      <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:border-blue-500/30 transition-all">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded text-[10px] uppercase font-black tracking-widest ${log.action === 'Criação' ? 'bg-green-500/20 text-green-400' :
+                              log.action === 'Inclusão' ? 'bg-green-500/20 text-green-400' :
+                                log.action === 'Exclusão' ? 'bg-red-500/20 text-red-400' :
+                                  'bg-blue-500/20 text-blue-400'
+                              }`}>
+                              {log.action}
+                            </span>
+                            <span className="text-xs font-bold text-slate-400">
+                              {new Date(log.timestamp).toLocaleString('pt-BR')}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[8px] font-black text-slate-400">
+                              {(log.userName && log.userName[0]) ? log.userName[0].toUpperCase() : '-'}
+                            </div>
+                            <span className="text-xs text-slate-500 font-bold">{log.userName}</span>
+                          </div>
+                        </div>
+
+                        <div className="text-sm font-bold text-white mb-2">
+                          {log.field === '-' ? (
+                            <span>Realizou uma ação de <span className="text-blue-400">{log.action}</span></span>
+                          ) : (
+                            <span>Alterou <span className="text-blue-400">{log.field}</span></span>
+                          )}
+                        </div>
+
+                        {log.oldValue !== '-' && log.newValue !== '-' && (
+                          <div className="flex items-center gap-3 text-xs bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[9px] uppercase font-bold text-slate-500 mb-1">De:</div>
+                              <div className="text-red-400 font-mono truncate" title={log.oldValue}>{log.oldValue}</div>
+                            </div>
+                            <i className="fa-solid fa-arrow-right text-slate-600"></i>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[9px] uppercase font-bold text-slate-500 mb-1">Para:</div>
+                              <div className="text-green-400 font-mono truncate" title={log.newValue}>{log.newValue}</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -381,47 +593,52 @@ const UnitsSection: React.FC<{
   };
 
   return (
-    <div className="space-y-10">
-      <div className="flex justify-between items-center px-2">
-        <h3 className="font-black text-slate-800 text-xl uppercase tracking-tight">Portfólio de Unidades</h3>
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <h3 className="font-black text-white text-xl uppercase tracking-tight flex items-center gap-3">
+          <i className="fa-solid fa-house-user text-blue-400"></i>
+          Portfólio de Unidades
+        </h3>
         {isAdmin && (
-          <button onClick={() => setShowAdd(true)} className="bg-blue-600 text-white px-8 py-3 rounded-full font-black text-sm hover:bg-blue-700 transition shadow-xl shadow-blue-100 flex items-center">
-            <i className="fa-solid fa-plus mr-2"></i> Adicionar Unidade
+          <button onClick={() => setShowAdd(true)} className="bg-blue-600 text-white px-6 py-3 rounded-full font-black text-sm hover:bg-blue-700 transition shadow-lg shadow-blue-600/30 flex items-center gap-2">
+            <i className="fa-solid fa-plus"></i> Nova Unidade
           </button>
         )}
       </div>
 
+      {/* Formulário Nova Unidade - Dark Theme */}
       {showAdd && (
         <form
-          className="p-8 bg-blue-50 border-2 border-blue-100 rounded-[2.5rem] grid grid-cols-1 md:grid-cols-5 gap-6 animate-in slide-in-from-top-6"
+          className="p-6 glass border border-slate-700 rounded-2xl grid grid-cols-1 md:grid-cols-5 gap-4 animate-fade-in"
           onSubmit={handleSubmitNewUnit}
         >
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-blue-600 uppercase ml-3">Identificador</label>
-            <input required className="w-full p-4 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800 shadow-sm" placeholder="Ex: Casa 01" value={formData.identifier} onChange={e => setFormData({ ...formData, identifier: e.target.value })} />
+            <label className="text-[10px] font-black text-blue-400 uppercase ml-3">Identificador</label>
+            <input required className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white placeholder-slate-500" placeholder="Ex: Casa 01" value={formData.identifier} onChange={e => setFormData({ ...formData, identifier: e.target.value })} />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-blue-600 uppercase ml-3">Área (m²)</label>
-            <input required type="number" className="w-full p-4 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800 shadow-sm" value={formData.area} onChange={e => setFormData({ ...formData, area: Number(e.target.value) })} />
+            <label className="text-[10px] font-black text-blue-400 uppercase ml-3">Área (m²)</label>
+            <input required type="number" className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.area} onChange={e => setFormData({ ...formData, area: Number(e.target.value) })} />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-blue-600 uppercase ml-3">Custo (R$)</label>
-            <input required type="number" className="w-full p-4 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800 shadow-sm" value={formData.cost} onChange={e => setFormData({ ...formData, cost: Number(e.target.value) })} />
+            <label className="text-[10px] font-black text-blue-400 uppercase ml-3">Custo (R$)</label>
+            <input required type="number" className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.cost} onChange={e => setFormData({ ...formData, cost: Number(e.target.value) })} />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-blue-600 uppercase ml-3">Estimativa Venda</label>
-            <input required type="number" className="w-full p-4 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800 shadow-sm" value={formData.valorEstimadoVenda} onChange={e => setFormData({ ...formData, valorEstimadoVenda: Number(e.target.value) })} />
+            <label className="text-[10px] font-black text-blue-400 uppercase ml-3">Est. Venda</label>
+            <input required type="number" className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.valorEstimadoVenda} onChange={e => setFormData({ ...formData, valorEstimadoVenda: Number(e.target.value) })} />
           </div>
-          <div className="flex gap-3 h-[58px] mt-auto">
-            <button type="submit" disabled={isSaving} className="flex-1 bg-blue-600 text-white rounded-full font-black text-xs shadow-lg shadow-blue-200 uppercase tracking-widest disabled:opacity-50">
+          <div className="flex gap-2 mt-auto">
+            <button type="submit" disabled={isSaving} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-black text-xs uppercase tracking-widest disabled:opacity-50 shadow-lg shadow-blue-600/30">
               {isSaving ? 'Salvando...' : 'Salvar'}
             </button>
-            <button type="button" onClick={() => setShowAdd(false)} className="w-14 bg-white text-slate-400 rounded-full border border-slate-200 hover:text-red-500 transition"><i className="fa-solid fa-xmark"></i></button>
+            <button type="button" onClick={() => setShowAdd(false)} className="w-12 bg-slate-800 text-slate-400 rounded-xl border border-slate-700 hover:text-red-400 hover:border-red-400 transition"><i className="fa-solid fa-xmark"></i></button>
           </div>
         </form>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      {/* Grid de Cards de Unidades - Dark Theme */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {project.units.map(unit => {
           // Lógica de Custo Real (Obra 100% Concluída)
           const isCompleted = project.progress === 100;
@@ -450,24 +667,25 @@ const UnitsSection: React.FC<{
           const isEditing = editingUnitId === unit.id;
 
           return (
-            <div key={unit.id} className={`bg-white border-2 rounded-[2.5rem] p-7 shadow-sm hover:shadow-2xl transition-all group relative overflow-hidden ${isEditing ? 'border-orange-400' : 'border-blue-500'}`}>
-              <div className="flex justify-between items-start mb-8 relative z-10">
+            <div key={unit.id} className={`glass rounded-2xl p-6 border transition-all hover:shadow-xl ${isEditing ? 'border-orange-500' : 'border-slate-700 hover:border-blue-500/50'}`}>
+              {/* Header */}
+              <div className="flex justify-between items-start mb-6">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
-                    <h5 className="font-black text-slate-800 text-xl group-hover:text-blue-600 transition-colors">{unit.identifier}</h5>
-                    <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${unit.status === 'Sold' ? 'bg-green-600 text-white' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
+                    <h5 className="font-black text-white text-lg">{unit.identifier}</h5>
+                    <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${unit.status === 'Sold' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
                       {unit.status === 'Sold' ? 'Vendida' : 'À Venda'}
                     </div>
                   </div>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{unit.area} m² de área total</p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase">{unit.area} m² de área</p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   {isEditing ? (
                     <button
                       onClick={() => setEditingUnitId(null)}
-                      className="w-10 h-10 flex items-center justify-center bg-green-600 text-white rounded-full hover:bg-green-700 transition shadow-lg shadow-green-100"
-                      title="Confirmar Edição"
+                      className="w-9 h-9 flex items-center justify-center bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500 hover:text-white transition"
+                      title="Confirmar"
                     >
                       <i className="fa-solid fa-check"></i>
                     </button>
@@ -475,154 +693,126 @@ const UnitsSection: React.FC<{
                     <>
                       <button
                         onClick={() => setEditingUnitId(unit.id)}
-                        className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-600 rounded-full hover:bg-blue-600 hover:text-white transition"
-                        title="Editar Unidade"
+                        className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-400 rounded-lg hover:bg-blue-600 hover:text-white transition border border-slate-700"
+                        title="Editar"
                       >
-                        <i className="fa-solid fa-pen-to-square"></i>
+                        <i className="fa-solid fa-pen-to-square text-sm"></i>
                       </button>
                       <button
                         onClick={() => onDeleteUnit(project.id, unit.id)}
-                        className="w-10 h-10 flex items-center justify-center bg-red-50 text-red-600 rounded-full hover:bg-red-600 hover:text-white transition"
-                        title="Excluir Unidade"
+                        className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-400 rounded-lg hover:bg-red-600 hover:text-white transition border border-slate-700"
+                        title="Excluir"
                       >
-                        <i className="fa-solid fa-trash"></i>
+                        <i className="fa-solid fa-trash text-sm"></i>
                       </button>
                     </>
                   )}
                 </div>
               </div>
 
-              <div className="space-y-5 mb-8 relative z-10">
-                {/* INVESTIMENTO */}
-                <div className={`p-4 rounded-[1.8rem] flex justify-between items-center border-2 transition-colors ${isEditing ? 'bg-white border-blue-500' : 'bg-white border-slate-100'}`}>
-                  <span className="text-slate-400 font-black uppercase tracking-widest text-[9px] ml-2">Custo Estimado</span>
+              {/* Métricas */}
+              <div className="space-y-3 mb-6">
+                <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-slate-700">
+                  <span className="text-slate-500 font-bold text-[10px] uppercase">Custo Estimado</span>
                   {isEditing ? (
-                    <div className="relative">
-                      <span className="absolute left-[-22px] top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300">R$</span>
-                      <input
-                        type="number"
-                        className="w-28 bg-white p-2 border-2 border-slate-200 rounded-xl text-right font-black text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition text-sm"
-                        defaultValue={unit.cost}
-                        onBlur={(e) => handleUpdateUnit(unit.id, { cost: Number(e.target.value) })}
-                      />
-                    </div>
+                    <input
+                      type="number"
+                      className="w-28 bg-slate-700 p-2 border border-slate-600 rounded-lg text-right font-bold text-white text-sm outline-none focus:border-blue-500"
+                      defaultValue={unit.cost}
+                      onBlur={(e) => handleUpdateUnit(unit.id, { cost: Number(e.target.value) })}
+                    />
                   ) : (
-                    <div className="text-right">
-                      <span className="font-black text-slate-800 text-base mr-2">{formatCurrency(unit.cost)}</span>
-
-                    </div>
+                    <span className="font-bold text-white">{formatCurrency(unit.cost)}</span>
                   )}
                 </div>
 
-                {/* VENDA ESTIMADA */}
-                <div className={`p-4 rounded-[1.8rem] flex justify-between items-center border-2 transition-colors ${isEditing ? 'bg-white border-blue-500' : 'bg-white border-slate-100'}`}>
-                  <span className="text-blue-400 font-black uppercase tracking-widest text-[9px] ml-2">Venda Estimada</span>
-                  <div className="relative">
-                    {isEditing ? (
-                      <>
-                        <span className="absolute left-[-22px] top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300">R$</span>
-                        <input
-                          type="number"
-                          className="w-28 p-2 bg-white border-2 border-slate-200 rounded-xl text-right font-black outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition text-sm text-slate-800"
-                          defaultValue={unit.valorEstimadoVenda || 0}
-                          onBlur={(e) => handleUpdateUnit(unit.id, { valorEstimadoVenda: Number(e.target.value) })}
-                        />
-                      </>
-                    ) : (
-                      <span className="font-black text-blue-600 text-base mr-2">{formatCurrency(unit.valorEstimadoVenda || 0)}</span>
-                    )}
-                  </div>
+                <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-slate-700">
+                  <span className="text-blue-400 font-bold text-[10px] uppercase">Venda Estimada</span>
+                  {isEditing ? (
+                    <input
+                      type="number"
+                      className="w-28 bg-slate-700 p-2 border border-slate-600 rounded-lg text-right font-bold text-white text-sm outline-none focus:border-blue-500"
+                      defaultValue={unit.valorEstimadoVenda || 0}
+                      onBlur={(e) => handleUpdateUnit(unit.id, { valorEstimadoVenda: Number(e.target.value) })}
+                    />
+                  ) : (
+                    <span className="font-bold text-blue-400">{formatCurrency(unit.valorEstimadoVenda || 0)}</span>
+                  )}
                 </div>
 
-                {/* CUSTO REAL (Apenas se 100% concluída) */}
+                {/* Custo Real (Apenas 100%) */}
                 {isCompleted && (
-                  <div className="p-4 rounded-[1.8rem] flex justify-between items-center border-2 border-red-100 bg-red-50/50 mt-4">
-                    <div className="flex flex-col">
-                      <span className="text-red-500 font-black uppercase tracking-widest text-[9px] ml-2">Custo Real</span>
-                    </div>
-                    <div>
-                      <span className="font-black text-red-600 text-base mr-2">{formatCurrency(realCost)}</span>
-                    </div>
+                  <div className="flex justify-between items-center p-3 bg-red-500/10 rounded-xl border border-red-500/30">
+                    <span className="text-red-400 font-bold text-[10px] uppercase">Custo Real</span>
+                    <span className="font-bold text-red-400">{formatCurrency(realCost)}</span>
                   </div>
                 )}
-
-                {/* VALOR REALIZADO & DATA */}
-                <div className="pt-6 mt-4 border-t border-slate-50">
-                  {canEditVenda ? (
-                    <div className="space-y-4">
-                      {/* VALOR REALIZADO - DESTAQUE ESCURO */}
-                      <div className={`p-4 rounded-[1.8rem] border-2 space-y-2 ${isEditing ? 'bg-white border-blue-500' : 'bg-slate-900 border-slate-900'}`}>
-                        <label className={`text-[9px] font-black uppercase ml-4 ${isEditing ? 'text-slate-400' : 'text-slate-500'}`}>Valor de Venda</label>
-                        <div className="relative">
-                          <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black ${isEditing ? 'text-slate-300' : 'text-slate-600'}`}>R$</span>
-                          <input
-                            type="number"
-                            disabled={!isEditing}
-                            className={`w-full pl-10 pr-4 py-3.5 rounded-[1.2rem] text-sm font-black outline-none transition ${isEditing
-                              ? 'bg-white text-slate-900 border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'
-                              : 'bg-transparent text-white border-none cursor-default'
-                              }`}
-                            placeholder="0,00"
-                            defaultValue={unit.saleValue}
-                            onBlur={(e) => handleUpdateUnit(unit.id, { saleValue: e.target.value === "" ? undefined : Number(e.target.value) })}
-                          />
-                        </div>
-                      </div>
-
-                      {/* DATA DA VENDA - FUNDO CINZA */}
-                      <div className={`p-4 rounded-[1.8rem] border-2 space-y-2 ${isEditing ? 'bg-white border-blue-500' : 'bg-slate-50 border-slate-100'}`}>
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-4">Data da Venda</label>
-                        <input
-                          type="date"
-                          disabled={!isEditing}
-                          className={`w-full px-5 py-3.5 rounded-[1.2rem] text-xs font-black outline-none border-2 transition ${isEditing
-                            ? 'bg-white border-slate-200 text-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'
-                            : 'bg-transparent border-transparent text-slate-500 cursor-default'
-                            }`}
-                          defaultValue={unit.saleDate}
-                          onBlur={(e) => handleUpdateUnit(unit.id, { saleDate: e.target.value === "" ? undefined : e.target.value })}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-slate-50/80 p-6 rounded-[2rem] text-center border-2 border-dashed border-slate-100">
-                      <i className="fa-solid fa-lock text-slate-200 text-xl mb-2"></i>
-                      <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest leading-relaxed">Registro de venda disponível<br />após conclusão da obra</p>
-                    </div>
-                  )}
-                </div>
               </div>
 
-              <div className="flex gap-4 mt-8 border-t border-slate-50 pt-6">
-                <div className={`flex-1 p-4 rounded-[1.8rem] flex flex-col items-center justify-center space-y-1 transition-colors border ${isCompleted ? 'bg-green-50 border-green-100' : 'bg-blue-50 border-blue-100'
-                  }`}>
-                  <span className={`text-[9px] font-black uppercase tracking-widest ${isCompleted ? 'text-green-600' : 'text-blue-600'
-                    }`}>
-                    {isCompleted ? 'Margem' : 'ROI Estimado'}
+              {/* Valor de Venda */}
+              {canEditVenda ? (
+                <div className="space-y-3 pt-4 border-t border-slate-700">
+                  <div className="p-4 bg-slate-800 rounded-xl border border-slate-700">
+                    <label className="text-[9px] font-black text-slate-500 uppercase mb-2 block">Valor de Venda</label>
+                    <input
+                      type="number"
+                      disabled={!isEditing}
+                      className={`w-full p-3 rounded-lg text-sm font-bold outline-none transition ${isEditing
+                        ? 'bg-slate-700 border border-slate-600 text-white focus:border-blue-500'
+                        : 'bg-transparent text-white cursor-default border-none'
+                        }`}
+                      placeholder="R$ 0,00"
+                      defaultValue={unit.saleValue}
+                      onBlur={(e) => handleUpdateUnit(unit.id, { saleValue: e.target.value === "" ? undefined : Number(e.target.value) })}
+                    />
+                  </div>
+
+                  <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700">
+                    <label className="text-[9px] font-black text-slate-500 uppercase mb-2 block">Data da Venda</label>
+                    <input
+                      type="date"
+                      disabled={!isEditing}
+                      className={`w-full p-3 rounded-lg text-sm font-bold outline-none transition ${isEditing
+                        ? 'bg-slate-700 border border-slate-600 text-white focus:border-blue-500'
+                        : 'bg-transparent text-slate-400 cursor-default border-none'
+                        }`}
+                      defaultValue={unit.saleDate}
+                      onBlur={(e) => handleUpdateUnit(unit.id, { saleDate: e.target.value === "" ? undefined : e.target.value })}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-slate-800/50 p-6 rounded-xl text-center border border-dashed border-slate-700 mt-4">
+                  <i className="fa-solid fa-lock text-slate-600 text-xl mb-2"></i>
+                  <p className="text-[9px] text-slate-500 font-bold uppercase leading-relaxed">Registro de venda<br />após conclusão da obra</p>
+                </div>
+              )}
+
+              {/* ROI Pills */}
+              <div className="flex gap-3 mt-6 pt-4 border-t border-slate-700">
+                <div className={`flex-1 p-3 rounded-xl flex flex-col items-center justify-center ${isCompleted ? 'bg-green-500/10 border border-green-500/30' : 'bg-blue-500/10 border border-blue-500/30'}`}>
+                  <span className={`text-[9px] font-black uppercase ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
+                    {isCompleted ? 'Margem' : 'ROI Est.'}
                   </span>
-                  <span className={`text-2xl font-black ${isCompleted ? 'text-green-700' : 'text-blue-700'
-                    }`}>
-                    {roi !== null ? `${(roi * 100).toFixed(2)}%` : '-'}
+                  <span className={`text-xl font-black ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
+                    {roi !== null ? `${(roi * 100).toFixed(1)}%` : '-'}
                   </span>
                 </div>
 
-                <div className={`flex-1 p-4 rounded-[1.8rem] flex flex-col items-center justify-center space-y-1 transition-colors border ${isCompleted ? 'bg-green-50 border-green-100' : 'bg-blue-50 border-blue-100'
-                  }`}>
-                  <span className={`text-[9px] font-black uppercase tracking-widest ${isCompleted ? 'text-green-600' : 'text-blue-600'
-                    }`}>
-                    Margem Mensal
+                <div className={`flex-1 p-3 rounded-xl flex flex-col items-center justify-center ${isCompleted ? 'bg-green-500/10 border border-green-500/30' : 'bg-blue-500/10 border border-blue-500/30'}`}>
+                  <span className={`text-[9px] font-black uppercase ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
+                    Mensal
                   </span>
-                  <span className={`text-2xl font-black ${isCompleted ? 'text-green-700' : 'text-blue-700'
-                    }`}>
-                    {roiMensal !== null ? `${(roiMensal * 100).toFixed(2)}%` : '-'}
+                  <span className={`text-xl font-black ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
+                    {roiMensal !== null ? `${(roiMensal * 100).toFixed(1)}%` : '-'}
                   </span>
                 </div>
               </div>
             </div>
           );
         })}
-      </div >
-    </div >
+      </div>
+    </div>
   );
 };
 
@@ -654,96 +844,167 @@ const ExpensesSection: React.FC<{
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Fluxo de Despesas</h3>
-        <button onClick={() => setShowAdd(true)} className="bg-blue-600 text-white px-8 py-3 rounded-full font-black text-sm hover:bg-blue-700 transition shadow-xl shadow-blue-100">
-          <i className="fa-solid fa-receipt mr-2"></i> Lançar Despesa
+        <h3 className="font-black text-white text-lg uppercase tracking-tight flex items-center gap-3">
+          <i className="fa-solid fa-wallet text-green-400"></i>
+          Fluxo de Despesas
+        </h3>
+        <button onClick={() => setShowAdd(true)} className="bg-green-600 text-white px-6 py-3 rounded-full font-black text-sm hover:bg-green-700 transition shadow-lg shadow-green-600/30 flex items-center gap-2">
+          <i className="fa-solid fa-plus"></i> Nova Despesa
         </button>
       </div>
 
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-7 rounded-[2.5rem] border-4 border-blue-600 shadow-sm">
-          <p className="text-[10px] text-slate-400 font-black uppercase mb-1">Total Desembolsado</p>
-          <p className="text-3xl font-black text-slate-800">{formatCurrency(project.expenses.reduce((a, b) => a + b.value, 0))}</p>
+        <div className="glass p-6 rounded-2xl border border-slate-700">
+          <p className="text-[10px] text-slate-500 font-black uppercase mb-1">Total Desembolsado</p>
+          <p className="text-3xl font-black text-white">{formatCurrency(project.expenses.reduce((a, b) => a + b.value, 0))}</p>
         </div>
-        <div className="bg-white p-7 rounded-[2.5rem] border-4 border-blue-600 shadow-sm">
+        <div className="glass p-6 rounded-2xl border border-slate-700">
           <p className="text-[10px] text-blue-400 font-black uppercase mb-1">Volume de Lançamentos</p>
-          <p className="text-3xl font-black text-blue-800">
+          <p className="text-3xl font-black text-blue-400">
             {project.expenses.length} <span className="text-xs opacity-40 uppercase ml-1">Notas</span>
           </p>
         </div>
       </div>
 
+      {/* Formulário Nova Despesa */}
       {showAdd && (
-        <form className="p-8 bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-4" onSubmit={(e) => { e.preventDefault(); onAddExpense(formData); setShowAdd(false); }}>
+        <form className="p-6 glass border border-slate-700 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4 animate-fade-in" onSubmit={(e) => { e.preventDefault(); onAddExpense(formData); setShowAdd(false); }}>
           <div className="md:col-span-1 space-y-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase ml-4">Descrição</label>
-            <input required className="w-full px-6 py-3.5 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800" placeholder="Ex: Cimento, Pintor..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+            <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Descrição</label>
+            <input required className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white placeholder-slate-500" placeholder="Ex: Cimento, Pintor..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase ml-4">Valor (R$)</label>
-            <input required type="number" className="w-full px-6 py-3.5 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800" value={formData.value} onChange={e => setFormData({ ...formData, value: Number(e.target.value) })} />
+            <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Valor (R$)</label>
+            <input required type="number" className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.value} onChange={e => setFormData({ ...formData, value: Number(e.target.value) })} />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase ml-4">Data</label>
-            <input required type="date" className="w-full px-6 py-3.5 bg-white border-2 border-slate-200 rounded-full text-sm font-black outline-none focus:border-blue-500 text-slate-800" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+            <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Data</label>
+            <input required type="date" className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
           </div>
-          <div className="flex gap-3 h-[52px] mt-auto">
-            <button type="submit" className="flex-1 bg-blue-600 text-white rounded-full font-black text-xs uppercase tracking-widest">Salvar</button>
-            <button type="button" onClick={() => setShowAdd(false)} className="w-14 bg-slate-200 text-slate-600 rounded-full"><i className="fa-solid fa-xmark"></i></button>
+          <div className="flex gap-2 mt-auto">
+            <button type="submit" className="flex-1 py-3 bg-green-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-green-600/30">Salvar</button>
+            <button type="button" onClick={() => setShowAdd(false)} className="w-12 bg-slate-800 text-slate-400 rounded-xl border border-slate-700 hover:text-red-400 transition"><i className="fa-solid fa-xmark"></i></button>
           </div>
         </form>
       )}
 
-      <div className="bg-white rounded-[2.5rem] border-4 border-blue-600 overflow-hidden shadow-sm">
-        <table className="w-full text-left text-sm border-collapse">
-          <thead className="bg-slate-50 border-b-2 border-blue-600 text-slate-400 font-black uppercase text-[9px] tracking-widest">
-            <tr>
-              <th className="px-10 py-6">Data</th>
-              <th className="px-10 py-6">Descrição</th>
-              <th className="px-10 py-6">Autor</th>
-              <th className="px-10 py-6 text-right">Valor</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            {project.expenses.map((exp, index) => (
-              <tr key={exp.id} className={`hover:bg-slate-50/50 transition border-2 border-blue-600 rounded-[1rem] m-2 block md:table-row md:border-b md:border-slate-100 md:rounded-none`}>
-                <td className="px-10 py-6">
+      {/* Lista de Despesas - Responsive */}
+      <div className="space-y-4">
+        {/* Mobile: Lista de Cards */}
+        <div className="md:hidden space-y-3">
+          {project.expenses.map((exp) => (
+            <div key={exp.id} className="glass p-4 rounded-xl border border-slate-700 relative overflow-hidden">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Data</div>
                   {isAdmin ? (
                     <input
                       type="date"
-                      className="p-2 bg-white border-2 border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 font-black text-slate-800"
+                      className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white outline-none focus:border-blue-500"
                       defaultValue={exp.date}
                       onBlur={(e) => handleEditExpense(exp.id, 'date', e.target.value)}
                     />
                   ) : (
-                    <span className="font-bold text-slate-600">{new Date(exp.date).toLocaleDateString('pt-BR')}</span>
+                    <div className="text-sm font-bold text-slate-300">{new Date(exp.date).toLocaleDateString('pt-BR')}</div>
                   )}
-                </td>
-                <td className="px-10 py-6 font-black text-slate-800">{exp.description}</td>
-                <td className="px-10 py-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500 border border-slate-200">
-                      {(exp.userName && exp.userName[0]) ? exp.userName[0].toUpperCase() : '-'}
-                    </div>
-                    <span className="text-slate-500 font-bold">{exp.userName || 'Sistema'}</span>
-                  </div>
-                </td>
-                <td className="px-10 py-6 text-right">
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Valor</div>
                   {isAdmin ? (
                     <input
                       type="number"
-                      className="p-2 bg-white border-2 border-slate-200 rounded-xl text-xs text-right w-28 outline-none focus:border-blue-500 font-black text-slate-800"
+                      className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white text-right w-24 outline-none focus:border-blue-500"
                       defaultValue={exp.value}
                       onBlur={(e) => handleEditExpense(exp.id, 'value', Number(e.target.value))}
                     />
                   ) : (
-                    <span className="font-black text-slate-800">{formatCurrency(exp.value)}</span>
+                    <div className="text-lg font-black text-green-400">{formatCurrency(exp.value)}</div>
                   )}
-                </td>
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Descrição</div>
+                <div className="text-base font-bold text-white">{exp.description}</div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-3 border-t border-slate-700/50">
+                <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[8px] font-black text-slate-400 border border-slate-600">
+                  {(exp.userName && exp.userName[0]) ? exp.userName[0].toUpperCase() : '-'}
+                </div>
+                <div className="text-xs text-slate-400 font-bold">{exp.userName || 'Sistema'}</div>
+                {isAdmin && (
+                  <button onClick={() => onDeleteExpense(exp.id)} className="ml-auto text-red-400 hover:text-red-300 text-xs uppercase font-bold px-2 py-1 bg-red-400/10 rounded-lg">Excluir</button>
+                )}
+              </div>
+            </div>
+          ))}
+          {project.expenses.length === 0 && (
+            <div className="text-center py-10 text-slate-500">Nenhuma despesa registrada.</div>
+          )}
+        </div>
+
+        {/* Desktop: Tabela Tradicional */}
+        <div className="hidden md:block glass rounded-2xl border border-slate-700 overflow-hidden">
+          <table className="w-full text-left text-sm border-collapse">
+            <thead className="bg-slate-800 border-b border-slate-700 text-slate-400 font-black uppercase text-[10px] tracking-widest">
+              <tr>
+                <th className="px-6 py-4">Data</th>
+                <th className="px-6 py-4">Descrição</th>
+                <th className="px-6 py-4">Autor</th>
+                <th className="px-6 py-4 text-right">Valor</th>
+                {isAdmin && <th className="px-6 py-4 text-center">Ações</th>}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {project.expenses.map((exp) => (
+                <tr key={exp.id} className="hover:bg-slate-800/50 transition">
+                  <td className="px-6 py-4">
+                    {isAdmin ? (
+                      <input
+                        type="date"
+                        className="p-2 bg-slate-800 border border-slate-700 rounded-lg text-xs outline-none focus:border-blue-500 font-bold text-white"
+                        defaultValue={exp.date}
+                        onBlur={(e) => handleEditExpense(exp.id, 'date', e.target.value)}
+                      />
+                    ) : (
+                      <span className="font-bold text-slate-300">{new Date(exp.date).toLocaleDateString('pt-BR')}</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 font-bold text-white">{exp.description}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-600">
+                        {(exp.userName && exp.userName[0]) ? exp.userName[0].toUpperCase() : '-'}
+                      </div>
+                      <span className="text-slate-400 font-bold">{exp.userName || 'Sistema'}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    {isAdmin ? (
+                      <input
+                        type="number"
+                        className="p-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-right w-28 outline-none focus:border-blue-500 font-bold text-green-400"
+                        defaultValue={exp.value}
+                        onBlur={(e) => handleEditExpense(exp.id, 'value', Number(e.target.value))}
+                      />
+                    ) : (
+                      <span className="font-bold text-green-400">{formatCurrency(exp.value)}</span>
+                    )}
+                  </td>
+                  {isAdmin && (
+                    <td className="px-6 py-4 text-center">
+                      <button onClick={() => onDeleteExpense(exp.id)} className="w-8 h-8 rounded-lg bg-red-400/10 text-red-400 hover:bg-red-400/20 transition flex items-center justify-center">
+                        <i className="fa-solid fa-trash-can"></i>
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

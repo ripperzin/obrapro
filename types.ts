@@ -41,6 +41,36 @@ export const STAGE_NAMES: Record<number, string> = {
   100: 'Obra Concluída'
 };
 
+// Abbreviated names for mobile
+export const STAGE_ABBREV: Record<number, string> = {
+  0: 'PLN',
+  10: 'FUN',
+  20: 'EST',
+  30: 'ALV',
+  40: 'COB',
+  50: 'INST',
+  60: 'REV',
+  70: 'ESQ',
+  80: 'ACAB',
+  90: 'FIN',
+  100: '✓'
+};
+
+// Icons for each stage
+export const STAGE_ICONS: Record<number, string> = {
+  0: 'fa-clipboard-list',
+  10: 'fa-mountain',
+  20: 'fa-building',
+  30: 'fa-cube',
+  40: 'fa-house-chimney',
+  50: 'fa-plug',
+  60: 'fa-paint-roller',
+  70: 'fa-door-open',
+  80: 'fa-brush',
+  90: 'fa-flag-checkered',
+  100: 'fa-trophy'
+};
+
 export interface Unit {
   id: string;
   identifier: string;
