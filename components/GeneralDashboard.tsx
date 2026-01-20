@@ -1,32 +1,49 @@
 
 import React, { useState } from 'react';
-import { Project, ProgressStage } from '../types';
+import { Project, ProgressStage, Expense } from '../types';
 import { formatCurrency, calculateMonthsBetween, formatCurrencyAbbrev } from '../utils';
 
 import ConfirmModal from './ConfirmModal';
+import MoneyInput from './MoneyInput';
+import DateInput from './DateInput';
+import AttachmentUpload from './AttachmentUpload';
 
 interface GeneralDashboardProps {
    projects: Project[];
    userName?: string;
+   userId?: string;
    onSelectProject?: (id: string) => void;
    onAddProject?: (project: any) => void;
    onUpdate?: (id: string, updates: Partial<Project>, logMsg?: string) => void;
    onDelete?: (id: string) => void;
+   onAddExpense?: (projectId: string, expense: Omit<Expense, 'id' | 'userId' | 'userName'>) => void;
    isAdmin?: boolean;
 }
 
 const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    projects,
    userName = 'Usuário',
+   userId,
    onSelectProject,
    onAddProject,
    onUpdate,
    onDelete,
+   onAddExpense,
    isAdmin = false
 }) => {
    const [showModal, setShowModal] = useState(false);
    const [editingProject, setEditingProject] = useState<Project | null>(null);
    const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
+
+   // Estados para modal de despesa rápida
+   const [showExpenseModal, setShowExpenseModal] = useState(false);
+   const [expenseFormData, setExpenseFormData] = useState({
+      projectId: '',
+      description: '',
+      value: 0,
+      date: new Date().toISOString().split('T')[0],
+      attachmentUrl: undefined as string | undefined
+   });
 
    const [formData, setFormData] = useState({
       name: '',
@@ -158,6 +175,31 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
       setShowModal(false);
    };
 
+   const openExpenseModal = () => {
+      setExpenseFormData({
+         projectId: projects.length > 0 ? projects[0].id : '',
+         description: '',
+         value: 0,
+         date: new Date().toISOString().split('T')[0],
+         attachmentUrl: undefined
+      });
+      setShowExpenseModal(true);
+   };
+
+   const handleExpenseSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!expenseFormData.projectId || !onAddExpense) return;
+
+      onAddExpense(expenseFormData.projectId, {
+         description: expenseFormData.description,
+         value: expenseFormData.value,
+         date: expenseFormData.date,
+         attachmentUrl: expenseFormData.attachmentUrl
+      });
+
+      setShowExpenseModal(false);
+   };
+
    return (
       <div className="animate-fade-in min-h-full">
          {/* ===== MOBILE LAYOUT (Variação C - Estilo App Banco) ===== */}
@@ -260,6 +302,18 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   </div>
                </div>
             </div>
+
+            {/* Botão de Despesa Rápida - Mobile */}
+            {isAdmin && onAddExpense && projects.length > 0 && (
+               <button
+                  onClick={openExpenseModal}
+                  className="w-full flex items-center justify-center gap-3 py-4 bg-green-600/20 border border-green-500/40 rounded-2xl text-green-400 hover:bg-green-600/30 transition-all active:scale-[0.98]"
+               >
+                  <i className="fa-solid fa-receipt text-lg"></i>
+                  <span className="font-black text-sm uppercase tracking-wider">Adicionar Despesa</span>
+                  <i className="fa-solid fa-chevron-right opacity-50 text-xs"></i>
+               </button>
+            )}
 
             {/* Projects List - Mobile Style */}
             <div className="space-y-4">
@@ -466,6 +520,25 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                </div>
             </div>
 
+            {/* Botão de Despesa Rápida - Desktop */}
+            {isAdmin && onAddExpense && projects.length > 0 && (
+               <div className="flex justify-center mb-10">
+                  <button
+                     onClick={openExpenseModal}
+                     className="flex items-center gap-4 px-8 py-4 bg-gradient-to-r from-green-600/10 to-emerald-600/10 border-2 border-dashed border-green-500/40 rounded-2xl text-green-400 hover:border-green-400 hover:shadow-lg hover:shadow-green-500/20 transition-all group"
+                  >
+                     <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <i className="fa-solid fa-receipt text-xl"></i>
+                     </div>
+                     <div className="text-left">
+                        <p className="font-black text-lg uppercase tracking-wider">Adicionar Despesa</p>
+                        <p className="text-sm text-green-400/60 font-medium">Lançamento rápido nas obras</p>
+                     </div>
+                     <i className="fa-solid fa-arrow-right ml-4 opacity-50 group-hover:translate-x-1 transition-transform"></i>
+                  </button>
+               </div>
+            )}
+
             {/* Projects Section - Clickable */}
             <div>
                <div className="flex justify-between items-center mb-6">
@@ -588,6 +661,105 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                         className="w-full py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-600/30 font-black uppercase text-sm tracking-widest"
                      >
                         {editingProject ? 'Salvar Alterações' : 'Criar Projeto'}
+                     </button>
+                  </form>
+               </div>
+            </div>
+         )}
+
+         {/* Modal Despesa Rápida */}
+         {showExpenseModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+               <div className="glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-700 max-h-[90vh] overflow-y-auto">
+                  <div className="p-6 border-b border-slate-700 flex justify-between items-center sticky top-0 bg-slate-900/95 backdrop-blur-lg z-10">
+                     <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
+                           <i className="fa-solid fa-receipt text-green-400"></i>
+                        </div>
+                        <h2 className="text-xl font-black text-white">Nova Despesa</h2>
+                     </div>
+                     <button
+                        onClick={() => setShowExpenseModal(false)}
+                        className="w-10 h-10 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:text-red-400 hover:border-red-400 transition"
+                     >
+                        <i className="fa-solid fa-xmark"></i>
+                     </button>
+                  </div>
+                  <form onSubmit={handleExpenseSubmit} className="p-6 space-y-5">
+                     {/* Seletor de Obra */}
+                     <div className="space-y-2">
+                        <label className="text-xs font-black text-green-400 uppercase tracking-widest ml-4">
+                           Obra de Destino
+                        </label>
+                        <select
+                           required
+                           value={expenseFormData.projectId}
+                           onChange={e => setExpenseFormData({ ...expenseFormData, projectId: e.target.value })}
+                           className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-green-500 rounded-2xl outline-none transition-all font-bold text-white text-sm appearance-none cursor-pointer"
+                        >
+                           {projects.map(p => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                           ))}
+                        </select>
+                     </div>
+
+                     {/* Descrição */}
+                     <div className="space-y-2">
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                           Descrição
+                        </label>
+                        <input
+                           required
+                           type="text"
+                           placeholder="Ex: Cimento, Mão de obra, Material elétrico..."
+                           value={expenseFormData.description}
+                           onChange={e => setExpenseFormData({ ...expenseFormData, description: e.target.value })}
+                           className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-green-500 rounded-2xl outline-none transition-all font-bold text-white text-sm placeholder-slate-500"
+                        />
+                     </div>
+
+                     {/* Valor e Data */}
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                           <label className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                              Valor (R$)
+                           </label>
+                           <MoneyInput
+                              className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-green-500 rounded-2xl outline-none transition-all font-bold text-white text-sm"
+                              value={expenseFormData.value}
+                              onBlur={(val) => setExpenseFormData({ ...expenseFormData, value: val })}
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                              Data
+                           </label>
+                           <DateInput
+                              value={expenseFormData.date}
+                              onChange={(val) => setExpenseFormData({ ...expenseFormData, date: val })}
+                              className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-green-500 rounded-2xl outline-none transition-all font-bold text-white text-sm text-center"
+                              placeholder="DD/MM/AAAA"
+                           />
+                        </div>
+                     </div>
+
+                     {/* Anexo */}
+                     <div className="space-y-2">
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                           Anexo (opcional)
+                        </label>
+                        <AttachmentUpload
+                           value={expenseFormData.attachmentUrl}
+                           onChange={(url) => setExpenseFormData({ ...expenseFormData, attachmentUrl: url })}
+                        />
+                     </div>
+
+                     <button
+                        type="submit"
+                        className="w-full py-4 bg-green-600 text-white rounded-2xl hover:bg-green-700 transition shadow-lg shadow-green-600/30 font-black uppercase text-sm tracking-widest flex items-center justify-center gap-2"
+                     >
+                        <i className="fa-solid fa-check"></i>
+                        Lançar Despesa
                      </button>
                   </form>
                </div>

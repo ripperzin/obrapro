@@ -89,6 +89,7 @@ export interface Expense {
   date: string;
   userId: string;
   userName: string;
+  attachmentUrl?: string; // URL do anexo no Supabase Storage
 }
 
 export interface LogEntry {

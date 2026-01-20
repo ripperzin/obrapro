@@ -88,7 +88,10 @@ const App: React.FC = () => {
             saleValue: u.sale_value,
             saleDate: u.sale_date
           })),
-          expenses: p.expenses || [],
+          expenses: (p.expenses || []).map((e: any) => ({
+            ...e,
+            attachmentUrl: e.attachment_url
+          })),
           logs: (p.logs || []).map((l: any) => ({
             ...l,
             timestamp: l.timestamp,
@@ -220,25 +223,51 @@ const App: React.FC = () => {
     }
 
     // 4. Persistência de Despesas (se houver atualização)
-    if (updates.expenses) {
-      const expensesToUpsert = updates.expenses.map(e => ({
-        id: e.id,
-        project_id: projectId,
-        description: e.description,
-        value: e.value,
-        date: e.date,
-        user_id: e.userId,
-        user_name: e.userName
-      }));
+    if (updates.expenses !== undefined) {
+      // Buscar despesas atuais do projeto para comparar
+      const currentProject = projects.find(p => p.id === projectId);
+      const currentExpenseIds = currentProject?.expenses.map(e => e.id) || [];
+      const newExpenseIds = updates.expenses.map(e => e.id);
 
-      const { error: expError } = await supabase
-        .from('expenses')
-        .upsert(expensesToUpsert, { onConflict: 'id' });
+      // Identificar despesas que foram removidas
+      const deletedExpenseIds = currentExpenseIds.filter(id => !newExpenseIds.includes(id));
 
-      if (expError) {
-        alert('Erro ao salvar despesas: ' + expError.message);
-        console.error('Erro ao salvar despesas:', expError);
-        return;
+      // Deletar despesas removidas
+      if (deletedExpenseIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('expenses')
+          .delete()
+          .in('id', deletedExpenseIds);
+
+        if (deleteError) {
+          alert('Erro ao excluir despesas: ' + deleteError.message);
+          console.error('Erro ao excluir despesas:', deleteError);
+          return;
+        }
+      }
+
+      // Upsert das despesas restantes
+      if (updates.expenses.length > 0) {
+        const expensesToUpsert = updates.expenses.map(e => ({
+          id: e.id,
+          project_id: projectId,
+          description: e.description,
+          value: e.value,
+          date: e.date,
+          user_id: e.userId,
+          user_name: e.userName,
+          attachment_url: e.attachmentUrl
+        }));
+
+        const { error: expError } = await supabase
+          .from('expenses')
+          .upsert(expensesToUpsert, { onConflict: 'id' });
+
+        if (expError) {
+          alert('Erro ao salvar despesas: ' + expError.message);
+          console.error('Erro ao salvar despesas:', expError);
+          return;
+        }
       }
     }
 
@@ -362,6 +391,54 @@ const App: React.FC = () => {
     }
   };
 
+  // Função para adicionar despesa diretamente a um projeto (usada pelo botão rápido)
+  const addExpenseToProject = async (projectId: string, expense: Omit<Expense, 'id' | 'userId' | 'userName'>) => {
+    const newExpense: Expense = {
+      id: generateId(),
+      ...expense,
+      userId: currentUser?.id || '',
+      userName: currentUser?.login || 'Sistema'
+    };
+
+    // Inserir no Supabase
+    const { error } = await supabase.from('expenses').insert([{
+      id: newExpense.id,
+      project_id: projectId,
+      description: newExpense.description,
+      value: newExpense.value,
+      date: newExpense.date,
+      user_id: newExpense.userId,
+      user_name: newExpense.userName,
+      attachment_url: newExpense.attachmentUrl
+    }]);
+
+    if (error) {
+      alert('Erro ao adicionar despesa: ' + error.message);
+      console.error('Erro ao adicionar despesa:', error);
+      return;
+    }
+
+    // Atualizar estado local
+    setProjects(prev => prev.map(p => {
+      if (p.id === projectId) {
+        return { ...p, expenses: [...p.expenses, newExpense] };
+      }
+      return p;
+    }));
+
+    // Log da adição
+    await supabase.from('logs').insert([{
+      id: generateId(),
+      project_id: projectId,
+      user_id: currentUser?.id,
+      user_name: currentUser?.login,
+      action: 'Inclusão',
+      field: 'Despesa',
+      old_value: '-',
+      new_value: `${newExpense.description}: R$ ${newExpense.value.toFixed(2)}`
+    }]);
+  };
+
   const filteredProjects = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === UserRole.ADMIN) return projects;
@@ -442,10 +519,12 @@ const App: React.FC = () => {
           <GeneralDashboard
             projects={filteredProjects}
             userName={currentUser.login}
+            userId={currentUser.id}
             onSelectProject={setSelectedProjectId}
             onAddProject={addProject}
             onUpdate={updateProject}
             onDelete={deleteProject}
+            onAddExpense={addExpenseToProject}
             isAdmin={currentUser.role === UserRole.ADMIN}
           />
         )}

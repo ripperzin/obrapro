@@ -3,9 +3,11 @@ import React, { useState, useMemo } from 'react';
 import { Project, User, UserRole, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense } from '../types';
 import { PROGRESS_STAGES } from '../constants';
 import { formatCurrency, formatCurrencyAbbrev, generateId, calculateMonthsBetween } from '../utils';
+import { openAttachment } from '../utils/storage';
 import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import ConfirmModal from './ConfirmModal';
+import AttachmentUpload from './AttachmentUpload';
 
 interface ProjectDetailProps {
   project: Project;
@@ -854,7 +856,8 @@ const ExpensesSection: React.FC<{
   const [formData, setFormData] = useState({
     description: '',
     value: 0,
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    attachmentUrl: undefined as string | undefined
   });
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
 
@@ -915,25 +918,39 @@ const ExpensesSection: React.FC<{
 
       {/* Formulário Nova Despesa */}
       {showAdd && (
-        <form className="p-6 glass border border-slate-700 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4 animate-fade-in" onSubmit={(e) => { e.preventDefault(); onAddExpense(formData); setShowAdd(false); }}>
-          <div className="md:col-span-1 space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Descrição</label>
-            <input required onFocus={(e) => e.target.select()} className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white placeholder-slate-500" placeholder="Ex: Cimento, Pintor..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+        <form className="p-6 glass border border-slate-700 rounded-2xl space-y-4 animate-fade-in" onSubmit={(e) => { e.preventDefault(); onAddExpense(formData); setShowAdd(false); setFormData({ description: '', value: 0, date: new Date().toISOString().split('T')[0], attachmentUrl: undefined }); }}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-1 space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Descrição</label>
+              <input required onFocus={(e) => e.target.select()} className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white placeholder-slate-500" placeholder="Ex: Cimento, Pintor..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Valor (R$)</label>
+              <MoneyInput
+                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white"
+                value={formData.value}
+                onBlur={(val) => setFormData({ ...formData, value: val })}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Data</label>
+              <input required type="date" className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+            </div>
           </div>
+
+          {/* Campo de Anexo */}
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Valor (R$)</label>
-            <MoneyInput
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white"
-              value={formData.value}
-              onBlur={(val) => setFormData({ ...formData, value: val })}
+            <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Anexo (opcional)</label>
+            <AttachmentUpload
+              value={formData.attachmentUrl}
+              onChange={(url) => setFormData({ ...formData, attachmentUrl: url })}
             />
           </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Data</label>
-            <input required type="date" className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
-          </div>
-          <div className="flex gap-2 mt-auto">
-            <button type="submit" className="flex-1 py-3 bg-green-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-green-600/30">Salvar</button>
+
+          <div className="flex gap-2">
+            <button type="submit" className="flex-1 py-3 bg-green-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-green-600/30 flex items-center justify-center gap-2">
+              <i className="fa-solid fa-check"></i> Salvar
+            </button>
             <button type="button" onClick={() => setShowAdd(false)} className="w-12 bg-slate-800 text-slate-400 rounded-xl border border-slate-700 hover:text-red-400 transition"><i className="fa-solid fa-xmark"></i></button>
           </div>
         </form>
@@ -1011,11 +1028,23 @@ const ExpensesSection: React.FC<{
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 pt-4 border-t border-slate-700/50">
-                  <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[8px] font-black text-slate-400 border border-slate-600">
-                    {(exp.userName && exp.userName[0]) ? exp.userName[0].toUpperCase() : '-'}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-700/50">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[8px] font-black text-slate-400 border border-slate-600">
+                      {(exp.userName && exp.userName[0]) ? exp.userName[0].toUpperCase() : '-'}
+                    </div>
+                    <div className="text-xs text-slate-400 font-bold">{exp.userName || 'Sistema'}</div>
                   </div>
-                  <div className="text-xs text-slate-400 font-bold">{exp.userName || 'Sistema'}</div>
+                  {exp.attachmentUrl && (
+                    <button
+                      type="button"
+                      onClick={() => openAttachment(exp.attachmentUrl!)}
+                      className="flex items-center gap-2 px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition text-xs font-bold"
+                    >
+                      <i className="fa-solid fa-paperclip"></i>
+                      Ver Anexo
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -1033,6 +1062,7 @@ const ExpensesSection: React.FC<{
                 <th className="px-6 py-4">Data</th>
                 <th className="px-6 py-4">Descrição</th>
                 <th className="px-6 py-4">Autor</th>
+                <th className="px-6 py-4 text-center">Anexo</th>
                 <th className="px-6 py-4 text-right">Valor</th>
                 {isAdmin && <th className="px-6 py-4 text-center">Ações</th>}
               </tr>
@@ -1070,6 +1100,20 @@ const ExpensesSection: React.FC<{
                         </div>
                         <span className="text-slate-400 font-bold">{exp.userName || 'Sistema'}</span>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {exp.attachmentUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => openAttachment(exp.attachmentUrl!)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition text-xs font-bold"
+                        >
+                          <i className="fa-solid fa-paperclip"></i>
+                          Ver
+                        </button>
+                      ) : (
+                        <span className="text-slate-600 text-xs">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right w-40">
                       {isEditing ? (
