@@ -328,8 +328,23 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                   <i className="fa-solid fa-timeline text-blue-400"></i>
                   <span>Linha do Tempo</span>
                 </h3>
-                <div className="md:hidden text-[10px] text-slate-500 font-bold uppercase animate-pulse">
-                  Deslize <i className="fa-solid fa-arrow-right ml-1"></i>
+                <div className="flex items-center gap-3">
+                  {/* Investor Share Button */}
+                  <button
+                    onClick={() => {
+                      const investorUrl = `${window.location.origin}${window.location.pathname}#/investor/${project.id}`;
+                      navigator.clipboard.writeText(investorUrl);
+                      alert('Link copiado!\n\n' + investorUrl);
+                    }}
+                    className="px-3 py-1.5 bg-blue-600/20 border border-blue-500/40 text-blue-400 rounded-full text-xs font-bold hover:bg-blue-600 hover:text-white transition-all flex items-center gap-2"
+                    title="Copiar link para investidor"
+                  >
+                    <i className="fa-solid fa-share-nodes"></i>
+                    <span className="hidden md:inline">Compartilhar</span>
+                  </button>
+                  <div className="md:hidden text-[10px] text-slate-500 font-bold uppercase animate-pulse">
+                    Deslize <i className="fa-solid fa-arrow-right ml-1"></i>
+                  </div>
                 </div>
               </div>
 

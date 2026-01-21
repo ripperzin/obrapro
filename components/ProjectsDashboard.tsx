@@ -32,6 +32,8 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
 
   const [formData, setFormData] = useState({
     name: '',
+    startDate: '',
+    deliveryDate: '',
     unitCount: 0,
     totalArea: 0,
     expectedTotalCost: 0,
@@ -43,6 +45,8 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
     setEditingProject(null);
     setFormData({
       name: '',
+      startDate: '',
+      deliveryDate: '',
       unitCount: 0,
       totalArea: 0,
       expectedTotalCost: 0,
@@ -57,7 +61,9 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
     setEditingProject(project);
     setFormData({
       name: project.name,
-      unitCount: 0, // Campos de info apenas, idealmente não ditariam lógica se forem calculados
+      startDate: project.startDate || '',
+      deliveryDate: project.deliveryDate || '',
+      unitCount: 0,
       totalArea: 0,
       expectedTotalCost: 0,
       expectedTotalSales: 0,
@@ -81,7 +87,11 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingProject && onUpdate) {
-      onUpdate(editingProject.id, { name: formData.name }, `Nome da obra alterado para ${formData.name}`);
+      onUpdate(editingProject.id, {
+        name: formData.name,
+        startDate: formData.startDate || undefined,
+        deliveryDate: formData.deliveryDate || undefined
+      }, `Projeto atualizado: ${formData.name}`);
     } else {
       onAdd(formData);
     }
@@ -182,9 +192,15 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                   style={{ width: `${p.progress}%` }}
                 ></div>
               </div>
-              <div className="flex justify-between text-xs font-black text-slate-500 uppercase tracking-widest px-1">
-                <span>Início</span>
-                <span>Entrega</span>
+              <div className="flex justify-between text-xs font-bold text-slate-500 px-1">
+                <span className="flex flex-col items-start">
+                  <span className="text-[10px] uppercase tracking-widest text-slate-400">Início</span>
+                  <span className="text-slate-600">{p.startDate ? new Date(p.startDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
+                </span>
+                <span className="flex flex-col items-end">
+                  <span className="text-[10px] uppercase tracking-widest text-slate-400">Entrega</span>
+                  <span className="text-slate-600">{p.deliveryDate ? new Date(p.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
+                </span>
               </div>
             </div>
           ))}
@@ -202,8 +218,8 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                 <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-8 space-y-8">
-              <div className="space-y-3">
+            <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              <div className="space-y-2">
                 <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-4">Nome do Empreendimento</label>
                 <input
                   required
@@ -213,6 +229,26 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                   value={formData.name}
                   onChange={e => setFormData({ ...formData, name: e.target.value })}
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-4">Data de Início</label>
+                  <input
+                    type="date"
+                    className="w-full px-4 py-3 bg-white border-2 border-slate-200 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-slate-800 shadow-sm text-sm"
+                    value={formData.startDate}
+                    onChange={e => setFormData({ ...formData, startDate: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-4">Data de Entrega</label>
+                  <input
+                    type="date"
+                    className="w-full px-4 py-3 bg-white border-2 border-slate-200 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-slate-800 shadow-sm text-sm"
+                    value={formData.deliveryDate}
+                    onChange={e => setFormData({ ...formData, deliveryDate: e.target.value })}
+                  />
+                </div>
               </div>
               <div className="pt-2 flex gap-4">
                 <button

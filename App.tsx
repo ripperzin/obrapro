@@ -14,6 +14,14 @@ import ProjectDetail from './components/ProjectDetail';
 import GeneralDashboard from './components/GeneralDashboard';
 import UserManagement from './components/UserManagement';
 import MobileNav from './components/MobileNav';
+import InvestorView from './components/InvestorView';
+
+// Helper to parse investor route from hash
+const parseInvestorRoute = (): string | null => {
+  const hash = window.location.hash;
+  const match = hash.match(/^#\/investor\/([a-zA-Z0-9-]+)$/);
+  return match ? match[1] : null;
+};
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -24,6 +32,18 @@ const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>([INITIAL_ADMIN]);
   const [projects, setProjects] = useState<Project[]>([]);
   const isLoaded = useRef(false); // Flag de blindagem
+
+  // Investor Mode Route State
+  const [investorProjectId, setInvestorProjectId] = useState<string | null>(parseInvestorRoute());
+
+  // Listen for hash changes (investor mode)
+  useEffect(() => {
+    const handleHashChange = () => {
+      setInvestorProjectId(parseInvestorRoute());
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   // 1. Monitoramento de Sessão (Supabase Auth)
   useEffect(() => {
@@ -115,6 +135,8 @@ const App: React.FC = () => {
         const mappedProjects = projectsData.map((p: any) => ({
           ...p,
           id: p.id,
+          startDate: p.start_date || null,
+          deliveryDate: p.delivery_date || null,
           unitCount: p.unit_count || 0,
           totalArea: p.total_area || 0,
           expectedTotalCost: p.expected_total_cost || 0,
@@ -193,6 +215,8 @@ const App: React.FC = () => {
       .from('projects')
       .insert([{
         name: project.name,
+        start_date: project.startDate || null,
+        delivery_date: project.deliveryDate || null,
         unit_count: project.unitCount,
         total_area: project.totalArea,
         expected_total_cost: project.expectedTotalCost,
@@ -228,6 +252,8 @@ const App: React.FC = () => {
     // 1. Mapear campos básicos de camelCase para snake_case para o banco
     const supabaseUpdates: any = {};
     if (updates.name !== undefined) supabaseUpdates.name = updates.name;
+    if (updates.startDate !== undefined) supabaseUpdates.start_date = updates.startDate;
+    if (updates.deliveryDate !== undefined) supabaseUpdates.delivery_date = updates.deliveryDate;
     if (updates.progress !== undefined) supabaseUpdates.progress = updates.progress;
     if (updates.unitCount !== undefined) supabaseUpdates.unit_count = updates.unitCount;
     if (updates.totalArea !== undefined) supabaseUpdates.total_area = updates.totalArea;
@@ -591,6 +617,11 @@ const App: React.FC = () => {
     if (currentUser.role === UserRole.ADMIN) return projects;
     return projects.filter(p => currentUser.allowedProjectIds.includes(p.id));
   }, [projects, currentUser]);
+
+  // Investor Mode - Public route (no auth required)
+  if (investorProjectId) {
+    return <InvestorView projectId={investorProjectId} />;
+  }
 
   if (!currentUser) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;

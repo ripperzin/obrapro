@@ -131,6 +131,8 @@ export interface ProjectDocument {
 export interface Project {
   id: string;
   name: string;
+  startDate?: string;      // Data de início da obra (YYYY-MM-DD)
+  deliveryDate?: string;   // Data prevista de entrega (YYYY-MM-DD)
   unitCount: number;
   totalArea: number;
   expectedTotalCost: number;
