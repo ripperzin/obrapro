@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Project, ProgressStage, STAGE_NAMES } from '../types';
+import StageThumbnail from './StageThumbnail';
 
 interface ProjectsDashboardProps {
   projects: Project[];
@@ -114,9 +115,33 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
               className="bg-white rounded-[2.5rem] p-8 shadow-sm border-4 border-blue-600 hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer group relative overflow-hidden"
             >
               <div className="flex justify-between items-start mb-8 relative z-10">
-                <div className="bg-blue-50 text-blue-600 p-4 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm">
-                  <i className="fa-solid fa-building text-2xl"></i>
-                </div>
+                {/* Stage photo or icon - show the most recent stage photo */}
+                {(() => {
+                  // Get the most recent evidence (highest stage number that has photos)
+                  const evidencesWithPhotos = (p.stageEvidence || [])
+                    .filter(e => e.photos && e.photos.length > 0)
+                    .sort((a, b) => b.stage - a.stage);
+
+                  const latestEvidence = evidencesWithPhotos[0];
+                  const photo = latestEvidence?.photos?.[0];
+
+                  // Debug log
+                  console.log(`Project ${p.name}: stageEvidence=`, p.stageEvidence, 'photo=', photo);
+
+                  if (photo) {
+                    return (
+                      <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg border-2 border-blue-500/30 group-hover:border-blue-500 transition-colors">
+                        <StageThumbnail photoPath={photo} className="w-full h-full" />
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="bg-blue-50 text-blue-600 p-4 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm">
+                      <i className="fa-solid fa-building text-2xl"></i>
+                    </div>
+                  );
+                })()}
                 <div className="flex gap-2">
                   <span className="px-4 py-2 bg-slate-50 rounded-full text-xs font-black text-slate-600 border border-slate-100">
                     {p.progress}%

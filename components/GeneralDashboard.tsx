@@ -7,6 +7,7 @@ import ConfirmModal from './ConfirmModal';
 import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import AttachmentUpload from './AttachmentUpload';
+import StageThumbnail from './StageThumbnail';
 
 interface GeneralDashboardProps {
    projects: Project[];
@@ -340,9 +341,26 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                         className="glass rounded-2xl p-4 flex items-center gap-4 card-hover cursor-pointer active:scale-[0.98] transition-transform"
                      >
                         {/* Project Thumbnail */}
-                        <div className="w-16 h-16 bg-slate-700 rounded-xl flex items-center justify-center shrink-0">
-                           <i className="fa-solid fa-building text-2xl text-slate-400"></i>
-                        </div>
+                        {(() => {
+                           const evidencesWithPhotos = (p.stageEvidence || [])
+                              .filter(e => e.photos && e.photos.length > 0)
+                              .sort((a, b) => b.stage - a.stage);
+                           const latestEvidence = evidencesWithPhotos[0];
+                           const photo = latestEvidence?.photos?.[0];
+
+                           if (photo) {
+                              return (
+                                 <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 border-blue-500/30">
+                                    <StageThumbnail photoPath={photo} className="w-full h-full" />
+                                 </div>
+                              );
+                           }
+                           return (
+                              <div className="w-16 h-16 bg-slate-700 rounded-xl flex items-center justify-center shrink-0">
+                                 <i className="fa-solid fa-building text-2xl text-slate-400"></i>
+                              </div>
+                           );
+                        })()}
                         {/* Project Info */}
                         <div className="flex-1 min-w-0">
                            <p className="text-white font-bold truncate">{p.name}</p>
@@ -575,36 +593,50 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                               className="glass rounded-2xl overflow-hidden card-hover cursor-pointer group active:scale-[0.98] transition-all"
                            >
                               {/* Project Image Placeholder */}
-                              <div className="h-36 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center relative overflow-hidden">
-                                 <i className="fa-solid fa-city text-5xl text-slate-600 group-hover:scale-110 transition-transform"></i>
-                                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-                                 {/* Hover overlay */}
-                                 <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/20 transition-colors flex items-center justify-center">
-                                    <span className="text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                                       Ver Detalhes →
-                                    </span>
-                                 </div>
+                              {(() => {
+                                 const evidencesWithPhotos = (p.stageEvidence || [])
+                                    .filter(e => e.photos && e.photos.length > 0)
+                                    .sort((a, b) => b.stage - a.stage);
+                                 const latestEvidence = evidencesWithPhotos[0];
+                                 const photo = latestEvidence?.photos?.[0];
 
-                                 {/* Desktop Actions Overlay */}
-                                 {isAdmin && (
-                                    <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                       <button
-                                          onClick={(e) => openEditModal(e, p)}
-                                          className="w-8 h-8 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm text-blue-400 rounded-lg hover:bg-blue-600 hover:text-white transition shadow-lg border border-slate-700"
-                                          title="Editar Obra"
-                                       >
-                                          <i className="fa-solid fa-pen text-xs"></i>
-                                       </button>
-                                       <button
-                                          onClick={(e) => requestDelete(e, p.id)}
-                                          className="w-8 h-8 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm text-red-400 rounded-lg hover:bg-red-600 hover:text-white transition shadow-lg border border-slate-700"
-                                          title="Excluir Obra"
-                                       >
-                                          <i className="fa-solid fa-trash text-xs"></i>
-                                       </button>
+                                 return (
+                                    <div className="h-36 bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center relative overflow-hidden">
+                                       {photo ? (
+                                          <StageThumbnail photoPath={photo} className="w-full h-full" />
+                                       ) : (
+                                          <i className="fa-solid fa-city text-5xl text-slate-600 group-hover:scale-110 transition-transform"></i>
+                                       )}
+                                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                                       {/* Hover overlay */}
+                                       <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/20 transition-colors flex items-center justify-center">
+                                          <span className="text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                                             Ver Detalhes →
+                                          </span>
+                                       </div>
+
+                                       {/* Desktop Actions Overlay */}
+                                       {isAdmin && (
+                                          <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                             <button
+                                                onClick={(e) => openEditModal(e, p)}
+                                                className="w-8 h-8 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm text-blue-400 rounded-lg hover:bg-blue-600 hover:text-white transition shadow-lg border border-slate-700"
+                                                title="Editar Obra"
+                                             >
+                                                <i className="fa-solid fa-pen text-xs"></i>
+                                             </button>
+                                             <button
+                                                onClick={(e) => requestDelete(e, p.id)}
+                                                className="w-8 h-8 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm text-red-400 rounded-lg hover:bg-red-600 hover:text-white transition shadow-lg border border-slate-700"
+                                                title="Excluir Obra"
+                                             >
+                                                <i className="fa-solid fa-trash text-xs"></i>
+                                             </button>
+                                          </div>
+                                       )}
                                     </div>
-                                 )}
-                              </div>
+                                 );
+                              })()}
                               <div className="p-5">
                                  <p className="text-white font-bold text-lg truncate">{p.name}</p>
                                  <div className="flex items-center justify-between mt-2">
