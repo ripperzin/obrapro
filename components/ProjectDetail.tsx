@@ -71,24 +71,32 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
     const oldName = STAGE_NAMES[project.progress];
     const newName = STAGE_NAMES[newStage];
 
-    // Update progress
-    onUpdate(project.id, { progress: newStage }, `Progresso: ${oldName} -> ${newName}`);
+    // If going BACK to a previous stage, clear evidence from stages after the new stage
+    if (newStage < project.progress) {
+      const currentEvidences = project.stageEvidence || [];
+      // Keep only evidences for stages <= newStage
+      const filteredEvidences = currentEvidences.filter(e => e.stage <= newStage);
 
-    // If advanced, prompt for evidence of the COMPLETED stage (previous one)
-    // Only if previous stage > 0 (Planning doesn't usually need photo)
-    if (newStage > project.progress && project.progress > 0) {
-      const completedStage = project.progress;
-      const evidence = project.stageEvidence?.find(e => e.stage === completedStage);
-      setEvidenceModal({
-        isOpen: true,
-        stage: completedStage,
-        evidence
-      });
+      // Update progress AND clear future evidences
+      onUpdate(project.id, {
+        progress: newStage,
+        stageEvidence: filteredEvidences
+      }, `Retorno de etapa: ${oldName} -> ${newName} (evidências posteriores removidas)`);
     } else {
-      // Option to add evidence for the NEW stage?
-      // Let's also check if the user clicked the CURRENT stage? No, logic prevents it.
-      // If clicking a future stage? It sets it as current. 
-      // Logic above handles "Advance".
+      // Going forward - normal behavior
+      onUpdate(project.id, { progress: newStage }, `Progresso: ${oldName} -> ${newName}`);
+
+      // If advanced, prompt for evidence of the COMPLETED stage (previous one)
+      // Only if previous stage > 0 (Planning doesn't usually need photo)
+      if (newStage > project.progress && project.progress > 0) {
+        const completedStage = project.progress;
+        const evidence = project.stageEvidence?.find(e => e.stage === completedStage);
+        setEvidenceModal({
+          isOpen: true,
+          stage: completedStage,
+          evidence
+        });
+      }
     }
   };
 
@@ -321,20 +329,41 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                   {PROGRESS_STAGES.map(stage => {
                     const isCompleted = project.progress >= stage;
                     const isCurrent = project.progress === stage;
+                    const isPast = project.progress > stage;
                     const evidence = project.stageEvidence?.find(e => e.stage === stage);
                     const photo = evidence?.photos?.[0]; // Pega a primeira foto
+                    const stageDate = evidence?.date ? new Date(evidence.date).toLocaleDateString('pt-BR') : null;
 
                     return (
                       <div key={stage} className="flex flex-col items-center gap-3 relative group">
 
+                        {/* Tooltip com nome e data da etapa - aparece no hover */}
+                        <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-center font-bold px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-30 border border-slate-600 shadow-xl pointer-events-none">
+                          <p className="text-[10px] uppercase tracking-wider">{STAGE_NAMES[stage]}</p>
+                          {stageDate && (
+                            <p className="text-[9px] text-blue-400 mt-0.5">
+                              <i className="fa-solid fa-calendar-check mr-1"></i>{stageDate}
+                            </p>
+                          )}
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                        </div>
+
                         <button
                           disabled={false}
                           onClick={() => {
-                            if (stage <= project.progress) {
-                              if (setEvidenceModal) {
+                            if (isCurrent) {
+                              // Current stage - open evidence modal
+                              setEvidenceModal({ isOpen: true, stage, evidence });
+                            } else if (isPast) {
+                              // Past stage - ask if want to go back or view evidence
+                              const goBack = window.confirm(`Deseja voltar para a etapa "${STAGE_NAMES[stage]}"?\n\nClique "OK" para voltar, ou "Cancelar" para ver as fotos.`);
+                              if (goBack) {
+                                handleStageChange(stage);
+                              } else {
                                 setEvidenceModal({ isOpen: true, stage, evidence });
                               }
                             } else {
+                              // Future stage - advance to it
                               handleStageChange(stage);
                             }
                           }}
@@ -353,25 +382,45 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                             </div>
                           )}
 
-                          {/* Overlay de Check se concluído sem foto ou com foto */}
+                          {/* Overlay - shows camera for current/past, shows arrow for going back */}
                           {isCompleted && (
                             <div className="absolute inset-0 bg-blue-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <i className="fa-solid fa-camera text-white drop-shadow-md"></i>
+                              {isPast ? (
+                                <i className="fa-solid fa-rotate-left text-white drop-shadow-md"></i>
+                              ) : (
+                                <i className="fa-solid fa-camera text-white drop-shadow-md"></i>
+                              )}
                             </div>
                           )}
                         </button>
 
-                        {/* Label */}
-                        <div className={`text-center transition-colors ${isCurrent ? 'scale-110' : ''}`}>
-                          <p className={`text-[10px] font-black uppercase tracking-wider mb-0.5 ${isCurrent ? 'text-blue-400' : isCompleted ? 'text-slate-300' : 'text-slate-600'}`}>
-                            {STAGE_NAMES[stage]}
-                          </p>
-                          {evidence && (
-                            <div className="inline-flex items-center gap-1 bg-green-500/10 px-1.5 py-0.5 rounded text-[8px] font-bold text-green-400 border border-green-500/20">
-                              <i className="fa-solid fa-check"></i> Foto
+                        {/* Label - Only show name and date for current stage */}
+                        {isCurrent ? (
+                          <div className="text-center transition-colors scale-110">
+                            <p className="text-[10px] font-black uppercase tracking-wider mb-0.5 text-blue-400">
+                              {STAGE_NAMES[stage]}
+                            </p>
+                            {stageDate && (
+                              <p className="text-[9px] text-slate-400 mb-1">
+                                <i className="fa-solid fa-calendar-check mr-1 text-blue-400"></i>{stageDate}
+                              </p>
+                            )}
+                            {evidence && (
+                              <div className="inline-flex items-center gap-1 bg-green-500/10 px-1.5 py-0.5 rounded text-[8px] font-bold text-green-400 border border-green-500/20">
+                                <i className="fa-solid fa-check"></i> Foto
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          /* For non-current stages, only show check badge if has evidence */
+                          evidence && (
+                            <div className="text-center">
+                              <div className="inline-flex items-center gap-1 bg-green-500/10 px-1.5 py-0.5 rounded text-[8px] font-bold text-green-400 border border-green-500/20">
+                                <i className="fa-solid fa-check"></i>
+                              </div>
                             </div>
-                          )}
-                        </div>
+                          )
+                        )}
 
                         {/* Check comemorativo fixo (bolinha pequena) */}
                         {isCompleted && !isCurrent && (
