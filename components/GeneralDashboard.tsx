@@ -52,7 +52,9 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
       totalArea: 0,
       expectedTotalCost: 0,
       expectedTotalSales: 0,
-      progress: ProgressStage.PLANNING
+      progress: ProgressStage.PLANNING,
+      startDate: '',
+      deliveryDate: ''
    });
 
    const unitsInventory = projects.reduce((acc, p) => {
@@ -146,7 +148,9 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
          totalArea: 0,
          expectedTotalCost: 0,
          expectedTotalSales: 0,
-         progress: project.progress
+         progress: project.progress,
+         startDate: project.startDate || '',
+         deliveryDate: project.deliveryDate || ''
       });
       setShowModal(true);
    };
@@ -159,7 +163,9 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
          totalArea: 0,
          expectedTotalCost: 0,
          expectedTotalSales: 0,
-         progress: ProgressStage.PLANNING
+         progress: ProgressStage.PLANNING,
+         startDate: '',
+         deliveryDate: ''
       });
       setShowModal(true);
    };
@@ -168,7 +174,12 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
       e.preventDefault();
 
       if (editingProject && onUpdate) {
-         onUpdate(editingProject.id, { name: formData.name }, `Nome da obra alterado para ${formData.name}`);
+         const updates: Partial<Project> = {
+            name: formData.name,
+            startDate: formData.startDate || undefined,
+            deliveryDate: formData.deliveryDate || undefined
+         };
+         onUpdate(editingProject.id, updates, `Obra atualizada: ${formData.name}`);
       } else if (onAddProject) {
          onAddProject(formData);
       }
@@ -687,6 +698,32 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                            value={formData.name}
                            onChange={e => setFormData({ ...formData, name: e.target.value })}
                         />
+                     </div>
+
+                     {/* Campos de Data */}
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                           <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-4">
+                              Data Início
+                           </label>
+                           <input
+                              type="date"
+                              className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none transition-all font-medium text-white text-sm"
+                              value={formData.startDate}
+                              onChange={e => setFormData({ ...formData, startDate: e.target.value })}
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-4">
+                              Previsão Entrega
+                           </label>
+                           <input
+                              type="date"
+                              className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none transition-all font-medium text-white text-sm"
+                              value={formData.deliveryDate}
+                              onChange={e => setFormData({ ...formData, deliveryDate: e.target.value })}
+                           />
+                        </div>
                      </div>
                      <button
                         type="submit"
