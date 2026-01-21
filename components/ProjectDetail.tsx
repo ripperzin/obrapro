@@ -10,6 +10,8 @@ import ConfirmModal from './ConfirmModal';
 import AttachmentUpload from './AttachmentUpload';
 import DocumentsSection from './DocumentsSection';
 import DiarySection from './DiarySection';
+import StageEvidenceModal from './StageEvidenceModal';
+import StageThumbnail from './StageThumbnail';
 
 interface ProjectDetailProps {
   project: Project;
@@ -21,6 +23,7 @@ interface ProjectDetailProps {
 const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, onDeleteUnit }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'documents' | 'diary' | 'logs'>('info');
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
+  const [evidenceModal, setEvidenceModal] = useState<{ isOpen: boolean; stage: number; evidence?: any }>({ isOpen: false, stage: 0 });
 
   const isAdmin = user.role === UserRole.ADMIN;
   const canSeeUnits = user.canSeeUnits || isAdmin;
@@ -67,7 +70,43 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
     if (newStage === project.progress) return;
     const oldName = STAGE_NAMES[project.progress];
     const newName = STAGE_NAMES[newStage];
+
+    // Update progress
     onUpdate(project.id, { progress: newStage }, `Progresso: ${oldName} -> ${newName}`);
+
+    // If advanced, prompt for evidence of the COMPLETED stage (previous one)
+    // Only if previous stage > 0 (Planning doesn't usually need photo)
+    if (newStage > project.progress && project.progress > 0) {
+      const completedStage = project.progress;
+      const evidence = project.stageEvidence?.find(e => e.stage === completedStage);
+      setEvidenceModal({
+        isOpen: true,
+        stage: completedStage,
+        evidence
+      });
+    } else {
+      // Option to add evidence for the NEW stage?
+      // Let's also check if the user clicked the CURRENT stage? No, logic prevents it.
+      // If clicking a future stage? It sets it as current. 
+      // Logic above handles "Advance".
+    }
+  };
+
+  const handleSaveEvidence = async (photos: string[], notes: string) => {
+    const { stage } = evidenceModal;
+    const currentEvidences = project.stageEvidence || [];
+    const otherEvidences = currentEvidences.filter(e => e.stage !== stage);
+
+    const newEvidence = {
+      stage,
+      photos,
+      notes,
+      date: new Date().toISOString().split('T')[0],
+      user: user.login
+    };
+
+    const updatedEvidences = [...otherEvidences, newEvidence];
+    await onUpdate(project.id, { stageEvidence: updatedEvidences }, `Evidência de etapa: ${STAGE_NAMES[stage]}`);
   };
 
   const handleAddUnit = async (unit: Omit<Unit, 'id'>): Promise<void> => {
@@ -224,79 +263,124 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
         {/* ===== ABA GESTÃO - Redesign Premium ===== */}
         {activeTab === 'info' && (
           <div className="animate-fade-in space-y-8">
-            {/* Cronograma de Obra - Opção F: Stepper Dots */}
-            <div className="glass rounded-2xl p-4 md:p-6 border border-slate-700">
-              <div className="flex items-center justify-between mb-4">
+
+            {/* HERÓI MOBILE: Etapa Atual em Destaque */}
+            <div className="md:hidden glass rounded-3xl overflow-hidden relative aspect-video shadow-2xl border border-slate-700">
+              {(() => {
+                const currEvidence = project.stageEvidence?.find(e => e.stage === project.progress);
+                const photo = currEvidence?.photos?.[0];
+                const stageName = STAGE_NAMES[project.progress];
+
+                return (
+                  <>
+                    {photo ? (
+                      <StageThumbnail photoPath={photo} className="absolute inset-0 w-full h-full object-cover opacity-60" />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-900 to-slate-900 opacity-80"></div>
+                    )}
+
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
+
+                    <div className="absolute bottom-0 left-0 p-6 w-full">
+                      <div className="bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded inline-block mb-2">
+                        Etapa Atual
+                      </div>
+                      <h2 className="text-3xl font-black text-white leading-tight mb-1">{stageName}</h2>
+                      <p className="text-slate-300 text-xs font-bold">{project.progress}% Concluído</p>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Cronograma de Obra - Opção Visual com Fotos */}
+            <div className="glass rounded-2xl p-4 md:p-6 border border-slate-700 overflow-x-auto">
+              <div className="flex items-center justify-between mb-8 sticky left-0">
                 <h3 className="font-black text-white text-xs md:text-sm uppercase tracking-widest flex items-center gap-2">
                   <i className="fa-solid fa-timeline text-blue-400"></i>
-                  <span className="hidden sm:inline">Cronograma</span>
-                  <span className="sm:hidden">Progresso</span>
+                  <span>Linha do Tempo</span>
                 </h3>
-                <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1.5 rounded-full font-black text-[10px] shadow-lg">
-                  {project.progress}%
+                <div className="md:hidden text-[10px] text-slate-500 font-bold uppercase animate-pulse">
+                  Deslize <i className="fa-solid fa-arrow-right ml-1"></i>
                 </div>
               </div>
 
-              {/* Etapa Atual em Destaque */}
-              {(() => {
-                const currentStage = project.progress;
-                const currentStageName = STAGE_NAMES[currentStage] || 'Planejamento';
-                const isCompleted = currentStage === 100;
-                const nextStages = PROGRESS_STAGES.filter(s => s > currentStage);
-
-                return (
-                  <div className="text-center mb-4">
-                    <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">
-                      {isCompleted ? '🏆 OBRA CONCLUÍDA' : '🔨 ETAPA ATUAL'}
-                    </div>
-                    <div className={`text-lg md:text-xl font-black ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
-                      {currentStageName}
-                    </div>
-                    {!isCompleted && nextStages.length > 0 && (
-                      <div className="text-[10px] text-orange-400 mt-1">
-                        Falta: {nextStages.slice(0, 2).map(s => STAGE_NAMES[s].split(' ')[0]).join(', ')}
-                        {nextStages.length > 2 && ` +${nextStages.length - 2}`}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* Stepper Dots */}
-              <div className="relative py-3">
+              {/* Stepper Visual Fotos */}
+              <div className="relative py-4 min-w-[800px] px-10">
                 {/* Linha de fundo */}
-                <div className="absolute top-1/2 left-0 right-0 h-[3px] bg-slate-700 rounded-full -translate-y-1/2"></div>
+                <div className="absolute top-1/2 left-0 right-0 h-[4px] bg-slate-800 rounded-full -translate-y-1/2 z-0"></div>
+
                 {/* Linha de progresso */}
                 <div
-                  className="absolute top-1/2 left-0 h-[3px] rounded-full -translate-y-1/2 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500"
+                  className="absolute top-1/2 left-0 h-[4px] rounded-full -translate-y-1/2 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-1000 z-0"
                   style={{ width: `${project.progress}%` }}
                 ></div>
 
-                {/* Dots */}
-                <div className="relative flex justify-between">
+                {/* Dots com Fotos */}
+                <div className="relative flex justify-between items-center z-10 w-full">
                   {PROGRESS_STAGES.map(stage => {
                     const isCompleted = project.progress >= stage;
                     const isCurrent = project.progress === stage;
+                    const evidence = project.stageEvidence?.find(e => e.stage === stage);
+                    const photo = evidence?.photos?.[0]; // Pega a primeira foto
 
                     return (
-                      <button
-                        key={stage}
-                        disabled={!isAdmin && stage < project.progress}
-                        onClick={() => handleStageChange(stage)}
-                        className="group"
-                        title={STAGE_NAMES[stage]}
-                      >
-                        <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full flex items-center justify-center transition-all ${isCompleted
-                          ? isCurrent
-                            ? 'bg-orange-500 ring-2 ring-orange-400/50 scale-125'
-                            : 'bg-gradient-to-br from-blue-500 to-purple-500'
-                          : 'bg-slate-700 border border-slate-600'
-                          } group-hover:scale-110`}>
-                          {isCompleted && !isCurrent && (
-                            <i className="fa-solid fa-check text-white text-[6px] md:text-[8px]"></i>
+                      <div key={stage} className="flex flex-col items-center gap-3 relative group">
+
+                        <button
+                          disabled={false}
+                          onClick={() => {
+                            if (stage <= project.progress) {
+                              if (setEvidenceModal) {
+                                setEvidenceModal({ isOpen: true, stage, evidence });
+                              }
+                            } else {
+                              handleStageChange(stage);
+                            }
+                          }}
+                          className={`relative rounded-full transition-all duration-300 flex items-center justify-center overflow-hidden border-4 shadow-xl ${isCurrent
+                            ? 'w-20 h-20 ring-4 ring-blue-500/30 border-blue-500 scale-110'
+                            : isCompleted
+                              ? 'w-14 h-14 border-blue-500/50 hover:border-blue-400 opacity-100'
+                              : 'w-14 h-14 border-slate-700 bg-slate-800 opacity-60 grayscale'
+                            }`}
+                        >
+                          {photo ? (
+                            <StageThumbnail photoPath={photo} className="w-full h-full" />
+                          ) : (
+                            <div className={`w-full h-full flex items-center justify-center ${isCompleted ? 'bg-slate-700' : 'bg-slate-800'}`}>
+                              <i className={`fa-solid ${STAGE_ICONS[stage]} ${isCompleted ? 'text-blue-400' : 'text-slate-600'} text-lg`}></i>
+                            </div>
+                          )}
+
+                          {/* Overlay de Check se concluído sem foto ou com foto */}
+                          {isCompleted && (
+                            <div className="absolute inset-0 bg-blue-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <i className="fa-solid fa-camera text-white drop-shadow-md"></i>
+                            </div>
+                          )}
+                        </button>
+
+                        {/* Label */}
+                        <div className={`text-center transition-colors ${isCurrent ? 'scale-110' : ''}`}>
+                          <p className={`text-[10px] font-black uppercase tracking-wider mb-0.5 ${isCurrent ? 'text-blue-400' : isCompleted ? 'text-slate-300' : 'text-slate-600'}`}>
+                            {STAGE_NAMES[stage]}
+                          </p>
+                          {evidence && (
+                            <div className="inline-flex items-center gap-1 bg-green-500/10 px-1.5 py-0.5 rounded text-[8px] font-bold text-green-400 border border-green-500/20">
+                              <i className="fa-solid fa-check"></i> Foto
+                            </div>
                           )}
                         </div>
-                      </button>
+
+                        {/* Check comemorativo fixo (bolinha pequena) */}
+                        {isCompleted && !isCurrent && (
+                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-slate-900 flex items-center justify-center text-white text-[10px] shadow-lg z-20">
+                            <i className="fa-solid fa-check"></i>
+                          </div>
+                        )}
+
+                      </div>
                     );
                   })}
                 </div>
@@ -599,6 +683,15 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
           </div>
         )}
       </div>
+
+      {/* Evidence Modal */}
+      <StageEvidenceModal
+        isOpen={evidenceModal.isOpen}
+        onClose={() => setEvidenceModal({ ...evidenceModal, isOpen: false })}
+        stage={evidenceModal.stage}
+        evidence={evidenceModal.evidence}
+        onSave={handleSaveEvidence}
+      />
     </div>
   );
 };

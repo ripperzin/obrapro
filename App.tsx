@@ -78,8 +78,10 @@ const App: React.FC = () => {
         // Buscar Diário separadamente para evitar erro de agregação do PostgREST
         const projectIds = projectsData.map((p: any) => p.id);
         let diaryMap: Record<string, any[]> = {};
+        let evidenceMap: Record<string, any[]> = {};
 
         if (projectIds.length > 0) {
+          // Buscar Diário
           const { data: diaryData, error: diaryError } = await supabase
             .from('diary_entries')
             .select('*')
@@ -91,6 +93,21 @@ const App: React.FC = () => {
             diaryData.forEach((d: any) => {
               if (!diaryMap[d.project_id]) diaryMap[d.project_id] = [];
               diaryMap[d.project_id].push(d);
+            });
+          }
+
+          // Buscar Evidências
+          const { data: evidenceData, error: evidenceError } = await supabase
+            .from('stage_evidences')
+            .select('*')
+            .in('project_id', projectIds);
+
+          if (evidenceError) console.error('Erro ao buscar evidências:', evidenceError);
+
+          if (evidenceData) {
+            evidenceData.forEach((e: any) => {
+              if (!evidenceMap[e.project_id]) evidenceMap[e.project_id] = [];
+              evidenceMap[e.project_id].push(e);
             });
           }
         }
@@ -135,6 +152,13 @@ const App: React.FC = () => {
             photos: d.photos || [],
             author: d.author,
             createdAt: d.created_at
+          })),
+          stageEvidence: (evidenceMap && evidenceMap[p.id] || []).map((e: any) => ({
+            stage: e.stage,
+            photos: e.photos || [],
+            date: e.date,
+            notes: e.notes,
+            user: e.user_name
           }))
         }));
         setProjects(mappedProjects);
@@ -397,7 +421,27 @@ const App: React.FC = () => {
       }
     }
 
-    // 8. Atualização do estado local
+    // 8. Persistência de Evidências de Etapas
+    if (updates.stageEvidence) {
+      if (updates.stageEvidence.length > 0) {
+        const evidencesToUpsert = updates.stageEvidence.map(e => ({
+          project_id: projectId,
+          stage: e.stage,
+          photos: e.photos,
+          notes: e.notes,
+          user_name: e.user,
+          date: e.date
+        }));
+
+        const { error: stageError } = await supabase
+          .from('stage_evidences')
+          .upsert(evidencesToUpsert, { onConflict: 'project_id, stage' });
+
+        if (stageError) console.error('Erro ao salvar evidências:', stageError);
+      }
+    }
+
+    // 9. Atualização do estado local
     setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...updates } : p));
 
     // 7. Log adicional opcional
