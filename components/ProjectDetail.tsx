@@ -83,24 +83,20 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
         stageEvidence: filteredEvidences
       }, `Retorno de etapa: ${oldName} -> ${newName} (evidências posteriores removidas)`);
     } else {
-      // Going forward - normal behavior
+      // Going forward - update progress
       onUpdate(project.id, { progress: newStage }, `Progresso: ${oldName} -> ${newName}`);
 
-      // If advanced, prompt for evidence of the COMPLETED stage (previous one)
-      // Only if previous stage > 0 (Planning doesn't usually need photo)
-      if (newStage > project.progress && project.progress > 0) {
-        const completedStage = project.progress;
-        const evidence = project.stageEvidence?.find(e => e.stage === completedStage);
-        setEvidenceModal({
-          isOpen: true,
-          stage: completedStage,
-          evidence
-        });
-      }
+      // Prompt for evidence of the NEW CURRENT stage (the one we just advanced to)
+      const evidence = project.stageEvidence?.find(e => e.stage === newStage);
+      setEvidenceModal({
+        isOpen: true,
+        stage: newStage,
+        evidence
+      });
     }
   };
 
-  const handleSaveEvidence = async (photos: string[], notes: string) => {
+  const handleSaveEvidence = async (photos: string[], notes: string, date: string) => {
     const { stage } = evidenceModal;
     const currentEvidences = project.stageEvidence || [];
     const otherEvidences = currentEvidences.filter(e => e.stage !== stage);
@@ -109,7 +105,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
       stage,
       photos,
       notes,
-      date: new Date().toISOString().split('T')[0],
+      date: date || new Date().toISOString().split('T')[0],
       user: user.login
     };
 
@@ -272,12 +268,19 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
         {activeTab === 'info' && (
           <div className="animate-fade-in space-y-8">
 
-            {/* HERÓI MOBILE: Etapa Atual em Destaque */}
-            <div className="md:hidden glass rounded-3xl overflow-hidden relative aspect-video shadow-2xl border border-slate-700">
+            {/* HERÓI MOBILE: Etapa Atual em Destaque - Clicável */}
+            <button
+              onClick={() => {
+                const currEvidence = project.stageEvidence?.find(e => e.stage === project.progress);
+                setEvidenceModal({ isOpen: true, stage: project.progress, evidence: currEvidence });
+              }}
+              className="md:hidden glass rounded-3xl overflow-hidden relative aspect-video shadow-2xl border border-slate-700 w-full text-left group"
+            >
               {(() => {
                 const currEvidence = project.stageEvidence?.find(e => e.stage === project.progress);
                 const photo = currEvidence?.photos?.[0];
                 const stageName = STAGE_NAMES[project.progress];
+                const stageDate = currEvidence?.date ? new Date(currEvidence.date).toLocaleDateString('pt-BR') : null;
 
                 return (
                   <>
@@ -289,17 +292,34 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
 
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
 
+                    {/* Edit indicator on hover */}
+                    <div className="absolute top-4 right-4 w-10 h-10 rounded-full bg-blue-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <i className="fa-solid fa-pen text-white text-sm"></i>
+                    </div>
+
                     <div className="absolute bottom-0 left-0 p-6 w-full">
                       <div className="bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded inline-block mb-2">
                         Etapa Atual
                       </div>
                       <h2 className="text-3xl font-black text-white leading-tight mb-1">{stageName}</h2>
-                      <p className="text-slate-300 text-xs font-bold">{project.progress}% Concluído</p>
+                      <div className="flex items-center gap-4">
+                        <p className="text-slate-300 text-xs font-bold">{project.progress}% Concluído</p>
+                        {stageDate && (
+                          <p className="text-blue-400 text-xs font-bold">
+                            <i className="fa-solid fa-calendar-check mr-1"></i>{stageDate}
+                          </p>
+                        )}
+                      </div>
+                      {currEvidence?.photos && currEvidence.photos.length > 0 && (
+                        <div className="inline-flex items-center gap-1 bg-green-500/30 px-2 py-1 rounded-full text-[10px] font-bold text-green-300 border border-green-500/40 mt-2">
+                          <i className="fa-solid fa-image"></i> {currEvidence.photos.length} foto{currEvidence.photos.length > 1 ? 's' : ''}
+                        </div>
+                      )}
                     </div>
                   </>
                 );
               })()}
-            </div>
+            </button>
 
             {/* Cronograma de Obra - Opção Visual com Fotos */}
             <div className="glass rounded-2xl p-4 md:p-6 border border-slate-700 overflow-x-auto">
@@ -335,9 +355,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                     const stageDate = evidence?.date ? new Date(evidence.date).toLocaleDateString('pt-BR') : null;
 
                     return (
-                      <div key={stage} className="flex flex-col items-center gap-3 relative group">
+                      <div key={stage} className="flex flex-col items-center gap-2 relative group">
 
-                        {/* Tooltip com nome e data da etapa - aparece no hover */}
+                        {/* Tooltip com nome e data da etapa - aparece no hover (para todas etapas) */}
                         <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-center font-bold px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-30 border border-slate-600 shadow-xl pointer-events-none">
                           <p className="text-[10px] uppercase tracking-wider">{STAGE_NAMES[stage]}</p>
                           {stageDate && (
@@ -352,7 +372,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                           disabled={false}
                           onClick={() => {
                             if (isCurrent) {
-                              // Current stage - open evidence modal
+                              // Current stage - open evidence modal for editing
                               setEvidenceModal({ isOpen: true, stage, evidence });
                             } else if (isPast) {
                               // Past stage - ask if want to go back or view evidence
@@ -368,63 +388,53 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                             }
                           }}
                           className={`relative rounded-full transition-all duration-300 flex items-center justify-center overflow-hidden border-4 shadow-xl ${isCurrent
-                            ? 'w-20 h-20 ring-4 ring-blue-500/30 border-blue-500 scale-110'
+                            ? 'w-24 h-24 ring-4 ring-blue-500/40 border-blue-500 scale-110'
                             : isCompleted
-                              ? 'w-14 h-14 border-blue-500/50 hover:border-blue-400 opacity-100'
-                              : 'w-14 h-14 border-slate-700 bg-slate-800 opacity-60 grayscale'
+                              ? 'w-12 h-12 border-blue-500/50 hover:border-blue-400 opacity-90'
+                              : 'w-12 h-12 border-slate-700 bg-slate-800 opacity-50 grayscale'
                             }`}
                         >
                           {photo ? (
                             <StageThumbnail photoPath={photo} className="w-full h-full" />
                           ) : (
                             <div className={`w-full h-full flex items-center justify-center ${isCompleted ? 'bg-slate-700' : 'bg-slate-800'}`}>
-                              <i className={`fa-solid ${STAGE_ICONS[stage]} ${isCompleted ? 'text-blue-400' : 'text-slate-600'} text-lg`}></i>
+                              <i className={`fa-solid ${STAGE_ICONS[stage]} ${isCurrent ? 'text-blue-400 text-xl' : isCompleted ? 'text-blue-400 text-sm' : 'text-slate-600 text-sm'}`}></i>
                             </div>
                           )}
 
-                          {/* Overlay - shows camera for current/past, shows arrow for going back */}
+                          {/* Overlay - shows camera for current, arrow for past */}
                           {isCompleted && (
                             <div className="absolute inset-0 bg-blue-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                               {isPast ? (
                                 <i className="fa-solid fa-rotate-left text-white drop-shadow-md"></i>
                               ) : (
-                                <i className="fa-solid fa-camera text-white drop-shadow-md"></i>
+                                <i className="fa-solid fa-camera text-white text-lg drop-shadow-md"></i>
                               )}
                             </div>
                           )}
                         </button>
 
-                        {/* Label - Only show name and date for current stage */}
-                        {isCurrent ? (
-                          <div className="text-center transition-colors scale-110">
-                            <p className="text-[10px] font-black uppercase tracking-wider mb-0.5 text-blue-400">
+                        {/* Label - ONLY show for current stage with name and date */}
+                        {isCurrent && (
+                          <div className="text-center min-w-max">
+                            <p className="text-[11px] font-black uppercase tracking-wider text-blue-400 mb-0.5">
                               {STAGE_NAMES[stage]}
                             </p>
-                            {stageDate && (
-                              <p className="text-[9px] text-slate-400 mb-1">
-                                <i className="fa-solid fa-calendar-check mr-1 text-blue-400"></i>{stageDate}
-                              </p>
-                            )}
-                            {evidence && (
-                              <div className="inline-flex items-center gap-1 bg-green-500/10 px-1.5 py-0.5 rounded text-[8px] font-bold text-green-400 border border-green-500/20">
-                                <i className="fa-solid fa-check"></i> Foto
+                            <p className="text-[10px] text-slate-300 font-bold">
+                              <i className="fa-solid fa-calendar-check mr-1 text-blue-400"></i>
+                              {stageDate || new Date().toLocaleDateString('pt-BR')}
+                            </p>
+                            {evidence?.photos && evidence.photos.length > 0 && (
+                              <div className="inline-flex items-center gap-1 bg-green-500/20 px-2 py-0.5 rounded-full text-[8px] font-bold text-green-400 border border-green-500/30 mt-1">
+                                <i className="fa-solid fa-image"></i> {evidence.photos.length}
                               </div>
                             )}
                           </div>
-                        ) : (
-                          /* For non-current stages, only show check badge if has evidence */
-                          evidence && (
-                            <div className="text-center">
-                              <div className="inline-flex items-center gap-1 bg-green-500/10 px-1.5 py-0.5 rounded text-[8px] font-bold text-green-400 border border-green-500/20">
-                                <i className="fa-solid fa-check"></i>
-                              </div>
-                            </div>
-                          )
                         )}
 
-                        {/* Check comemorativo fixo (bolinha pequena) */}
+                        {/* Check icon for completed stages (not current) */}
                         {isCompleted && !isCurrent && (
-                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-slate-900 flex items-center justify-center text-white text-[10px] shadow-lg z-20">
+                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900 flex items-center justify-center text-white text-[8px] shadow-lg z-20">
                             <i className="fa-solid fa-check"></i>
                           </div>
                         )}

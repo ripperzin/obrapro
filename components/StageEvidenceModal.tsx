@@ -9,7 +9,7 @@ interface StageEvidenceModalProps {
     onClose: () => void;
     stage: ProgressStage;
     evidence?: StageEvidence;
-    onSave: (photos: string[], notes: string) => Promise<void>;
+    onSave: (photos: string[], notes: string, date: string) => Promise<void>;
     readOnly?: boolean;
 }
 
@@ -24,15 +24,18 @@ const StageEvidenceModal: React.FC<StageEvidenceModalProps> = ({
     const [photos, setPhotos] = useState<string[]>([]);
     const [photoUrls, setPhotoUrls] = useState<{ [key: string]: string }>({});
     const [notes, setNotes] = useState('');
+    const [stageDate, setStageDate] = useState(new Date().toISOString().split('T')[0]);
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (evidence) {
             setPhotos(evidence.photos || []);
             setNotes(evidence.notes || '');
+            setStageDate(evidence.date || new Date().toISOString().split('T')[0]);
         } else {
             setPhotos([]);
             setNotes('');
+            setStageDate(new Date().toISOString().split('T')[0]);
         }
     }, [evidence, isOpen]);
 
@@ -80,7 +83,7 @@ const StageEvidenceModal: React.FC<StageEvidenceModalProps> = ({
     const handleSave = async () => {
         setSaving(true);
         try {
-            await onSave(photos, notes);
+            await onSave(photos, notes, stageDate);
             onClose();
         } catch (err) {
             console.error(err);
@@ -188,6 +191,20 @@ const StageEvidenceModal: React.FC<StageEvidenceModalProps> = ({
                         {photos.length === 0 && readOnly && (
                             <p className="text-slate-500 text-sm italic">Nenhuma foto anexada.</p>
                         )}
+                    </div>
+
+                    {/* Date Field */}
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">
+                            <i className="fa-solid fa-calendar-check mr-2 text-blue-400"></i>Data da Etapa
+                        </label>
+                        <input
+                            type="date"
+                            disabled={readOnly}
+                            value={stageDate}
+                            onChange={e => setStageDate(e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm focus:border-blue-500 outline-none"
+                        />
                     </div>
 
                     {/* Notes */}
