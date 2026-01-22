@@ -70,6 +70,37 @@ export default defineConfig(({ mode }) => {
                 expiration: {
                   maxEntries: 50,
                   maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            },
+            {
+              urlPattern: /^https:\/\/cdn\.tailwindcss\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'tailwind-cache',
+                expiration: {
+                  maxEntries: 10,
+                  maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            },
+            {
+              urlPattern: /^https:\/\/esm\.sh\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'esm-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
                 }
               }
             }
