@@ -43,14 +43,21 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
     useEffect(() => {
         const fetchProject = async () => {
             try {
-                // Fetch project data
+                // Validate projectId format (UUID)
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                if (!projectId || !uuidRegex.test(projectId)) {
+                    throw new Error(`ID de projeto inválido: ${projectId}`);
+                }
+
+                // Fetch project data - using maybeSingle to avoid "Cannot coerce" error
                 const { data: projectData, error: projectError } = await supabase
                     .from('projects')
                     .select('*')
                     .eq('id', projectId)
-                    .single();
+                    .maybeSingle();
 
                 if (projectError) throw projectError;
+                if (!projectData) throw new Error('Projeto não encontrado no banco de dados');
 
                 // Fetch units
                 const { data: unitsData } = await supabase
