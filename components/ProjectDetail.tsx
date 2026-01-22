@@ -1,6 +1,5 @@
-
-import React, { useState, useMemo } from 'react';
-import { Project, User, UserRole, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Project, User, UserRole, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense, ProjectMacro, ProjectSubMacro } from '../types';
 import { PROGRESS_STAGES } from '../constants';
 import { formatCurrency, formatCurrencyAbbrev, generateId, calculateMonthsBetween } from '../utils';
 import { openAttachment } from '../utils/storage';
@@ -12,16 +11,19 @@ import DocumentsSection from './DocumentsSection';
 import DiarySection from './DiarySection';
 import StageEvidenceModal from './StageEvidenceModal';
 import StageThumbnail from './StageThumbnail';
+import BudgetSection from './BudgetSection';
+import { supabase } from '../supabaseClient';
 
 interface ProjectDetailProps {
   project: Project;
   user: User;
   onUpdate: (id: string, updates: Partial<Project>, logMsg?: string) => Promise<void>;
   onDeleteUnit: (projectId: string, unitId: string) => void;
+  onRefresh?: () => Promise<void>;
 }
 
-const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, onDeleteUnit }) => {
-  const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'documents' | 'diary' | 'logs'>('info');
+const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, onDeleteUnit, onRefresh }) => {
+  const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'budget' | 'documents' | 'diary' | 'logs'>('info');
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [evidenceModal, setEvidenceModal] = useState<{ isOpen: boolean; stage: number; evidence?: any }>({ isOpen: false, stage: 0 });
 
@@ -226,13 +228,14 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
       <div className="glass rounded-3xl p-8">
         {/* Navegação de Abas - Dark Theme */}
         <div className="flex flex-wrap gap-3 mb-10 w-full justify-center">
-          {['info', 'units', 'expenses', 'documents', 'diary', 'logs'].map((tab) => {
+          {['info', 'units', 'expenses', 'budget', 'documents', 'diary', 'logs'].map((tab) => {
             if (tab === 'units' && !canSeeUnits) return null;
 
             const labels: Record<string, string> = {
               info: 'Gestão',
               units: 'Unidades',
               expenses: 'Despesas',
+              budget: 'Orçamento',
               documents: 'Documentos',
               diary: 'Diário',
               logs: 'Auditoria'
@@ -242,6 +245,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               info: 'fa-gauge-high',
               units: 'fa-house-user',
               expenses: 'fa-wallet',
+              budget: 'fa-chart-pie',
               documents: 'fa-folder-open',
               diary: 'fa-book-open',
               logs: 'fa-fingerprint'
@@ -651,6 +655,17 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               onUpdate={(expenses) => onUpdate(project.id, { expenses })}
               logChange={logChange}
               onDeleteExpense={onDeleteExpense}
+            />
+          </div>
+        )}
+
+        {/* ===== ABA ORÇAMENTO (MACRO-DESPESAS) ===== */}
+        {activeTab === 'budget' && (
+          <div className="animate-fade-in">
+            <BudgetSection
+              project={project}
+              isAdmin={isAdmin}
+              onBudgetUpdate={onRefresh}
             />
           </div>
         )}
@@ -1086,19 +1101,104 @@ const ExpensesSection: React.FC<{
     description: '',
     value: 0,
     date: new Date().toISOString().split('T')[0],
-    attachmentUrl: undefined as string | undefined
+    attachmentUrl: undefined as string | undefined,
+    macroId: undefined as string | undefined,
+    subMacroId: undefined as string | undefined
   });
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
+  const [projectMacros, setProjectMacros] = useState<ProjectMacro[]>([]);
+  const [projectSubMacros, setProjectSubMacros] = useState<ProjectSubMacro[]>([]);
+
+  // Ordenar despesas: Mais recentes primeiro (Ordem Cronológica Inversa)
+  // O usuário pediu "cronológica", mas em finanças geralmente isso significa ver o mais recente no topo.
+  // Se quiserem o inverso (1..N), basta inverter a subtração.
+  const sortedExpenses = useMemo(() => {
+    return [...project.expenses].sort((a, b) => {
+      // Ordena por data (decrescente)
+      const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      // Se data igual, ordena por nome
+      return a.description.localeCompare(b.description);
+    });
+  }, [project.expenses]);
+
+  // Buscar macros do projeto
+  useEffect(() => {
+    const fetchMacros = async () => {
+      try {
+        // Buscar budget do projeto
+        const { data: budgetData } = await supabase
+          .from('project_budgets')
+          .select('id')
+          .eq('project_id', project.id)
+          .single();
+
+        if (budgetData) {
+          const { data: macrosData } = await supabase
+            .from('project_macros')
+            .select('*')
+            .eq('budget_id', budgetData.id)
+            .order('display_order');
+
+          if (macrosData) {
+            setProjectMacros(macrosData.map(m => ({
+              id: m.id,
+              budgetId: m.budget_id,
+              name: m.name,
+              percentage: m.percentage,
+              estimatedValue: m.estimated_value,
+              spentValue: m.spent_value || 0,
+              displayOrder: m.display_order
+            })));
+
+            // Buscar sub-macros
+            const macroIds = macrosData.map(m => m.id);
+            if (macroIds.length > 0) {
+              const { data: subMacrosData } = await supabase
+                .from('project_sub_macros')
+                .select('*')
+                .in('project_macro_id', macroIds)
+                .order('display_order');
+
+              if (subMacrosData) {
+                setProjectSubMacros(subMacrosData.map(sm => ({
+                  id: sm.id,
+                  projectMacroId: sm.project_macro_id,
+                  name: sm.name,
+                  percentage: sm.percentage,
+                  estimatedValue: sm.estimated_value,
+                  spentValue: sm.spent_value || 0,
+                  displayOrder: sm.display_order
+                })));
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao buscar macros:', error);
+      }
+    };
+    fetchMacros();
+  }, [project.id]);
 
   const isAdmin = user.role === UserRole.ADMIN;
 
-  const handleEditExpense = (expId: string, field: 'value' | 'date' | 'description', newVal: any) => {
+  const handleEditExpense = (expId: string, field: 'value' | 'date' | 'description' | 'macroId' | 'subMacroId', newVal: any) => {
     if (!isAdmin) return;
     const oldExp = project.expenses.find(e => e.id === expId)!;
-    const oldVal = String(oldExp[field as keyof Expense]);
+    const oldVal = String(oldExp[field as keyof Expense] || '');
     const updatedExpenses = project.expenses.map(e => e.id === expId ? { ...e, [field]: newVal } : e);
+
+    // Se mudar a macro, limpar a sub-macro
+    if (field === 'macroId') {
+      const expIndex = updatedExpenses.findIndex(e => e.id === expId);
+      updatedExpenses[expIndex].subMacroId = undefined;
+    }
+
     onUpdate(updatedExpenses);
-    logChange('Alteração', `Despesa ${oldExp.description} - ${field}`, oldVal, String(newVal));
+    if (field !== 'macroId' && field !== 'subMacroId') {
+      logChange('Alteração', `Despesa ${oldExp.description} - ${field}`, oldVal, String(newVal));
+    }
   };
 
   return (
@@ -1147,7 +1247,7 @@ const ExpensesSection: React.FC<{
 
       {/* Formulário Nova Despesa */}
       {showAdd && (
-        <form className="p-6 glass border border-slate-700 rounded-2xl space-y-4 animate-fade-in" onSubmit={(e) => { e.preventDefault(); onAddExpense(formData); setShowAdd(false); setFormData({ description: '', value: 0, date: new Date().toISOString().split('T')[0], attachmentUrl: undefined }); }}>
+        <form className="p-6 glass border border-slate-700 rounded-2xl space-y-4 animate-fade-in" onSubmit={(e) => { e.preventDefault(); onAddExpense(formData); setShowAdd(false); setFormData({ description: '', value: 0, date: new Date().toISOString().split('T')[0], attachmentUrl: undefined, macroId: undefined }); }}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-1 space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Descrição</label>
@@ -1166,6 +1266,46 @@ const ExpensesSection: React.FC<{
               <input required type="date" className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
             </div>
           </div>
+
+          {/* Campo de Categoria (Macro) */}
+          {projectMacros.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Categoria</label>
+              <select
+                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white"
+                value={formData.macroId || ''}
+                onChange={e => setFormData({ ...formData, macroId: e.target.value || undefined, subMacroId: undefined })}
+              >
+                <option value="">Selecione uma categoria (opcional)</option>
+                {projectMacros.map(macro => (
+                  <option key={macro.id} value={macro.id}>
+                    {macro.name} ({macro.percentage}%)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Campo de Sub-Categoria (Sub-Macro) - Cascata */}
+          {formData.macroId && projectSubMacros.some(sm => sm.projectMacroId === formData.macroId) && (
+            <div className="space-y-2 animate-fade-in">
+              <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Detalhe / Sub-tópico</label>
+              <select
+                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white"
+                value={formData.subMacroId || ''}
+                onChange={e => setFormData({ ...formData, subMacroId: e.target.value || undefined })}
+              >
+                <option value="">Selecione um detalhe (opcional)</option>
+                {projectSubMacros
+                  .filter(sm => sm.projectMacroId === formData.macroId)
+                  .map(sub => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name} ({sub.percentage}%)
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
 
           {/* Campo de Anexo */}
           <div className="space-y-2">
@@ -1189,7 +1329,7 @@ const ExpensesSection: React.FC<{
       <div className="space-y-4">
         {/* Mobile: Lista de Cards */}
         <div className="md:hidden space-y-3">
-          {project.expenses.map((exp) => {
+          {sortedExpenses.map((exp) => {
             const isEditing = editingExpenseId === exp.id;
             return (
               <div key={exp.id} className={`glass rounded-2xl p-6 border transition-all ${isEditing ? 'border-orange-500' : 'border-slate-700'}`}>
@@ -1288,20 +1428,21 @@ const ExpensesSection: React.FC<{
           <table className="w-full text-left text-sm border-collapse">
             <thead className="bg-slate-800 border-b border-slate-700 text-slate-400 font-black uppercase text-[10px] tracking-widest">
               <tr>
-                <th className="px-6 py-4">Data</th>
-                <th className="px-6 py-4">Descrição</th>
-                <th className="px-6 py-4">Autor</th>
-                <th className="px-6 py-4 text-center">Anexo</th>
-                <th className="px-6 py-4 text-right">Valor</th>
-                {isAdmin && <th className="px-6 py-4 text-center">Ações</th>}
+                <th className="px-4 py-4">Data</th>
+                <th className="px-4 py-4">Descrição</th>
+                <th className="px-4 py-4">Categoria</th>
+                <th className="px-4 py-4">Detalhe</th>
+                <th className="px-4 py-4">Autor</th>
+                <th className="px-4 py-4 text-right">Valor</th>
+                {isAdmin && <th className="px-4 py-4 text-center">Ações</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {project.expenses.map((exp) => {
+              {sortedExpenses.map((exp) => {
                 const isEditing = editingExpenseId === exp.id;
                 return (
                   <tr key={exp.id} className="hover:bg-slate-800/50 transition">
-                    <td className="px-6 py-4 w-40">
+                    <td className="px-4 py-4 w-36">
                       {isEditing ? (
                         <DateInput
                           className="p-2 bg-slate-700 border border-slate-600 rounded-lg text-xs outline-none focus:border-blue-500 font-bold text-white w-28 text-center"
@@ -1312,7 +1453,7 @@ const ExpensesSection: React.FC<{
                         <span className="font-bold text-slate-300">{new Date(exp.date).toLocaleDateString('pt-BR')}</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 font-bold text-white">
+                    <td className="px-4 py-4 font-bold text-white">
                       {isEditing ? (
                         <input
                           onFocus={(e) => e.target.select()}
@@ -1322,29 +1463,55 @@ const ExpensesSection: React.FC<{
                         />
                       ) : exp.description}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-600">
-                          {(exp.userName && exp.userName[0]) ? exp.userName[0].toUpperCase() : '-'}
-                        </div>
-                        <span className="text-slate-400 font-bold">{exp.userName || 'Sistema'}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      {exp.attachmentUrl ? (
-                        <button
-                          type="button"
-                          onClick={() => openAttachment(exp.attachmentUrl!)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition text-xs font-bold"
+                    <td className="px-4 py-4">
+                      {isEditing && projectMacros.length > 0 ? (
+                        <select
+                          className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs font-bold text-white w-full outline-none"
+                          value={exp.macroId || ''}
+                          onChange={(e) => handleEditExpense(exp.id, 'macroId' as any, e.target.value || null)}
                         >
-                          <i className="fa-solid fa-paperclip"></i>
-                          Ver
-                        </button>
+                          <option value="">Sem categoria</option>
+                          {projectMacros.map(m => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </select>
                       ) : (
-                        <span className="text-slate-600 text-xs">—</span>
+                        <span className="text-xs font-bold text-blue-400">
+                          {projectMacros.find(m => m.id === exp.macroId)?.name || <span className="text-slate-600">—</span>}
+                        </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-right w-40">
+
+                    <td className="px-4 py-4">
+                      {/* Coluna Detalhe (Sub-Macro) */}
+                      {isEditing && exp.macroId && projectSubMacros.some(sm => sm.projectMacroId === exp.macroId) ? (
+                        <select
+                          className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs font-bold text-white w-full outline-none"
+                          value={exp.subMacroId || ''}
+                          onChange={(e) => handleEditExpense(exp.id, 'subMacroId' as any, e.target.value || null)}
+                        >
+                          <option value="">Sem detalhe</option>
+                          {projectSubMacros
+                            .filter(sm => sm.projectMacroId === exp.macroId)
+                            .map(sm => (
+                              <option key={sm.id} value={sm.id}>{sm.name}</option>
+                            ))}
+                        </select>
+                      ) : (
+                        <span className="text-xs font-bold text-slate-500">
+                          {projectSubMacros.find(sm => sm.id === exp.subMacroId)?.name || <span className="text-slate-700 opacity-50">—</span>}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center text-[9px] font-black text-slate-400 border border-slate-600">
+                          {(exp.userName && exp.userName[0]) ? exp.userName[0].toUpperCase() : '-'}
+                        </div>
+                        <span className="text-slate-400 font-bold text-xs">{exp.userName || 'Sistema'}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-right w-36">
                       {isEditing ? (
                         <MoneyInput
                           className="p-2 bg-slate-700 border border-slate-600 rounded-lg text-xs text-right w-28 outline-none focus:border-blue-500 font-bold text-green-400"
@@ -1355,26 +1522,38 @@ const ExpensesSection: React.FC<{
                         <span className="font-bold text-green-400">{formatCurrency(exp.value)}</span>
                       )}
                     </td>
-                    {isAdmin && (
-                      <td className="px-6 py-4 text-center w-32">
-                        <div className="flex items-center justify-center gap-2">
-                          {isEditing ? (
-                            <button onClick={() => setEditingExpenseId(null)} className="w-8 h-8 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white transition flex items-center justify-center">
-                              <i className="fa-solid fa-check"></i>
-                            </button>
-                          ) : (
-                            <>
-                              <button onClick={() => setEditingExpenseId(exp.id)} className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:bg-blue-600 hover:text-white transition border border-slate-700 flex items-center justify-center">
-                                <i className="fa-solid fa-pen-to-square"></i>
+                    {
+                      isAdmin && (
+                        <td className="px-4 py-4 text-center w-36">
+                          <div className="flex items-center justify-center gap-1">
+                            {exp.attachmentUrl && (
+                              <button
+                                type="button"
+                                onClick={() => openAttachment(exp.attachmentUrl!)}
+                                className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white transition flex items-center justify-center"
+                                title="Ver Anexo"
+                              >
+                                <i className="fa-solid fa-paperclip"></i>
                               </button>
-                              <button onClick={() => setExpenseToDelete(exp.id)} className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:bg-red-400 hover:text-white transition border border-slate-700 flex items-center justify-center">
-                                <i className="fa-solid fa-trash-can"></i>
+                            )}
+                            {isEditing ? (
+                              <button onClick={() => setEditingExpenseId(null)} className="w-8 h-8 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white transition flex items-center justify-center">
+                                <i className="fa-solid fa-check"></i>
                               </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    )}
+                            ) : (
+                              <>
+                                <button onClick={() => setEditingExpenseId(exp.id)} className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:bg-blue-600 hover:text-white transition border border-slate-700 flex items-center justify-center">
+                                  <i className="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button onClick={() => setExpenseToDelete(exp.id)} className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:bg-red-400 hover:text-white transition border border-slate-700 flex items-center justify-center">
+                                  <i className="fa-solid fa-trash-can"></i>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      )
+                    }
                   </tr>
                 );
               })}
@@ -1382,7 +1561,7 @@ const ExpensesSection: React.FC<{
           </table>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 

@@ -78,13 +78,12 @@ const App: React.FC = () => {
   }, [session]);
 
   // 3. Busca de Dados do Banco (Supabase)
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!session?.user) return;
+  const fetchData = async () => {
+    if (!session?.user) return;
 
-      const { data: projectsData, error: projectsError } = await supabase
-        .from('projects')
-        .select(`
+    const { data: projectsData, error: projectsError } = await supabase
+      .from('projects')
+      .select(`
           *,
           units (*),
           expenses (*),
@@ -92,104 +91,111 @@ const App: React.FC = () => {
           documents (*)
         `);
 
-      if (projectsError) {
-        console.error('Erro ao buscar projetos:', projectsError);
-      } else if (projectsData) {
-        // Buscar Diário separadamente para evitar erro de agregação do PostgREST
-        const projectIds = projectsData.map((p: any) => p.id);
-        let diaryMap: Record<string, any[]> = {};
-        let evidenceMap: Record<string, any[]> = {};
+    if (projectsError) {
+      console.error('Erro ao buscar projetos:', projectsError);
+    } else if (projectsData) {
+      // Buscar Diário separadamente para evitar erro de agregação do PostgREST
+      const projectIds = projectsData.map((p: any) => p.id);
+      let diaryMap: Record<string, any[]> = {};
+      let evidenceMap: Record<string, any[]> = {};
 
-        if (projectIds.length > 0) {
-          // Buscar Diário
-          const { data: diaryData, error: diaryError } = await supabase
-            .from('diary_entries')
-            .select('*')
-            .in('project_id', projectIds);
+      if (projectIds.length > 0) {
+        // Buscar Diário
+        const { data: diaryData, error: diaryError } = await supabase
+          .from('diary_entries')
+          .select('*')
+          .in('project_id', projectIds);
 
-          if (diaryError) console.error('Erro ao buscar diário:', diaryError);
+        if (diaryError) console.error('Erro ao buscar diário:', diaryError);
 
-          if (diaryData) {
-            diaryData.forEach((d: any) => {
-              if (!diaryMap[d.project_id]) diaryMap[d.project_id] = [];
-              diaryMap[d.project_id].push(d);
-            });
-          }
-
-          // Buscar Evidências
-          const { data: evidenceData, error: evidenceError } = await supabase
-            .from('stage_evidences')
-            .select('*')
-            .in('project_id', projectIds);
-
-          if (evidenceError) console.error('Erro ao buscar evidências:', evidenceError);
-
-          if (evidenceData) {
-            evidenceData.forEach((e: any) => {
-              if (!evidenceMap[e.project_id]) evidenceMap[e.project_id] = [];
-              evidenceMap[e.project_id].push(e);
-            });
-          }
+        if (diaryData) {
+          diaryData.forEach((d: any) => {
+            if (!diaryMap[d.project_id]) diaryMap[d.project_id] = [];
+            diaryMap[d.project_id].push(d);
+          });
         }
 
-        const mappedProjects = projectsData.map((p: any) => ({
-          ...p,
-          id: p.id,
-          startDate: p.start_date || null,
-          deliveryDate: p.delivery_date || null,
-          unitCount: p.unit_count || 0,
-          totalArea: p.total_area || 0,
-          expectedTotalCost: p.expected_total_cost || 0,
-          expectedTotalSales: p.expected_total_sales || 0,
-          progress: p.progress || 0,
-          units: (p.units || []).map((u: any) => ({
-            ...u,
-            valorEstimadoVenda: u.valor_estimado_venda || 0,
-            saleValue: u.sale_value,
-            saleDate: u.sale_date
-          })),
-          expenses: (p.expenses || []).map((e: any) => ({
-            ...e,
-            attachmentUrl: e.attachment_url
-          })),
-          logs: (p.logs || []).map((l: any) => ({
-            ...l,
-            timestamp: l.timestamp,
-            userId: l.user_id,
-            userName: l.user_name,
-            oldValue: l.old_value,
-            newValue: l.new_value
-          })),
-          documents: (p.documents || []).map((d: any) => ({
-            id: d.id,
-            title: d.title,
-            category: d.category,
-            url: d.url,
-            createdAt: d.created_at
-          })),
-          diary: (diaryMap[p.id] || []).map((d: any) => ({
-            id: d.id,
-            date: d.date,
-            content: d.content,
-            photos: d.photos || [],
-            author: d.author,
-            createdAt: d.created_at
-          })),
-          stageEvidence: (evidenceMap && evidenceMap[p.id] || []).map((e: any) => ({
-            stage: e.stage,
-            photos: e.photos || [],
-            date: e.date,
-            notes: e.notes,
-            user: e.user_name
-          }))
-        }));
-        setProjects(mappedProjects);
-      }
-      isLoaded.current = true;
-    };
+        // Buscar Evidências
+        const { data: evidenceData, error: evidenceError } = await supabase
+          .from('stage_evidences')
+          .select('*')
+          .in('project_id', projectIds);
 
+        if (evidenceError) console.error('Erro ao buscar evidências:', evidenceError);
+
+        if (evidenceData) {
+          evidenceData.forEach((e: any) => {
+            if (!evidenceMap[e.project_id]) evidenceMap[e.project_id] = [];
+            evidenceMap[e.project_id].push(e);
+          });
+        }
+      }
+
+      const mappedProjects = projectsData.map((p: any) => ({
+        ...p,
+        id: p.id,
+        startDate: p.start_date || null,
+        deliveryDate: p.delivery_date || null,
+        unitCount: p.unit_count || 0,
+        totalArea: p.total_area || 0,
+        expectedTotalCost: p.expected_total_cost || 0,
+        expectedTotalSales: p.expected_total_sales || 0,
+        progress: p.progress || 0,
+        units: (p.units || []).map((u: any) => ({
+          ...u,
+          valorEstimadoVenda: u.valor_estimado_venda || 0,
+          saleValue: u.sale_value,
+          saleDate: u.sale_date
+        })),
+        expenses: (p.expenses || []).map((e: any) => ({
+          ...e,
+          attachmentUrl: e.attachment_url,
+          macroId: e.macro_id,
+          subMacroId: e.sub_macro_id
+        })),
+        logs: (p.logs || []).map((l: any) => ({
+          ...l,
+          timestamp: l.timestamp,
+          userId: l.user_id,
+          userName: l.user_name,
+          oldValue: l.old_value,
+          newValue: l.new_value
+        })),
+        documents: (p.documents || []).map((d: any) => ({
+          id: d.id,
+          title: d.title,
+          category: d.category,
+          url: d.url,
+          createdAt: d.created_at
+        })),
+        diary: (diaryMap[p.id] || []).map((d: any) => ({
+          id: d.id,
+          date: d.date,
+          content: d.content,
+          photos: d.photos || [],
+          author: d.author,
+          createdAt: d.created_at
+        })),
+        stageEvidence: (evidenceMap && evidenceMap[p.id] || []).map((e: any) => ({
+          stage: e.stage,
+          photos: e.photos || [],
+          date: e.date,
+          notes: e.notes,
+          user: e.user_name
+        }))
+      }));
+      setProjects(mappedProjects);
+    }
+    isLoaded.current = true;
+  };
+
+  useEffect(() => {
     fetchData();
   }, [session]);
+
+  const refreshProject = async () => {
+    await fetchData();
+  };
 
   // Salvamento condicional apenas para usuários locais (opcional/legado)
   useEffect(() => {
@@ -342,7 +348,9 @@ const App: React.FC = () => {
           date: e.date,
           user_id: e.userId,
           user_name: e.userName,
-          attachment_url: e.attachmentUrl
+          attachment_url: e.attachmentUrl,
+          macro_id: e.macroId || null,
+          sub_macro_id: e.subMacroId || null
         }));
 
         const { error: expError } = await supabase
@@ -582,7 +590,9 @@ const App: React.FC = () => {
       date: newExpense.date,
       user_id: newExpense.userId,
       user_name: newExpense.userName,
-      attachment_url: newExpense.attachmentUrl
+      attachment_url: newExpense.attachmentUrl,
+      macro_id: newExpense.macroId || null,
+      sub_macro_id: newExpense.subMacroId || null
     }]);
 
     if (error) {
@@ -680,6 +690,7 @@ const App: React.FC = () => {
               user={currentUser}
               onUpdate={updateProject}
               onDeleteUnit={deleteUnit}
+              onRefresh={refreshProject}
             />
           ) : (
             <ProjectsDashboard
@@ -713,6 +724,7 @@ const App: React.FC = () => {
             user={currentUser}
             onUpdate={updateProject}
             onDeleteUnit={deleteUnit}
+            onRefresh={refreshProject}
           />
         )}
 

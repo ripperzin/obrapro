@@ -82,6 +82,69 @@ export interface Unit {
   saleDate?: string;
 }
 
+// =====================================================
+// SISTEMA DE ORÇAMENTO E MACRO-DESPESAS
+// =====================================================
+
+export interface CostTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  isDefault: boolean;
+  createdBy?: string;
+}
+
+export interface TemplateMacro {
+  id: string;
+  templateId: string;
+  name: string;
+  percentage: number;
+  materialsHint?: string;
+  laborHint?: string;
+  displayOrder: number;
+}
+
+export interface ProjectBudget {
+  id: string;
+  projectId: string;
+  totalEstimated: number;
+  templateId?: string;
+  createdAt?: string;
+}
+
+export interface ProjectMacro {
+  id: string;
+  budgetId: string;
+  name: string;
+  percentage: number;
+  estimatedValue: number;
+  spentValue: number;
+  displayOrder: number;
+}
+
+export interface TemplateSubMacro {
+  id: string;
+  macroId: string;
+  name: string;
+  percentage: number;
+  description?: string;
+  displayOrder: number;
+}
+
+export interface ProjectSubMacro {
+  id: string;
+  projectMacroId: string;
+  name: string;
+  percentage: number;
+  estimatedValue: number;
+  spentValue: number;
+  displayOrder: number;
+}
+
+// =====================================================
+// DESPESAS E LOGS
+// =====================================================
+
 export interface Expense {
   id: string;
   description: string;
@@ -89,7 +152,9 @@ export interface Expense {
   date: string;
   userId: string;
   userName: string;
-  attachmentUrl?: string; // URL do anexo no Supabase Storage
+  attachmentUrl?: string;
+  macroId?: string;
+  subMacroId?: string;
 }
 
 export interface LogEntry {
@@ -144,4 +209,5 @@ export interface Project {
   documents: ProjectDocument[];
   diary: DiaryEntry[];
   stageEvidence: StageEvidence[];
+  budget?: ProjectBudget & { macros: ProjectMacro[] }; // Orçamento com macros
 }
