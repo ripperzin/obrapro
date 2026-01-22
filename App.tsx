@@ -15,6 +15,9 @@ import GeneralDashboard from './components/GeneralDashboard';
 import UserManagement from './components/UserManagement';
 import MobileNav from './components/MobileNav';
 import InvestorView from './components/InvestorView';
+import VoiceAssistant from './components/VoiceAssistant';
+import QuickExpenseModal from './components/QuickExpenseModal';
+import QuickDiaryModal from './components/QuickDiaryModal';
 
 // Helper to parse investor route from hash
 const parseInvestorRoute = (): string | null => {
@@ -622,6 +625,91 @@ const App: React.FC = () => {
     }]);
   };
 
+  // --- Voice Assistant Integration ---
+  const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
+  const [isQuickDiaryOpen, setIsQuickDiaryOpen] = useState(false);
+  const [voiceInitialData, setVoiceInitialData] = useState<any>({});
+
+  const handleVoiceNavigate = (tab: string) => {
+    if (tab === 'projects') {
+      setActiveTab('projects');
+      setSelectedProjectId(null);
+    } else if (tab === 'general') {
+      setActiveTab('general');
+      setSelectedProjectId(null);
+    } else if (tab === 'users') {
+      setActiveTab('users');
+    }
+  };
+
+  const handleVoiceAction = (action: string, data?: any) => {
+    console.log('Voice Action:', action, data);
+
+    if (action === 'ADD_EXPENSE') {
+      // Data comes from VoiceAssistant containing estimatedValue and description
+      setVoiceInitialData({
+        description: data?.description || data?.text || '',
+        value: data?.estimatedValue || 0,
+        originalText: data?.text || ''
+      });
+      setIsQuickExpenseOpen(true);
+    } else if (action === 'ADD_DIARY') {
+      setVoiceInitialData({});
+      setIsQuickDiaryOpen(true);
+    }
+  };
+
+  const handleSaveQuickDiary = async (projectId: string, entry: any) => {
+    const newEntry = {
+      id: generateId(),
+      project_id: projectId,
+      date: entry.date,
+      content: entry.content,
+      photos: entry.photos || [],
+      author: entry.author || currentUser?.login || 'Voz',
+      user_id: currentUser?.id,
+      created_at: new Date().toISOString()
+    };
+
+    // Update Supabase
+    const { error } = await supabase.from('diary_entries').insert([newEntry]);
+
+    if (error) {
+      console.error('Erro ao salvar diário:', error);
+      alert('Erro ao salvar diário');
+      return;
+    }
+
+    // Update Local State
+    setProjects(prev => prev.map(p => {
+      if (p.id === projectId) {
+        // Convert to local format
+        const localEntry = {
+          id: newEntry.id,
+          date: newEntry.date,
+          content: newEntry.content,
+          photos: newEntry.photos,
+          author: newEntry.author,
+          createdAt: newEntry.created_at
+        };
+        return { ...p, diary: [...p.diary, localEntry] };
+      }
+      return p;
+    }));
+
+    // Log
+    await supabase.from('logs').insert([{
+      id: generateId(),
+      project_id: projectId,
+      user_id: currentUser?.id,
+      user_name: currentUser?.login,
+      action: 'Inclusão',
+      field: 'Diário (Voz)',
+      old_value: '-',
+      new_value: 'Novo registro via voz'
+    }]);
+  };
+
   const filteredProjects = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === UserRole.ADMIN) return projects;
@@ -743,6 +831,31 @@ const App: React.FC = () => {
         activeTab={activeTab}
         setActiveTab={(tab) => { setActiveTab(tab); setSelectedProjectId(null); }}
         onLogout={logout}
+      />
+
+      {/* Voice Assistant & Global Modals */}
+      <VoiceAssistant
+        onNavigate={handleVoiceNavigate}
+        onAction={handleVoiceAction}
+      />
+
+      <QuickExpenseModal
+        isOpen={isQuickExpenseOpen}
+        onClose={() => setIsQuickExpenseOpen(false)}
+        projects={filteredProjects}
+        preSelectedProjectId={selectedProjectId}
+        onSave={addExpenseToProject}
+        initialDescription={voiceInitialData?.description}
+        initialValue={voiceInitialData?.value}
+        initialOriginalText={voiceInitialData?.originalText}
+      />
+
+      <QuickDiaryModal
+        isOpen={isQuickDiaryOpen}
+        onClose={() => setIsQuickDiaryOpen(false)}
+        projects={filteredProjects}
+        preSelectedProjectId={selectedProjectId}
+        onSave={handleSaveQuickDiary}
       />
     </div>
   );
