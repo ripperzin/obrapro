@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { Project, ProgressStage, STAGE_NAMES } from '../types';
 import StageThumbnail from './StageThumbnail';
+import DateInput from './DateInput';
 
 interface ProjectsDashboardProps {
   projects: Project[];
@@ -230,23 +230,23 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                   onChange={e => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-4">Data de Início</label>
-                  <input
-                    type="date"
-                    className="w-full px-4 py-3 bg-white border-2 border-slate-200 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-slate-800 shadow-sm text-sm"
+                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-1">Início</label>
+                  <DateInput
                     value={formData.startDate}
-                    onChange={e => setFormData({ ...formData, startDate: e.target.value })}
+                    onChange={(val) => setFormData({ ...formData, startDate: val })}
+                    className="w-full px-4 py-3 bg-white border-2 border-slate-200 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-slate-800 shadow-sm text-sm text-center"
+                    placeholder="DD/MM/AAAA"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-4">Data de Entrega</label>
-                  <input
-                    type="date"
-                    className="w-full px-4 py-3 bg-white border-2 border-slate-200 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-slate-800 shadow-sm text-sm"
+                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-1">Entrega</label>
+                  <DateInput
                     value={formData.deliveryDate}
-                    onChange={e => setFormData({ ...formData, deliveryDate: e.target.value })}
+                    onChange={(val) => setFormData({ ...formData, deliveryDate: val })}
+                    className="w-full px-4 py-3 bg-white border-2 border-slate-200 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-slate-800 shadow-sm text-sm text-center"
+                    placeholder="DD/MM/AAAA"
                   />
                 </div>
               </div>

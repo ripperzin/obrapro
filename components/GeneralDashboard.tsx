@@ -701,27 +701,27 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                      </div>
 
                      {/* Campos de Data */}
-                     <div className="grid grid-cols-2 gap-4">
+                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
-                           <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-4">
-                              Data Início
+                           <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
+                              Início
                            </label>
-                           <input
-                              type="date"
-                              className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none transition-all font-medium text-white text-sm"
+                           <DateInput
                               value={formData.startDate}
-                              onChange={e => setFormData({ ...formData, startDate: e.target.value })}
+                              onChange={(val) => setFormData({ ...formData, startDate: val })}
+                              className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none transition-all font-medium text-white text-sm text-center"
+                              placeholder="DD/MM/AAAA"
                            />
                         </div>
                         <div className="space-y-2">
-                           <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-4">
-                              Previsão Entrega
+                           <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
+                              Entrega
                            </label>
-                           <input
-                              type="date"
-                              className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none transition-all font-medium text-white text-sm"
+                           <DateInput
                               value={formData.deliveryDate}
-                              onChange={e => setFormData({ ...formData, deliveryDate: e.target.value })}
+                              onChange={(val) => setFormData({ ...formData, deliveryDate: val })}
+                              className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none transition-all font-medium text-white text-sm text-center"
+                              placeholder="DD/MM/AAAA"
                            />
                         </div>
                      </div>
