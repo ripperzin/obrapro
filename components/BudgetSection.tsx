@@ -16,6 +16,60 @@ const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
+// Helper: Populate Macros/SubMacros from Template
+const populateBudgetFromTemplate = async (budgetId: string, totalValue: number) => {
+    // 1. Fetch Default Template Macros/SubMacros
+    const { data: tMacros } = await supabase
+        .from('template_macros')
+        .select('*')
+        .eq('template_id', DEFAULT_TEMPLATE_ID);
+
+    if (tMacros && tMacros.length > 0) {
+        const tMacroIds = tMacros.map(m => m.id);
+        const { data: tSubMacros } = await supabase
+            .from('template_sub_macros')
+            .select('*')
+            .in('macro_id', tMacroIds);
+
+        // 2. Insert Project Macros
+        for (const tm of tMacros) {
+            const estimatedVal = (totalValue * tm.percentage) / 100;
+
+            const { data: newMacro, error: macroError } = await supabase
+                .from('project_macros')
+                .insert({
+                    budget_id: budgetId,
+                    name: tm.name,
+                    percentage: tm.percentage,
+                    estimated_value: estimatedVal,
+                    spent_value: 0,
+                    display_order: tm.display_order
+                })
+                .select()
+                .single();
+
+            if (!macroError && newMacro && tSubMacros) {
+                // 3. Insert Project SubMacros
+                const subsForThis = tSubMacros.filter(ts => ts.macro_id === tm.id);
+                if (subsForThis.length > 0) {
+                    const subInserts = subsForThis.map(ts => ({
+                        project_macro_id: newMacro.id,
+                        name: ts.name,
+                        percentage: ts.percentage,
+                        estimated_value: (estimatedVal * ts.percentage) / 100,
+                        spent_value: 0,
+                        display_order: ts.display_order
+                    }));
+
+                    await supabase.from('project_sub_macros').insert(subInserts);
+                }
+            }
+        }
+        return true;
+    }
+    return false;
+};
+
 const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudgetUpdate }) => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -31,11 +85,11 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
     const [editMacros, setEditMacros] = useState<ProjectMacro[]>([]);
     const [editSubMacros, setEditSubMacros] = useState<ProjectSubMacro[]>([]);
 
-    // Carregar dados do orçamento
+    // Carregar dados do orçamento - Watch units length/cost to trigger auto-create
     useEffect(() => {
         fetchBudgetData();
         fetchTemplateMacros();
-    }, [project.id]);
+    }, [project.id, project.units.length, project.units.reduce((sum, u) => sum + u.cost, 0)]);
 
     // Inicializar estado de edição quando entrar no modo edição
     useEffect(() => {
@@ -60,6 +114,9 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
 
             // Se não existir, criar (fluxo automático inicial)
             if (!budgetData && totalUnitsValue > 0) {
+                console.log('⚡ Criando orçamento padrão automaticamente...');
+
+                // 1. Create Budget Header
                 const { data: newBudget, error: createError } = await supabase
                     .from('project_budgets')
                     .insert({
@@ -70,7 +127,10 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                     .select()
                     .single();
 
-                if (!createError) budgetData = newBudget;
+                if (!createError && newBudget) {
+                    budgetData = newBudget;
+                    await populateBudgetFromTemplate(newBudget.id, totalUnitsValue);
+                }
             }
 
             if (budgetData) {
@@ -116,11 +176,27 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                 setTotalEstimated(budgetData.total_estimated); // Atualizar estado do input (agora readonly)
 
                 // 4. Buscar macros e subs (fluxo normal)
-                const { data: macrosData } = await supabase
+                let { data: macrosData } = await supabase
                     .from('project_macros')
                     .select('*')
                     .eq('budget_id', budgetData.id)
                     .order('display_order');
+
+                // RETROACTIVE FIX: Se existir orçamento mas SEM macros, popular agora
+                if ((!macrosData || macrosData.length === 0) && totalUnitsValue > 0) {
+                    console.log('⚡ Reparando orçamento vazio...');
+                    const success = await populateBudgetFromTemplate(budgetData.id, totalUnitsValue);
+                    if (success) {
+                        // Refetch macros
+                        const { data: refetched } = await supabase
+                            .from('project_macros')
+                            .select('*')
+                            .eq('budget_id', budgetData.id)
+                            .order('display_order');
+                        macrosData = refetched;
+                        onBudgetUpdate?.();
+                    }
+                }
 
                 if (macrosData) {
                     setMacros(macrosData.map(m => ({
