@@ -13,6 +13,8 @@ import DiarySection from './DiarySection';
 import StageEvidenceModal from './StageEvidenceModal';
 import StageThumbnail from './StageThumbnail';
 import BudgetSection from './BudgetSection';
+import AddUnitModal from './AddUnitModal';
+import AddExpenseModal from './AddExpenseModal';
 
 import { supabase } from '../supabaseClient';
 
@@ -913,44 +915,15 @@ const UnitsSection: React.FC<{
         variant="danger"
       />
 
-      {/* Formulário Nova Unidade - Dark Theme */}
-      {showAdd && (
-        <form
-          className="p-6 glass border border-slate-700 rounded-2xl grid grid-cols-1 md:grid-cols-5 gap-4 animate-fade-in"
-          onSubmit={handleSubmitNewUnit}
-        >
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-blue-400 uppercase ml-3">Identificador</label>
-            <input required onFocus={(e) => e.target.select()} className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white placeholder-slate-500" placeholder="Ex: Casa 01" value={formData.identifier} onChange={e => setFormData({ ...formData, identifier: e.target.value })} />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-blue-400 uppercase ml-3">Área (m²)</label>
-            <input required onFocus={(e) => e.target.select()} type="number" className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.area} onChange={e => setFormData({ ...formData, area: Number(e.target.value) })} />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-blue-400 uppercase ml-3">Custo (R$)</label>
-            <MoneyInput
-              className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white"
-              value={formData.cost}
-              onBlur={(val) => setFormData({ ...formData, cost: val })}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-blue-400 uppercase ml-3">Est. Venda</label>
-            <MoneyInput
-              className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white"
-              value={formData.valorEstimadoVenda}
-              onBlur={(val) => setFormData({ ...formData, valorEstimadoVenda: val })}
-            />
-          </div>
-          <div className="flex gap-2 mt-auto">
-            <button type="submit" disabled={isSaving} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-black text-xs uppercase tracking-widest disabled:opacity-50 shadow-lg shadow-blue-600/30">
-              {isSaving ? 'Salvando...' : 'Salvar'}
-            </button>
-            <button type="button" onClick={() => setShowAdd(false)} className="w-12 bg-slate-800 text-slate-400 rounded-xl border border-slate-700 hover:text-red-400 hover:border-red-400 transition"><i className="fa-solid fa-xmark"></i></button>
-          </div>
-        </form>
-      )}
+      {/* Modal Nova Unidade */}
+      <AddUnitModal
+        isOpen={showAdd}
+        onClose={() => setShowAdd(false)}
+        onSave={async (unit) => {
+          await onAddUnit(unit);
+          setShowAdd(false);
+        }}
+      />
 
       {/* Grid de Cards de Unidades - Dark Theme */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1285,97 +1258,17 @@ const ExpensesSection: React.FC<{
         </div>
       </div>
 
-      {/* Formulário Nova Despesa */}
-      {showAdd && (
-        <form className="p-6 glass border border-slate-700 rounded-2xl space-y-4 animate-fade-in" onSubmit={(e) => {
-          e.preventDefault();
-
-          let finalMacroId = formData.macroId;
-          if (!finalMacroId && projectMacros.length > 0) {
-            const defaultMacro = projectMacros.find(m => m.name === 'Geral/Outros' || m.name === 'Outros');
-            if (defaultMacro) finalMacroId = defaultMacro.id;
-          }
-
-          onAddExpense({ ...formData, macroId: finalMacroId });
+      {/* Modal Nova Despesa */}
+      <AddExpenseModal
+        isOpen={showAdd}
+        onClose={() => setShowAdd(false)}
+        onSave={(exp) => {
+          onAddExpense(exp);
           setShowAdd(false);
-          setFormData({ description: '', value: 0, date: new Date().toISOString().split('T')[0], attachmentUrl: undefined, macroId: undefined });
-        }}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-1 space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Descrição</label>
-              <input required onFocus={(e) => e.target.select()} className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white placeholder-slate-500" placeholder="Ex: Cimento, Pintor..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Valor (R$)</label>
-              <MoneyInput
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white"
-                value={formData.value}
-                onBlur={(val) => setFormData({ ...formData, value: val })}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Data</label>
-              <input required type="date" className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
-            </div>
-          </div>
-
-          {/* Campo de Categoria (Macro) */}
-          {projectMacros.length > 0 && (
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Categoria</label>
-              <select
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white"
-                value={formData.macroId || ''}
-                onChange={e => setFormData({ ...formData, macroId: e.target.value || undefined, subMacroId: undefined })}
-              >
-                <option value="">Selecione uma categoria (opcional)</option>
-                {projectMacros.map(macro => (
-                  <option key={macro.id} value={macro.id}>
-                    {macro.name} ({macro.percentage}%)
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Campo de Sub-Categoria (Sub-Macro) - Cascata */}
-          {formData.macroId && projectSubMacros.some(sm => sm.projectMacroId === formData.macroId) && (
-            <div className="space-y-2 animate-fade-in">
-              <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Detalhe / Sub-tópico</label>
-              <select
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:border-blue-500 text-white"
-                value={formData.subMacroId || ''}
-                onChange={e => setFormData({ ...formData, subMacroId: e.target.value || undefined })}
-              >
-                <option value="">Selecione um detalhe (opcional)</option>
-                {projectSubMacros
-                  .filter(sm => sm.projectMacroId === formData.macroId)
-                  .map(sub => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.name} ({sub.percentage}%)
-                    </option>
-                  ))}
-              </select>
-            </div>
-          )}
-
-          {/* Campo de Anexo */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Anexo (opcional)</label>
-            <AttachmentUpload
-              value={formData.attachmentUrl}
-              onChange={(url) => setFormData({ ...formData, attachmentUrl: url })}
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <button type="submit" className="flex-1 py-3 bg-green-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-green-600/30 flex items-center justify-center gap-2">
-              <i className="fa-solid fa-check"></i> Salvar
-            </button>
-            <button type="button" onClick={() => setShowAdd(false)} className="w-12 bg-slate-800 text-slate-400 rounded-xl border border-slate-700 hover:text-red-400 transition"><i className="fa-solid fa-xmark"></i></button>
-          </div>
-        </form>
-      )}
+        }}
+        macros={projectMacros}
+        subMacros={projectSubMacros}
+      />
 
       {/* Lista de Despesas - Responsive */}
       <div className="space-y-4">
