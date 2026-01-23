@@ -4,6 +4,7 @@ import { PROGRESS_STAGES } from '../constants';
 import { formatCurrency, formatCurrencyAbbrev, generateId, calculateMonthsBetween } from '../utils';
 import { openAttachment } from '../utils/storage';
 import MoneyInput from './MoneyInput';
+import { generateProjectPDF } from '../utils/pdfGenerator';
 import DateInput from './DateInput';
 import ConfirmModal from './ConfirmModal';
 import AttachmentUpload from './AttachmentUpload';
@@ -12,6 +13,7 @@ import DiarySection from './DiarySection';
 import StageEvidenceModal from './StageEvidenceModal';
 import StageThumbnail from './StageThumbnail';
 import BudgetSection from './BudgetSection';
+import SCurveChart from './SCurveChart';
 import { supabase } from '../supabaseClient';
 
 interface ProjectDetailProps {
@@ -327,6 +329,13 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               })()}
             </button>
 
+            {/* Cards de Resumo */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              {/* ... (existing cards) ... */}
+            </div>
+
+
+
             {/* Cronograma de Obra - Opção Visual com Fotos */}
             <div className="glass rounded-2xl p-4 md:p-6 border border-slate-700 overflow-x-auto">
               <div className="flex items-center justify-between mb-8 sticky left-0">
@@ -347,6 +356,16 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                   >
                     <i className="fa-solid fa-share-nodes"></i>
                     <span className="hidden md:inline">Compartilhar</span>
+                  </button>
+
+                  {/* PDF Export Button */}
+                  <button
+                    onClick={() => generateProjectPDF(project, user.login || 'Usuário')}
+                    className="px-3 py-1.5 bg-slate-800 border border-slate-600 text-slate-300 rounded-full text-xs font-bold hover:bg-slate-700 hover:text-white transition-all flex items-center gap-2"
+                    title="Baixar Relatório PDF"
+                  >
+                    <i className="fa-solid fa-file-pdf text-red-400"></i>
+                    <span className="hidden md:inline">PDF</span>
                   </button>
                   <div className="md:hidden text-[10px] text-slate-500 font-bold uppercase animate-pulse">
                     Deslize <i className="fa-solid fa-arrow-right ml-1"></i>

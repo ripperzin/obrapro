@@ -39,6 +39,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [expenses, setExpenses] = useState<any[]>([]);
+    const [expandedMacroId, setExpandedMacroId] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchProject = async () => {
@@ -76,6 +77,36 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     .from('expenses')
                     .select('*')
                     .eq('project_id', projectId);
+
+                // Fetch budget data
+                const { data: budgetData } = await supabase
+                    .from('project_budgets')
+                    .select('*')
+                    .eq('project_id', projectId)
+                    .maybeSingle();
+
+                let macrosData: any[] = [];
+                let subMacrosData: any[] = [];
+
+                if (budgetData) {
+                    const { data: macros } = await supabase
+                        .from('project_macros')
+                        .select('*')
+                        .eq('budget_id', budgetData.id)
+                        .order('display_order');
+                    macrosData = macros || [];
+
+                    // Fetch submacros if there are macros
+                    const macroIds = macrosData.map((m: any) => m.id);
+                    if (macroIds.length > 0) {
+                        const { data: subs } = await supabase
+                            .from('project_sub_macros')
+                            .select('*')
+                            .in('project_macro_id', macroIds)
+                            .order('display_order');
+                        subMacrosData = subs || [];
+                    }
+                }
 
                 setExpenses(expensesData || []);
 
@@ -116,7 +147,32 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         date: e.date,
                         notes: e.notes,
                         user: e.user_name
-                    }))
+                    })),
+                    budget: budgetData ? {
+                        id: budgetData.id,
+                        projectId: budgetData.project_id,
+                        totalEstimated: budgetData.total_estimated || 0,
+                        totalValue: budgetData.total_value,
+                        macros: macrosData.map((m: any) => ({
+                            id: m.id,
+                            budgetId: m.budget_id,
+                            name: m.name,
+                            percentage: m.percentage,
+                            estimatedValue: m.estimated_value,
+                            pentValue: m.spent_value || 0, // Typo fix in mapped object if needed locally, but keeping consistent
+                            spentValue: m.spent_value || 0,
+                            displayOrder: m.display_order,
+                            subMacros: subMacrosData.filter((s: any) => s.project_macro_id === m.id).map((s: any) => ({
+                                id: s.id,
+                                projectMacroId: s.project_macro_id,
+                                name: s.name,
+                                percentage: s.percentage,
+                                estimatedValue: s.estimated_value,
+                                spentValue: s.spent_value || 0,
+                                displayOrder: s.display_order
+                            }))
+                        }))
+                    } : undefined
                 };
 
                 setProject(mappedProject);
@@ -219,34 +275,6 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
 
     // Get all stages
     const allStages = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-
-    // Calculate S-Curve data with budget comparison
-    const calculateSCurve = () => {
-        if (!project) return { stages: [], budgetData: [] };
-
-        // Progress curve
-        const stages = allStages.map((stage, index) => {
-            const evidence = project.stageEvidence?.find(e => e.stage === stage);
-            const isCompleted = project.progress >= stage;
-            return {
-                stage,
-                name: STAGE_NAMES[stage],
-                completed: isCompleted,
-                date: evidence?.date || null,
-                percentComplete: stage
-            };
-        });
-
-        // Budget execution curve (simplified - based on expenses over time)
-        const totalBudget = metrics.totalCost || 1;
-        const budgetPercent = metrics.totalCost > 0
-            ? Math.min((metrics.totalExpenses / metrics.totalCost) * 100, 100)
-            : 0;
-
-        return { stages, budgetPercent, progressPercent: project.progress };
-    };
-
-    const sCurveData = calculateSCurve();
 
     // Helper to display value or "--"
     const displayValue = (value: number | null, formatter: (v: number) => string, suffix: string = ''): string => {
@@ -383,167 +411,163 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                             <p className="text-xs text-slate-400 uppercase tracking-wider">Orçamento</p>
                         </div>
                     </div>
-
-                    {/* Budget Progress Bar */}
-                    {metrics.budgetUsage !== null && (
-                        <div className="mt-6">
-                            <div className="flex justify-between text-sm text-slate-400 mb-2">
-                                <span>Execução do Orçamento</span>
-                                <span>{metrics.budgetUsage.toFixed(0)}%</span>
-                            </div>
-                            <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
-                                <div
-                                    className={`h-full rounded-full transition-all duration-1000 ${metrics.budgetUsage > 100
-                                        ? 'bg-gradient-to-r from-red-500 to-orange-500'
-                                        : 'bg-gradient-to-r from-blue-500 to-cyan-400'
-                                        }`}
-                                    style={{ width: `${Math.min(metrics.budgetUsage, 100)}%` }}
-                                />
-                            </div>
-                            <div className="flex justify-between text-xs text-slate-500 mt-1">
-                                <span>Realizado: {formatCurrencyAbbrev(metrics.totalExpenses)}</span>
-                                <span>Orçamento: {formatCurrencyAbbrev(metrics.totalCost)}</span>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
-                {/* S-Curve Chart - Progress vs Budget */}
-                <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-8 border border-slate-700 mb-8">
-                    <h2 className="text-lg font-bold text-white mb-6">
-                        <i className="fa-solid fa-chart-area mr-2 text-blue-400"></i>
-                        Curva S - Progresso vs Orçamento
-                    </h2>
-
-                    <div className="relative h-56">
-                        {/* Grid Lines */}
-                        <div className="absolute inset-0 ml-10">
-                            {[0, 25, 50, 75, 100].map(percent => (
-                                <div
-                                    key={percent}
-                                    className="absolute w-full border-t border-slate-700/50"
-                                    style={{ top: `${100 - percent}%` }}
-                                >
-                                    <span className="absolute -left-10 -top-2 text-xs text-slate-500 w-8 text-right">{percent}%</span>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Chart Area */}
-                        <div className="absolute inset-0 ml-10 mr-4">
-                            {/* Planned diagonal line */}
-                            <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-                                {/* Planned Line (diagonal) */}
-                                <line
-                                    x1="0"
-                                    y1="100"
-                                    x2="100"
-                                    y2="0"
-                                    stroke="#475569"
-                                    strokeWidth="0.5"
-                                    strokeDasharray="2"
-                                />
-
-                                {/* Progress Bar (horizontal at current progress) */}
-                                <rect
-                                    x="0"
-                                    y={100 - project.progress}
-                                    width={project.progress}
-                                    height="2"
-                                    fill="#3b82f6"
-                                    rx="1"
-                                />
-
-                                {/* Progress Point */}
-                                <circle
-                                    cx={project.progress}
-                                    cy={100 - project.progress}
-                                    r="4"
-                                    fill="#3b82f6"
-                                    stroke="#1e293b"
-                                    strokeWidth="2"
-                                />
-
-                                {/* Budget Bar (if different from progress) */}
-                                {metrics.budgetUsage !== null && (
-                                    <>
-                                        <rect
-                                            x="0"
-                                            y={100 - Math.min(metrics.budgetUsage, 100)}
-                                            width={Math.min(metrics.budgetUsage, 100)}
-                                            height="2"
-                                            fill="#10b981"
-                                            rx="1"
-                                        />
-                                        <circle
-                                            cx={Math.min(metrics.budgetUsage, 100)}
-                                            cy={100 - Math.min(metrics.budgetUsage, 100)}
-                                            r="4"
-                                            fill="#10b981"
-                                            stroke="#1e293b"
-                                            strokeWidth="2"
-                                        />
-                                    </>
-                                )}
-                            </svg>
-
-                            {/* Current Progress Indicator */}
-                            <div
-                                className="absolute flex flex-col items-center"
-                                style={{
-                                    left: `${project.progress}%`,
-                                    top: `${100 - project.progress}%`,
-                                    transform: 'translate(-50%, -100%)'
-                                }}
-                            >
-                                <div className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded mb-1 whitespace-nowrap">
-                                    Obra {project.progress}%
-                                </div>
-                            </div>
-
-                            {/* Budget Indicator */}
-                            {metrics.budgetUsage !== null && metrics.budgetUsage !== project.progress && (
-                                <div
-                                    className="absolute flex flex-col items-center"
-                                    style={{
-                                        left: `${Math.min(metrics.budgetUsage, 100)}%`,
-                                        top: `${100 - Math.min(metrics.budgetUsage, 100)}%`,
-                                        transform: 'translate(-50%, 10px)'
-                                    }}
-                                >
-                                    <div className="bg-green-600 text-white text-xs font-bold px-2 py-1 rounded whitespace-nowrap">
-                                        Custo {metrics.budgetUsage.toFixed(0)}%
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* X-axis labels */}
-                        <div className="absolute bottom-0 left-10 right-4 flex justify-between text-xs text-slate-500">
-                            <span>Início</span>
-                            <span>50%</span>
-                            <span>Conclusão</span>
+                {/* --- BUDGET CONTROL VISUAL (Replicated from BudgetSection.tsx) --- */}
+                <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-8 border border-slate-700 mb-8" style={{ minHeight: '200px' }}>
+                    <div className="flex justify-between items-center mb-8">
+                        <h2 className="text-lg font-bold text-white">
+                            <i className="fa-solid fa-scale-balanced mr-2 text-green-400"></i>
+                            Controle de Orçamento
+                        </h2>
+                        <div className={`px-3 py-1 rounded-full text-xs font-bold border ${metrics.budgetUsage && metrics.budgetUsage > 100
+                            ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                            : 'bg-green-500/20 text-green-400 border-green-500/30'
+                            }`}>
+                            {metrics.budgetUsage ? metrics.budgetUsage.toFixed(0) : 0}% utilizado
                         </div>
                     </div>
 
-                    {/* Legend */}
-                    <div className="flex items-center justify-center gap-8 mt-6 text-sm">
-                        <div className="flex items-center gap-2">
-                            <div className="w-4 h-1 bg-slate-500" style={{ borderStyle: 'dashed' }}></div>
-                            <span className="text-slate-400">Planejado</span>
+                    {/* Top Stats */}
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                        <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                            <p className="text-slate-400 text-xs uppercase tracking-widest mb-1">Orçamento</p>
+                            <p className="text-white font-black text-lg md:text-xl">{formatCurrency(metrics.totalCost)}</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-4 h-1 bg-blue-500 rounded"></div>
-                            <span className="text-slate-400">Progresso</span>
+                        <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                            <p className="text-slate-400 text-xs uppercase tracking-widest mb-1">Gasto</p>
+                            <p className="text-blue-400 font-black text-lg md:text-xl">{formatCurrency(metrics.totalExpenses)}</p>
                         </div>
-                        {metrics.budgetUsage !== null && (
-                            <div className="flex items-center gap-2">
-                                <div className="w-4 h-1 bg-green-500 rounded"></div>
-                                <span className="text-slate-400">Orçamento</span>
+                        <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                            <p className="text-slate-400 text-xs uppercase tracking-widest mb-1">Saldo</p>
+                            <p className={`font-black text-lg md:text-xl ${metrics.totalCost - metrics.totalExpenses >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {formatCurrency(metrics.totalCost - metrics.totalExpenses)}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Main Progress Bar */}
+                    <div className="w-full bg-slate-900 rounded-full h-4 mb-10 border border-slate-700 relative overflow-hidden">
+                        <div
+                            className={`h-full rounded-full transition-all duration-1000 ${metrics.budgetUsage && metrics.budgetUsage > 100
+                                ? 'bg-red-500'
+                                : 'bg-green-500' // Using consistent simple colors to match BudgetSection
+                                }`}
+                            style={{ width: `${Math.min(metrics.budgetUsage || 0, 100)}%` }}
+                        ></div>
+                    </div>
+
+                    {/* Categories List */}
+                    <div className="space-y-6">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-700 pb-2">Por Categoria</h3>
+
+                        {project.budget && project.budget.macros && project.budget.macros.length > 0 ? (
+                            project.budget.macros.sort((a, b) => a.displayOrder - b.displayOrder).map(macro => {
+                                const percent = macro.estimatedValue > 0 ? (macro.spentValue / macro.estimatedValue) * 100 : 0;
+                                const isOver = percent > 100;
+
+                                return (
+                                    <div key={macro.id} className="glass rounded-2xl p-4 transition-all hover:bg-slate-800/30 cursor-pointer" onClick={() => setExpandedMacroId(expandedMacroId === macro.id ? null : macro.id)}>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <i className={`fa-solid fa-chevron-${expandedMacroId === macro.id ? 'down' : 'right'} text-xs text-slate-500`}></i>
+                                                <span className="text-white font-bold">{macro.name}</span>
+                                            </div>
+                                            <span className={`text-sm font-bold ${isOver ? 'text-red-400' : 'text-green-400'}`}>
+                                                {isOver && <i className="fa-solid fa-triangle-exclamation mr-1"></i>}
+                                                {percent.toFixed(0)}%
+                                            </span>
+                                        </div>
+
+                                        {/* Bar */}
+                                        <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden mb-2">
+                                            <div
+                                                className={`h-full rounded-full transition-all ${isOver ? 'bg-red-500' : 'bg-blue-500'}`}
+                                                style={{ width: `${Math.min(percent, 100)}%` }}
+                                            ></div>
+                                        </div>
+
+                                        {/* Values */}
+                                        <div className="flex justify-between text-xs text-slate-400 font-medium">
+                                            <span>Gasto: {formatCurrency(macro.spentValue)}</span>
+                                            <span>Meta: {formatCurrency(macro.estimatedValue)}</span>
+                                        </div>
+
+                                        {/* Submacros */}
+                                        {expandedMacroId === macro.id && (
+                                            <div className="mt-4 pl-4 border-l-2 border-slate-700 space-y-3 animate-fade-in">
+                                                {macro.subMacros && macro.subMacros.length > 0 ? (
+                                                    macro.subMacros.sort((a: any, b: any) => a.displayOrder - b.displayOrder).map((sub: any) => {
+                                                        const subProgress = sub.estimatedValue > 0 ? (sub.spentValue / sub.estimatedValue) * 100 : 0;
+                                                        return (
+                                                            <div key={sub.id} className="text-xs">
+                                                                <div className="flex justify-between items-center mb-1">
+                                                                    <span className="text-slate-300 font-bold">{sub.name}</span>
+                                                                    <span className={`${subProgress > 100 ? 'text-red-400' : 'text-slate-400'}`}>
+                                                                        {formatCurrency(sub.spentValue)} / {formatCurrency(sub.estimatedValue)}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="w-full h-1 bg-slate-700/50 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={`h-full rounded-full ${subProgress > 100 ? 'bg-red-500' : 'bg-blue-400'}`}
+                                                                        style={{ width: `${Math.min(subProgress, 100)}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    <p className="text-xs text-slate-600 italic">Nenhum detalhe disponível.</p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div className="text-center py-6">
+                                <i className="fa-solid fa-clipboard-list text-slate-600 text-3xl mb-2"></i>
+                                <p className="text-slate-500 text-sm">Detalhamento por categorias não disponível.</p>
                             </div>
                         )}
                     </div>
                 </div>
+
+                {/* --- EXPENSES TABLE --- */}
+                {project.expenses.length > 0 && (
+                    <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-8 border border-slate-700 mb-8 overflow-hidden">
+                        <h2 className="text-lg font-bold text-white mb-6">
+                            <i className="fa-solid fa-receipt mr-2 text-slate-400"></i>
+                            Extrato Completo de Despesas
+                        </h2>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider">
+                                        <th className="pb-3 pl-4">Data</th>
+                                        <th className="pb-3">Descrição</th>
+                                        <th className="pb-3 text-right pr-4">Valor</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-sm">
+                                    {[...project.expenses]
+                                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                                        .map(exp => (
+                                            <tr key={exp.id} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
+                                                <td className="py-4 pl-4 text-slate-400">
+                                                    {new Date(exp.date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                                </td>
+                                                <td className="py-4 text-white font-medium">{exp.description}</td>
+                                                <td className="py-4 text-right pr-4 text-slate-200 font-bold">
+                                                    {formatCurrency(exp.value)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
 
                 {/* Timeline Visual */}
                 <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-8 border border-slate-700 mb-8">
@@ -629,6 +653,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                 </footer>
             </div>
         </div>
+
     );
 };
 

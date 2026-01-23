@@ -19,6 +19,7 @@ import VoiceAssistant from './components/VoiceAssistant';
 import QuickExpenseModal from './components/QuickExpenseModal';
 import QuickDiaryModal from './components/QuickDiaryModal';
 import ReloadPrompt from './components/ReloadPrompt';
+import { useNotifications } from './hooks/useNotifications';
 
 // Helper to parse investor route from hash
 const parseInvestorRoute = (): string | null => {
@@ -80,6 +81,16 @@ const App: React.FC = () => {
       setCurrentUser(null);
     }
   }, [session]);
+
+  // 2.1 Notificações
+  const { requestPermission } = useNotifications(projects);
+
+  // Solicitar permissão ao carregar se tiver usuário
+  useEffect(() => {
+    if (currentUser) {
+      requestPermission();
+    }
+  }, [currentUser]);
 
   // 3. Busca de Dados do Banco (Supabase)
   const fetchData = async () => {

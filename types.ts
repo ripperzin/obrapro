@@ -110,6 +110,7 @@ export interface ProjectBudget {
   totalEstimated: number;
   templateId?: string;
   createdAt?: string;
+  totalValue?: number;
 }
 
 export interface ProjectMacro {
