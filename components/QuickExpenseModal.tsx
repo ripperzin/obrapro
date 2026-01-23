@@ -168,12 +168,35 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             alert('Selecione uma obra.');
             return;
         }
+
+        if (loadingCategories) {
+            alert('Aguarde o carregamento das categorias...');
+            return;
+        }
+
+        // Auto-select 'Geral/Outros' if no category is selected
+        let finalMacroId = selectedMacroId;
+        if (!finalMacroId && macros.length > 0) {
+            const defaultMacro = macros.find(m =>
+                m.name.toLowerCase().trim() === 'geral/outros' ||
+                m.name.toLowerCase().trim() === 'outros' ||
+                m.name.toLowerCase().includes('geral')
+            );
+            if (defaultMacro) {
+                finalMacroId = defaultMacro.id;
+            } else {
+                // Fallback: If no 'Geral/Outros' found but macros exist, use the last one (usually Outros/99)
+                // This is a safety net
+                finalMacroId = macros[macros.length - 1].id;
+            }
+        }
+
         onSave(projectId, {
             description,
             value,
             date,
             attachmentUrl,
-            macroId: selectedMacroId || null,
+            macroId: finalMacroId,
             subMacroId: selectedSubMacroId || null
         });
         onClose();
@@ -250,7 +273,27 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                         />
                     </div>
 
-                    {/* Category Selection (Smart) */}
+                    {/* Value and Date (Moved Up) */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Valor</label>
+                            <MoneyInput
+                                value={value}
+                                onBlur={(val) => setValue(val)}
+                                className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white text-sm"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Data</label>
+                            <DateInput
+                                value={date}
+                                onChange={setDate}
+                                className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white text-sm text-center"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Category Selection (Moved Down) */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
@@ -263,7 +306,7 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                                     setSelectedSubMacroId(''); // Reset sub on macro change
                                 }}
                                 disabled={loadingCategories}
-                                className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none font-bold text-white text-xs appearance-none cursor-pointer"
+                                className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none font-bold text-white text-xs appearance-none cursor-pointer invalid:text-slate-500"
                             >
                                 <option value="">Sem categoria</option>
                                 {macros.map(m => (
@@ -291,25 +334,6 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Valor</label>
-                            <MoneyInput
-                                value={value}
-                                onBlur={(val) => setValue(val)}
-                                className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white text-sm"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Data</label>
-                            <DateInput
-                                value={date}
-                                onChange={setDate}
-                                className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white text-sm text-center"
-                            />
-                        </div>
-                    </div>
-
                     <AttachmentUpload
                         label="Foto do Comprovante (Opcional)"
                         currentUrl={attachmentUrl}
@@ -319,10 +343,11 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
 
                     <button
                         type="submit"
-                        className="w-full py-4 bg-green-600 text-white rounded-2xl hover:bg-green-700 transition shadow-lg shadow-green-600/30 font-black uppercase text-sm tracking-widest flex items-center justify-center gap-2"
+                        disabled={loadingCategories}
+                        className={`w-full py-4 bg-green-600 text-white rounded-2xl hover:bg-green-700 transition shadow-lg shadow-green-600/30 font-black uppercase text-sm tracking-widest flex items-center justify-center gap-2 ${loadingCategories ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                        <i className="fa-solid fa-check"></i>
-                        Salvar Despesa
+                        {loadingCategories ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-check"></i>}
+                        {loadingCategories ? 'Carregando...' : 'Salvar Despesa'}
                     </button>
                 </form>
             </div>

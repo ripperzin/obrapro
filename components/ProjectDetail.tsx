@@ -1251,7 +1251,19 @@ const ExpensesSection: React.FC<{
 
       {/* Formulário Nova Despesa */}
       {showAdd && (
-        <form className="p-6 glass border border-slate-700 rounded-2xl space-y-4 animate-fade-in" onSubmit={(e) => { e.preventDefault(); onAddExpense(formData); setShowAdd(false); setFormData({ description: '', value: 0, date: new Date().toISOString().split('T')[0], attachmentUrl: undefined, macroId: undefined }); }}>
+        <form className="p-6 glass border border-slate-700 rounded-2xl space-y-4 animate-fade-in" onSubmit={(e) => {
+          e.preventDefault();
+
+          let finalMacroId = formData.macroId;
+          if (!finalMacroId && projectMacros.length > 0) {
+            const defaultMacro = projectMacros.find(m => m.name === 'Geral/Outros' || m.name === 'Outros');
+            if (defaultMacro) finalMacroId = defaultMacro.id;
+          }
+
+          onAddExpense({ ...formData, macroId: finalMacroId });
+          setShowAdd(false);
+          setFormData({ description: '', value: 0, date: new Date().toISOString().split('T')[0], attachmentUrl: undefined, macroId: undefined });
+        }}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-1 space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Descrição</label>

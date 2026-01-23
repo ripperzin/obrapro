@@ -8,6 +8,7 @@ import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import AttachmentUpload from './AttachmentUpload';
 import StageThumbnail from './StageThumbnail';
+import QuickExpenseModal from './QuickExpenseModal';
 
 interface GeneralDashboardProps {
    projects: Project[];
@@ -736,104 +737,18 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
             </div>
          )}
 
-         {/* Modal Despesa Rápida */}
-         {showExpenseModal && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-               <div className="glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-700 max-h-[90vh] overflow-y-auto">
-                  <div className="p-6 border-b border-slate-700 flex justify-between items-center sticky top-0 bg-slate-900/95 backdrop-blur-lg z-10">
-                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
-                           <i className="fa-solid fa-receipt text-green-400"></i>
-                        </div>
-                        <h2 className="text-xl font-black text-white">Nova Despesa</h2>
-                     </div>
-                     <button
-                        onClick={() => setShowExpenseModal(false)}
-                        className="w-10 h-10 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:text-red-400 hover:border-red-400 transition"
-                     >
-                        <i className="fa-solid fa-xmark"></i>
-                     </button>
-                  </div>
-                  <form onSubmit={handleExpenseSubmit} className="p-6 space-y-5">
-                     {/* Seletor de Obra */}
-                     <div className="space-y-2">
-                        <label className="text-xs font-black text-green-400 uppercase tracking-widest ml-4">
-                           Obra de Destino
-                        </label>
-                        <select
-                           required
-                           value={expenseFormData.projectId}
-                           onChange={e => setExpenseFormData({ ...expenseFormData, projectId: e.target.value })}
-                           className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-green-500 rounded-2xl outline-none transition-all font-bold text-white text-sm appearance-none cursor-pointer"
-                        >
-                           {projects.map(p => (
-                              <option key={p.id} value={p.id}>{p.name}</option>
-                           ))}
-                        </select>
-                     </div>
-
-                     {/* Descrição */}
-                     <div className="space-y-2">
-                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">
-                           Descrição
-                        </label>
-                        <input
-                           required
-                           type="text"
-                           placeholder="Ex: Cimento, Mão de obra, Material elétrico..."
-                           value={expenseFormData.description}
-                           onChange={e => setExpenseFormData({ ...expenseFormData, description: e.target.value })}
-                           className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-green-500 rounded-2xl outline-none transition-all font-bold text-white text-sm placeholder-slate-500"
-                        />
-                     </div>
-
-                     {/* Valor e Data */}
-                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                           <label className="text-xs font-black text-slate-400 uppercase tracking-widest">
-                              Valor (R$)
-                           </label>
-                           <MoneyInput
-                              className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-green-500 rounded-2xl outline-none transition-all font-bold text-white text-sm"
-                              value={expenseFormData.value}
-                              onBlur={(val) => setExpenseFormData({ ...expenseFormData, value: val })}
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <label className="text-xs font-black text-slate-400 uppercase tracking-widest">
-                              Data
-                           </label>
-                           <DateInput
-                              value={expenseFormData.date}
-                              onChange={(val) => setExpenseFormData({ ...expenseFormData, date: val })}
-                              className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-green-500 rounded-2xl outline-none transition-all font-bold text-white text-sm text-center"
-                              placeholder="DD/MM/AAAA"
-                           />
-                        </div>
-                     </div>
-
-                     {/* Anexo */}
-                     <div className="space-y-2">
-                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">
-                           Anexo (opcional)
-                        </label>
-                        <AttachmentUpload
-                           value={expenseFormData.attachmentUrl}
-                           onChange={(url) => setExpenseFormData({ ...expenseFormData, attachmentUrl: url })}
-                        />
-                     </div>
-
-                     <button
-                        type="submit"
-                        className="w-full py-4 bg-green-600 text-white rounded-2xl hover:bg-green-700 transition shadow-lg shadow-green-600/30 font-black uppercase text-sm tracking-widest flex items-center justify-center gap-2"
-                     >
-                        <i className="fa-solid fa-check"></i>
-                        Lançar Despesa
-                     </button>
-                  </form>
-               </div>
-            </div>
-         )}
+         {/* Modal Despesa Rápida (Reutilizável) */}
+         <QuickExpenseModal
+            isOpen={showExpenseModal}
+            onClose={() => setShowExpenseModal(false)}
+            projects={projects}
+            preSelectedProjectId={expenseFormData.projectId}
+            onSave={(pid, expense) => {
+               if (onAddExpense) {
+                  onAddExpense(pid, expense);
+               }
+            }}
+         />
 
          <ConfirmModal
             isOpen={!!projectToDelete}
