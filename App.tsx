@@ -18,6 +18,7 @@ import InvestorView from './components/InvestorView';
 import VoiceAssistant from './components/VoiceAssistant';
 import QuickExpenseModal from './components/QuickExpenseModal';
 import QuickDiaryModal from './components/QuickDiaryModal';
+import ReloadPrompt from './components/ReloadPrompt';
 
 // Helper to parse investor route from hash
 const parseInvestorRoute = (): string | null => {
@@ -857,6 +858,8 @@ const App: React.FC = () => {
         preSelectedProjectId={selectedProjectId}
         onSave={handleSaveQuickDiary}
       />
+
+      <ReloadPrompt />
     </div>
   );
 };
