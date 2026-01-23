@@ -189,6 +189,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onNavigate, onAction })
 
             // 2. Remove currency words (reais, centavos, etc)
             description = description.replace(/\b(valor|reais|real|centavos|vírgula)\b/gi, '');
+            description = description.replace(/R\$\s*/gi, '');
 
             // 3. AGGRESSIVE NUMBER REMOVAL at END of string
             // Matches: "10.500", "10.500 e 50", "50", "10,50" at the very end.

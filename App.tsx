@@ -731,7 +731,7 @@ const App: React.FC = () => {
 
 
   return (
-    <div className="flex min-h-screen bg-slate-900 font-sans">
+    <div className="flex h-[100dvh] overflow-hidden bg-slate-900 font-sans fixed inset-0">
       <Sidebar
         role={currentUser.role}
         activeTab={activeTab}
