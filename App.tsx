@@ -655,7 +655,10 @@ const App: React.FC = () => {
       });
       setIsQuickExpenseOpen(true);
     } else if (action === 'ADD_DIARY') {
-      setVoiceInitialData({});
+      const cleanText = data?.text?.replace(/^diário\s+/i, '') || '';
+      setVoiceInitialData({
+        content: cleanText
+      });
       setIsQuickDiaryOpen(true);
     }
   };
@@ -667,7 +670,7 @@ const App: React.FC = () => {
       date: entry.date,
       content: entry.content,
       photos: entry.photos || [],
-      author: entry.author || currentUser?.login || 'Voz',
+      author: currentUser?.login || 'Usuário', // Force current user
       user_id: currentUser?.id,
       created_at: new Date().toISOString()
     };
@@ -707,9 +710,92 @@ const App: React.FC = () => {
       action: 'Inclusão',
       field: 'Diário (Voz)',
       old_value: '-',
-      new_value: 'Novo registro via voz'
+      new_value: 'Novo registro'
     }]);
+
+    setIsQuickDiaryOpen(false);
   };
+
+  const handleUpdateDiary = async (projectId: string, entry: any) => {
+    try {
+      const { error } = await supabase
+        .from('diary_entries')
+        .update({
+          content: entry.content,
+          date: entry.date,
+          photos: entry.photos
+        })
+        .eq('id', entry.id);
+
+      if (error) throw error;
+
+      setProjects(prev => prev.map(p => {
+        if (p.id === projectId) {
+          return {
+            ...p,
+            diary: p.diary.map(d => d.id === entry.id ? { ...d, ...entry } : d)
+          };
+        }
+        return p;
+      }));
+
+      // Log
+      await supabase.from('logs').insert([{
+        id: generateId(),
+        project_id: projectId,
+        user_id: currentUser?.id,
+        user_name: currentUser?.login,
+        action: 'Alteração',
+        field: 'Diário',
+        old_value: '-',
+        new_value: 'Registro atualizado'
+      }]);
+
+    } catch (error) {
+      console.error('Erro ao atualizar diário:', error);
+      alert('Erro ao atualizar diário');
+    }
+  };
+
+  const handleDeleteDiary = async (projectId: string, entryId: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este registro do diário?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('diary_entries')
+        .delete()
+        .eq('id', entryId);
+
+      if (error) throw error;
+
+      setProjects(prev => prev.map(p => {
+        if (p.id === projectId) {
+          return {
+            ...p,
+            diary: p.diary.filter(d => d.id !== entryId)
+          };
+        }
+        return p;
+      }));
+
+      // Log
+      await supabase.from('logs').insert([{
+        id: generateId(),
+        project_id: projectId,
+        user_id: currentUser?.id,
+        user_name: currentUser?.login,
+        action: 'Exclusão',
+        field: 'Diário',
+        old_value: entryId,
+        new_value: '-'
+      }]);
+
+    } catch (error) {
+      console.error('Erro ao excluir diário:', error);
+      alert('Erro ao excluir diário');
+    }
+  };
+
 
   const filteredProjects = useMemo(() => {
     if (!currentUser) return [];
@@ -814,6 +900,8 @@ const App: React.FC = () => {
             onUpdate={updateProject}
             onDeleteUnit={deleteUnit}
             onRefresh={refreshProject}
+            onUpdateDiary={handleUpdateDiary}
+            onDeleteDiary={handleDeleteDiary}
           />
         )}
 
@@ -857,6 +945,7 @@ const App: React.FC = () => {
         projects={filteredProjects}
         preSelectedProjectId={selectedProjectId}
         onSave={handleSaveQuickDiary}
+        initialContent={voiceInitialData?.content}
       />
 
       <ReloadPrompt />

@@ -20,9 +20,11 @@ interface ProjectDetailProps {
   onUpdate: (id: string, updates: Partial<Project>, logMsg?: string) => Promise<void>;
   onDeleteUnit: (projectId: string, unitId: string) => void;
   onRefresh?: () => Promise<void>;
+  onUpdateDiary?: (projectId: string, entry: any) => Promise<void>;
+  onDeleteDiary?: (projectId: string, entryId: string) => Promise<void>;
 }
 
-const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, onDeleteUnit, onRefresh }) => {
+const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, onDeleteUnit, onRefresh, onUpdateDiary, onDeleteDiary }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'budget' | 'documents' | 'diary' | 'logs'>('info');
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [evidenceModal, setEvidenceModal] = useState<{ isOpen: boolean; stage: number; evidence?: any }>({ isOpen: false, stage: 0 });
@@ -688,6 +690,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
             <DiarySection
               diary={project.diary || []}
               onAdd={handleAddDiaryEntry}
+              onUpdate={onUpdateDiary ? (entry) => onUpdateDiary(project.id, entry) : undefined}
+              onDelete={onDeleteDiary ? (entryId) => onDeleteDiary(project.id, entryId) : undefined}
               isAdmin={isAdmin}
               currentUserName={user.login}
             />

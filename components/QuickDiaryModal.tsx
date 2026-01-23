@@ -9,6 +9,7 @@ interface QuickDiaryModalProps {
     projects: Project[];
     preSelectedProjectId?: string | null;
     onSave: (projectId: string, diaryEntry: any) => void;
+    initialContent?: string;
 }
 
 const QuickDiaryModal: React.FC<QuickDiaryModalProps> = ({
@@ -16,21 +17,22 @@ const QuickDiaryModal: React.FC<QuickDiaryModalProps> = ({
     onClose,
     projects,
     preSelectedProjectId,
-    onSave
+    onSave,
+    initialContent = ''
 }) => {
     const [projectId, setProjectId] = useState(preSelectedProjectId || '');
-    const [content, setContent] = useState('');
+    const [content, setContent] = useState(initialContent);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [photoUrl, setPhotoUrl] = useState<string | undefined>(undefined);
 
     useEffect(() => {
         if (isOpen) {
             setProjectId(preSelectedProjectId || (projects.length > 0 ? projects[0].id : ''));
-            setContent('');
+            setContent(initialContent);
             setDate(new Date().toISOString().split('T')[0]);
             setPhotoUrl(undefined);
         }
-    }, [isOpen, preSelectedProjectId, projects]);
+    }, [isOpen, preSelectedProjectId, projects, initialContent]);
 
     if (!isOpen) return null;
 
@@ -44,7 +46,7 @@ const QuickDiaryModal: React.FC<QuickDiaryModalProps> = ({
         // Convert single photo to array for diary structure
         const photos = photoUrl ? [photoUrl] : [];
 
-        onSave(projectId, { content, date, photos, author: 'Voz' }); // Author will be overridden by App.tsx logic usually
+        onSave(projectId, { content, date, photos }); // Author handled by App.tsx
         onClose();
     };
 
