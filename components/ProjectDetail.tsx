@@ -13,7 +13,7 @@ import DiarySection from './DiarySection';
 import StageEvidenceModal from './StageEvidenceModal';
 import StageThumbnail from './StageThumbnail';
 import BudgetSection from './BudgetSection';
-import SCurveChart from './SCurveChart';
+
 import { supabase } from '../supabaseClient';
 
 interface ProjectDetailProps {
@@ -30,6 +30,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
   const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'budget' | 'documents' | 'diary' | 'logs'>('info');
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [evidenceModal, setEvidenceModal] = useState<{ isOpen: boolean; stage: number; evidence?: any }>({ isOpen: false, stage: 0 });
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const isAdmin = user.role === UserRole.ADMIN;
   const canSeeUnits = user.canSeeUnits || isAdmin;
@@ -360,12 +361,28 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
 
                   {/* PDF Export Button */}
                   <button
-                    onClick={() => generateProjectPDF(project, user.login || 'Usuário')}
-                    className="px-3 py-1.5 bg-slate-800 border border-slate-600 text-slate-300 rounded-full text-xs font-bold hover:bg-slate-700 hover:text-white transition-all flex items-center gap-2"
+                    onClick={async () => {
+                      if (isGeneratingPDF) return;
+                      setIsGeneratingPDF(true);
+                      try {
+                        await generateProjectPDF(project, user.login || 'Usuário');
+                      } catch (err) {
+                        console.error('Error generating PDF', err);
+                        alert('Erro ao gerar PDF. Tente novamente.');
+                      } finally {
+                        setIsGeneratingPDF(false);
+                      }
+                    }}
+                    disabled={isGeneratingPDF}
+                    className={`px-3 py-1.5 bg-slate-800 border border-slate-600 text-slate-300 rounded-full text-xs font-bold hover:bg-slate-700 hover:text-white transition-all flex items-center gap-2 ${isGeneratingPDF ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title="Baixar Relatório PDF"
                   >
-                    <i className="fa-solid fa-file-pdf text-red-400"></i>
-                    <span className="hidden md:inline">PDF</span>
+                    {isGeneratingPDF ? (
+                      <i className="fa-solid fa-spinner fa-spin text-red-400"></i>
+                    ) : (
+                      <i className="fa-solid fa-file-pdf text-red-400"></i>
+                    )}
+                    <span className="hidden md:inline">{isGeneratingPDF ? 'Gerando...' : 'PDF'}</span>
                   </button>
                   <div className="md:hidden text-[10px] text-slate-500 font-bold uppercase animate-pulse">
                     Deslize <i className="fa-solid fa-arrow-right ml-1"></i>
