@@ -655,40 +655,40 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                     <div className="absolute top-0 right-0 p-3 opacity-10">
                       <i className="fa-solid fa-building text-6xl"></i>
                     </div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Unidades Vendidas</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Und. Vendidas</p>
 
                     <div className="flex items-center gap-6 mt-2">
                       {/* Circular Progress or Simple Stat */}
-                      <div className="relative w-20 h-20 flex-shrink-0">
+                      <div className="relative w-16 h-16 md:w-20 md:h-20 flex-shrink-0">
                         <svg className="w-full h-full transform -rotate-90">
-                          <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-700" />
-                          <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={226} strokeDashoffset={226 - (226 * (soldUnits.length / (project.units.length || 1)))} className="text-blue-500" />
+                          <circle cx="50%" cy="50%" r="45%" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-700" />
+                          <circle cx="50%" cy="50%" r="45%" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={226} strokeDashoffset={226 - (226 * (soldUnits.length / (project.units.length || 1)))} className="text-blue-500" />
                         </svg>
-                        <div className="absolute inset-0 flex items-center justify-center font-black text-white text-lg">
+                        <div className="absolute inset-0 flex items-center justify-center font-black text-white text-base md:text-lg">
                           {Math.round((soldUnits.length / (project.units.length || 1)) * 100)}%
                         </div>
                       </div>
                       <div>
-                        <p className="text-4xl font-black text-white leading-none mb-1">
-                          {soldUnits.length}<span className="text-xl text-slate-500 font-bold">/{project.units.length}</span>
+                        <p className="text-3xl md:text-4xl font-black text-white leading-none mb-1">
+                          {soldUnits.length}<span className="text-lg md:text-xl text-slate-500 font-bold">/{project.units.length}</span>
                         </p>
-                        <p className="text-xs text-blue-400 font-bold uppercase mt-1">Metas Atingidas</p>
+                        <p className="text-[10px] md:text-xs text-blue-400 font-bold uppercase mt-1">Metas</p>
                       </div>
                     </div>
                   </div>
 
                   {/* 2. Total Liquidado (Big Number) - Col Span 3 */}
                   <div className="lg:col-span-3 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-2xl p-6 border border-emerald-500/20 flex flex-col justify-center relative">
-                    <div className="absolute top-4 right-4 w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center text-emerald-400 animate-pulse">
+                    <div className="absolute top-4 right-4 w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center text-emerald-400 animate-pulse hidden md:flex">
                       <i className="fa-solid fa-coins"></i>
                     </div>
-                    <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">Total Liquidado (Vendas)</p>
-                    <p className="text-4xl md:text-5xl font-black text-white tracking-tight">
+                    <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">Total Liquidado</p>
+                    <p className="text-3xl md:text-5xl font-black text-white tracking-tight">
                       {formatCurrency(totalUnitsSales)}
                     </p>
-                    <div className="mt-3 flex items-center gap-2 text-xs text-slate-400 font-medium">
+                    <div className="mt-3 flex items-center gap-2 text-[10px] md:text-xs text-slate-400 font-medium">
                       <i className="fa-solid fa-circle-check text-emerald-500"></i>
-                      <span>Valor total de contratos assinados e validados</span>
+                      <span>Contratos validados</span>
                     </div>
                   </div>
                 </div>
@@ -697,37 +697,37 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
                   {/* Lucro Real */}
-                  <div className="bg-slate-800/40 rounded-2xl p-5 border border-blue-500/30 hover:border-blue-500/60 transition-colors group/card">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
+                  <div className="bg-slate-800/40 rounded-2xl p-4 md:p-5 border border-blue-500/30 hover:border-blue-500/60 transition-colors group/card">
+                    <div className="flex justify-between items-start mb-2 md:mb-3">
+                      <div className="p-1.5 md:p-2 bg-blue-500/20 rounded-lg text-blue-400">
                         <i className="fa-solid fa-wallet"></i>
                       </div>
                       <span className="text-[10px] uppercase font-black bg-blue-500 text-white px-2 py-0.5 rounded">Real</span>
                     </div>
-                    <p className="text-xs text-slate-400 font-bold uppercase mb-1">Lucro Realizado</p>
-                    <p className="text-xl lg:text-2xl font-black text-white group-hover/card:text-blue-400 transition-colors">
+                    <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Lucro Real</p>
+                    <p className="text-lg md:text-2xl font-black text-white group-hover/card:text-blue-400 transition-colors">
                       {formatCurrency(realProfit)}
                     </p>
                   </div>
 
                   {/* Lucro Estimado */}
-                  <div className="bg-slate-800/40 rounded-2xl p-5 border border-cyan-500/30 hover:border-cyan-500/60 transition-colors group/card">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="p-2 bg-cyan-500/20 rounded-lg text-cyan-400">
+                  <div className="bg-slate-800/40 rounded-2xl p-4 md:p-5 border border-cyan-500/30 hover:border-cyan-500/60 transition-colors group/card">
+                    <div className="flex justify-between items-start mb-2 md:mb-3">
+                      <div className="p-1.5 md:p-2 bg-cyan-500/20 rounded-lg text-cyan-400">
                         <i className="fa-solid fa-chart-line"></i>
                       </div>
-                      <span className="text-[10px] uppercase font-black bg-slate-700 text-slate-300 px-2 py-0.5 rounded">Estimado</span>
+                      <span className="text-[10px] uppercase font-black bg-slate-700 text-slate-300 px-2 py-0.5 rounded">Est.</span>
                     </div>
-                    <p className="text-xs text-slate-400 font-bold uppercase mb-1">Lucro Projetado</p>
-                    <p className="text-xl lg:text-2xl font-black text-slate-200 group-hover/card:text-cyan-400 transition-colors">
+                    <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Lucro Proj.</p>
+                    <p className="text-lg md:text-2xl font-black text-slate-200 group-hover/card:text-cyan-400 transition-colors">
                       {formatCurrency(estimatedGrossProfit)}
                     </p>
                   </div>
 
                   {/* Potencial / Vendido */}
-                  <div className={`rounded-2xl p-5 border transition-colors group/card ${potentialSales === 0 ? 'bg-orange-500/10 border-orange-500/50' : 'bg-slate-800/40 border-orange-500/30 hover:border-orange-500/60'}`}>
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="p-2 bg-orange-500/20 rounded-lg text-orange-400">
+                  <div className={`rounded-2xl p-4 md:p-5 border transition-colors group/card ${potentialSales === 0 ? 'bg-orange-500/10 border-orange-500/50' : 'bg-slate-800/40 border-orange-500/30 hover:border-orange-500/60'}`}>
+                    <div className="flex justify-between items-start mb-2 md:mb-3">
+                      <div className="p-1.5 md:p-2 bg-orange-500/20 rounded-lg text-orange-400">
                         <i className="fa-solid fa-gem"></i>
                       </div>
                       {potentialSales === 0 && (
@@ -736,34 +736,34 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400 font-bold uppercase mb-1">Potencial Restante</p>
+                    <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Potencial</p>
                     {potentialSales === 0 ? (
-                      <p className="text-xl lg:text-2xl font-black text-orange-500 tracking-wider">VENDIDO</p>
+                      <p className="text-lg md:text-2xl font-black text-orange-500 tracking-wider">VENDIDO</p>
                     ) : (
-                      <p className="text-xl lg:text-2xl font-black text-slate-200 group-hover/card:text-orange-400 transition-colors">
+                      <p className="text-lg md:text-2xl font-black text-slate-200 group-hover/card:text-orange-400 transition-colors">
                         {formatCurrency(potentialSales)}
                       </p>
                     )}
                   </div>
 
                   {/* Margens (Combined) */}
-                  <div className="bg-slate-800/40 rounded-2xl p-5 border border-purple-500/30 hover:border-purple-500/60 transition-colors group/card">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="p-2 bg-purple-500/20 rounded-lg text-purple-400">
+                  <div className="bg-slate-800/40 rounded-2xl p-4 md:p-5 border border-purple-500/30 hover:border-purple-500/60 transition-colors group/card">
+                    <div className="flex justify-between items-start mb-2 md:mb-3">
+                      <div className="p-1.5 md:p-2 bg-purple-500/20 rounded-lg text-purple-400">
                         <i className="fa-solid fa-percent"></i>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1">
                       <div className="flex justify-between items-end">
-                        <p className="text-xs text-slate-400 font-bold uppercase">ROI Médio</p>
-                        <p className="text-lg font-black text-white">{!isNaN(margins.avgRoi) ? margins.avgRoi.toFixed(1) : '0.0'}%</p>
+                        <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase">ROI Méd.</p>
+                        <p className="text-base md:text-lg font-black text-white">{(!isNaN(margins.avgRoi) ? margins.avgRoi : 0).toFixed(1)}%</p>
                       </div>
                       <div className="w-full h-1 bg-slate-700 rounded-full overflow-hidden">
                         <div className="h-full bg-purple-500" style={{ width: `${Math.min(margins.avgRoi || 0, 100)}%` }}></div>
                       </div>
                       <div className="flex justify-between items-center mt-1">
-                        <p className="text-[10px] text-slate-500 font-bold uppercase">ROI Mensal</p>
-                        <p className="text-xs font-bold text-purple-400">{!isNaN(margins.avgMonthlyRoi) ? margins.avgMonthlyRoi.toFixed(1) : '0.0'}%</p>
+                        <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase">ROI Mês</p>
+                        <p className="text-[10px] md:text-xs font-bold text-purple-400">{(!isNaN(margins.avgMonthlyRoi) ? margins.avgMonthlyRoi : 0).toFixed(1)}%</p>
                       </div>
                     </div>
                   </div>
