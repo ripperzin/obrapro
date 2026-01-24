@@ -165,7 +165,7 @@ const App: React.FC = () => {
         expenses: (p.expenses || []).map((e: any) => ({
           ...e,
           attachmentUrl: e.attachment_url,
-          attachments: e.attachments || [], // Map new column
+          attachments: e.attachments || [], // Explicitly map new column from DB
           macroId: e.macro_id,
           subMacroId: e.sub_macro_id
         })),
