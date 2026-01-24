@@ -1280,7 +1280,7 @@ const ExpensesSection: React.FC<{
           attachments={(() => {
             const exp = project.expenses.find(e => e.id === attachmentManagerId);
             if (!exp) return [];
-            return exp.attachments || (exp.attachmentUrl ? [exp.attachmentUrl] : []);
+            return (exp.attachments && exp.attachments.length > 0) ? exp.attachments : (exp.attachmentUrl ? [exp.attachmentUrl] : []);
           })()}
           onSave={(newAttachments) => {
             if (attachmentManagerId) {
