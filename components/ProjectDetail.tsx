@@ -237,45 +237,107 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
       {/* Container Principal - Dark Theme */}
       <div className="glass rounded-3xl p-8">
         {/* Navegação de Abas - Dark Theme */}
-        <div className="flex flex-wrap gap-3 mb-10 w-full justify-center">
-          {['info', 'units', 'expenses', 'budget', 'documents', 'diary', 'logs'].map((tab) => {
-            if (tab === 'units' && !canSeeUnits) return null;
+        {/* Navegação BENTO GRID - Redesign Premium */}
+        <div className="mb-10 w-full">
+          <div className="grid grid-cols-2 gap-3">
+            {/* 1. GESTÃO - Card Largo */}
+            <button
+              onClick={() => setActiveTab('info')}
+              className={`col-span-2 p-6 rounded-3xl relative overflow-hidden transition-all duration-300 group ${activeTab === 'info'
+                ? 'bg-blue-600 shadow-lg shadow-blue-500/40 transform scale-[1.02]'
+                : 'glass hover:bg-slate-800'
+                }`}
+            >
+              <div className="relative z-10 flex items-center justify-between">
+                <div className="text-left">
+                  <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${activeTab === 'info' ? 'text-blue-200' : 'text-slate-400'}`}>Principal</p>
+                  <h3 className={`text-2xl font-black ${activeTab === 'info' ? 'text-white' : 'text-slate-300'}`}>Gestão</h3>
+                </div>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-colors ${activeTab === 'info' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-500 group-hover:bg-blue-500/20 group-hover:text-blue-400'}`}>
+                  <i className="fa-solid fa-gauge-high"></i>
+                </div>
+              </div>
+              {/* Decorative Gradient */}
+              {activeTab === 'info' && (
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+              )}
+            </button>
 
-            const labels: Record<string, string> = {
-              info: 'Gestão',
-              units: 'Unidades',
-              expenses: 'Despesas',
-              budget: 'Orçamento',
-              documents: 'Documentos',
-              diary: 'Diário',
-              logs: 'Auditoria'
-            };
-
-            const icons: Record<string, string> = {
-              info: 'fa-gauge-high',
-              units: 'fa-house-user',
-              expenses: 'fa-wallet',
-              budget: 'fa-chart-pie',
-              documents: 'fa-folder-open',
-              diary: 'fa-book-open',
-              logs: 'fa-fingerprint'
-            };
-
-            const isActive = activeTab === tab;
-
-            return (
+            {/* 2. UNIDADES - Card Médio */}
+            {canSeeUnits && (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab as any)}
-                className={`px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest transition-all duration-300 ${isActive
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                  : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 hover:text-white'
+                onClick={() => setActiveTab('units')}
+                className={`col-span-1 p-4 rounded-3xl relative overflow-hidden transition-all duration-300 group aspect-[4/3] flex flex-col justify-between ${activeTab === 'units'
+                  ? 'bg-emerald-600 shadow-lg shadow-emerald-500/40 transform scale-[1.02]'
+                  : 'glass hover:bg-slate-800'
                   }`}
               >
-                <i className={`fa-solid ${icons[tab]} mr-2`}></i> {labels[tab]}
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-colors ${activeTab === 'units' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-500 group-hover:bg-emerald-500/20 group-hover:text-emerald-400'}`}>
+                  <i className="fa-solid fa-house-user"></i>
+                </div>
+                <div className="text-left">
+                  <h3 className={`text-sm md:text-lg font-black ${activeTab === 'units' ? 'text-white' : 'text-slate-300'}`}>Unidades</h3>
+                  <p className={`text-[9px] font-bold ${activeTab === 'units' ? 'text-emerald-200' : 'text-slate-500'}`}>
+                    {project.units.length} total
+                  </p>
+                </div>
               </button>
-            );
-          })}
+            )}
+
+            {/* 3. DESPESAS - Card Médio */}
+            <button
+              onClick={() => setActiveTab('expenses')}
+              className={`col-span-1 p-4 rounded-3xl relative overflow-hidden transition-all duration-300 group aspect-[4/3] flex flex-col justify-between ${activeTab === 'expenses'
+                ? 'bg-rose-600 shadow-lg shadow-rose-500/40 transform scale-[1.02]'
+                : 'glass hover:bg-slate-800'
+                }`}
+            >
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-colors ${activeTab === 'expenses' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-500 group-hover:bg-rose-500/20 group-hover:text-rose-400'}`}>
+                <i className="fa-solid fa-wallet"></i>
+              </div>
+              <div className="text-left">
+                <h3 className={`text-sm md:text-lg font-black ${activeTab === 'expenses' ? 'text-white' : 'text-slate-300'}`}>Despesas</h3>
+                <p className={`text-[9px] font-bold ${activeTab === 'expenses' ? 'text-rose-200' : 'text-slate-500'}`}>
+                  {formatCurrencyAbbrev(totalActualExpenses)}
+                </p>
+              </div>
+            </button>
+          </div>
+
+          {/* 4. LINHA INFERIOR - Ícones Menores (Scroll Horizontal se necessário) */}
+          <div className="mt-3 flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            {[
+              { id: 'budget', label: 'Orçamento', icon: 'fa-chart-pie', color: 'purple' },
+              { id: 'documents', label: 'Docs', icon: 'fa-folder-open', color: 'amber' },
+              { id: 'diary', label: 'Diário', icon: 'fa-book-open', color: 'cyan' },
+              { id: 'logs', label: 'Auditoria', icon: 'fa-fingerprint', color: 'slate' }
+            ].map((item) => {
+              const isActive = activeTab === item.id;
+              // Mapeamento de cores dinâmicas para Tailwind
+              const colorClasses: Record<string, string> = {
+                purple: isActive ? 'bg-purple-600 shadow-purple-500/40' : 'text-purple-400 group-hover:text-purple-300',
+                amber: isActive ? 'bg-amber-600 shadow-amber-500/40' : 'text-amber-400 group-hover:text-amber-300',
+                cyan: isActive ? 'bg-cyan-600 shadow-cyan-500/40' : 'text-cyan-400 group-hover:text-cyan-300',
+                slate: isActive ? 'bg-slate-600 shadow-slate-500/40' : 'text-slate-400 group-hover:text-slate-300'
+              };
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as any)}
+                  className={`flex-1 min-w-[80px] p-3 rounded-2xl flex flex-col items-center justify-center gap-2 transition-all duration-300 group border border-transparent ${isActive
+                    ? `${colorClasses[item.color].split(' ')[0]} text-white shadow-lg`
+                    : 'glass hover:bg-slate-800 hover:border-slate-700'
+                    }`}
+                >
+                  <i className={`fa-solid ${item.icon} text-lg mb-1 ${!isActive && colorClasses[item.color]}`}></i>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-white' : 'text-slate-500'}`}>
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* ===== ABA GESTÃO - Redesign Premium ===== */}
