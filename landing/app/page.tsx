@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Mic, ScanText, Kanban, ArrowRight, Play, CheckCircle2, Building2, HardHat, TrendingUp, Bot } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -132,6 +133,13 @@ export default function Home() {
       <header className="fixed top-0 w-full z-50 border-b border-white/5 bg-[#0f172a]/70 backdrop-blur-xl">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
+            <Image
+              src="/logo.png"
+              alt="Obra Pro Logo"
+              width={32}
+              height={32}
+              className="rounded-lg"
+            />
             <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-green-400">
               Obra Pro
             </span>
