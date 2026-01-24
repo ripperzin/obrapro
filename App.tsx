@@ -844,7 +844,7 @@ const App: React.FC = () => {
         onLogout={logout}
       />
 
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto pb-24 md:pb-8">
+      <main className="flex-1 p-4 md:p-8 pl-8 md:pl-10 overflow-y-auto pb-24 md:pb-8">
         <header className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-white">

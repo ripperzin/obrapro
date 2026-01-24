@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Project, ProjectBudget, ProjectMacro, TemplateMacro, CostTemplate, ProjectSubMacro, TemplateSubMacro } from '../types';
 import { supabase } from '../supabaseClient';
+import { formatCurrencyAbbrev } from '../utils'; // Import added
 import MoneyInput from './MoneyInput';
 
 interface BudgetSectionProps {
@@ -642,16 +643,16 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                 <div className="grid grid-cols-3 gap-4 mb-4">
                     <div className="bg-slate-800/50 rounded-xl p-4 text-center">
                         <p className="text-slate-400 text-xs uppercase tracking-widest mb-1">Orçamento</p>
-                        <p className="text-white font-black text-lg">{formatCurrency(totalBudget)}</p>
+                        <p className="text-white font-black text-lg">R$ {formatCurrencyAbbrev(totalBudget)}</p>
                     </div>
                     <div className="bg-slate-800/50 rounded-xl p-4 text-center">
                         <p className="text-slate-400 text-xs uppercase tracking-widest mb-1">Gasto</p>
-                        <p className="text-blue-400 font-black text-lg">{formatCurrency(totalSpent)}</p>
+                        <p className="text-blue-400 font-black text-lg">R$ {formatCurrencyAbbrev(totalSpent)}</p>
                     </div>
                     <div className="bg-slate-800/50 rounded-xl p-4 text-center">
                         <p className="text-slate-400 text-xs uppercase tracking-widest mb-1">Saldo</p>
                         <p className={`font-black text-lg ${totalBudget - totalSpent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {formatCurrency(totalBudget - totalSpent)}
+                            R$ {formatCurrencyAbbrev(totalBudget - totalSpent)}
                         </p>
                     </div>
                 </div>

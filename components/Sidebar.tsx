@@ -24,28 +24,36 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
   );
 
   return (
-    <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col p-4 shrink-0 hidden md:flex">
-      <div className="flex items-center space-x-2 px-2 mb-10">
-        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/30">
-          G
-        </div>
-        <span className="text-xl font-bold text-white">ObraPro</span>
+    <aside className="fixed left-0 top-0 h-full z-50 bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 ease-in-out w-4 hover:w-64 overflow-hidden group hidden md:flex hover:shadow-2xl">
+      {/* Strip Visual Indicator (Always visible when collapsed) */}
+      <div className="absolute left-0 top-0 w-4 h-full bg-slate-800/30 flex flex-col items-center pt-10 gap-2 opacity-100 group-hover:opacity-0 transition-opacity duration-300">
+        <div className="w-[2px] h-full bg-slate-700/50 rounded-full"></div>
       </div>
 
-      <nav className="flex-1 space-y-2">
-        <NavItem id="general" icon="fa-home" label="Início" />
-        <NavItem id="audit" icon="fa-fingerprint" label="Auditoria" />
-        {role === UserRole.ADMIN && <NavItem id="users" icon="fa-users" label="Usuários" />}
-      </nav>
+      {/* Main Content (Hidden when collapsed) */}
+      <div className="w-64 flex flex-col h-full p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
+        <div className="flex items-center space-x-2 px-2 mb-10">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/30">
+            G
+          </div>
+          <span className="text-xl font-bold text-white whitespace-nowrap">ObraPro</span>
+        </div>
 
-      <div className="pt-4 border-t border-slate-800">
-        <button
-          onClick={onLogout}
-          className="w-full flex items-center space-x-3 px-4 py-3 text-red-400 rounded-xl hover:bg-red-500/10 transition"
-        >
-          <i className="fa-solid fa-right-from-bracket w-6"></i>
-          <span className="font-medium">Sair</span>
-        </button>
+        <nav className="flex-1 space-y-2">
+          <NavItem id="general" icon="fa-home" label="Início" />
+          <NavItem id="audit" icon="fa-fingerprint" label="Auditoria" />
+          {role === UserRole.ADMIN && <NavItem id="users" icon="fa-users" label="Usuários" />}
+        </nav>
+
+        <div className="pt-4 border-t border-slate-800">
+          <button
+            onClick={onLogout}
+            className="w-full flex items-center space-x-3 px-4 py-3 text-red-400 rounded-xl hover:bg-red-500/10 transition whitespace-nowrap"
+          >
+            <i className="fa-solid fa-right-from-bracket w-6"></i>
+            <span className="font-medium">Sair</span>
+          </button>
+        </div>
       </div>
     </aside>
   );
