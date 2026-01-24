@@ -259,13 +259,9 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                         </div>
                         <span className="text-slate-300 text-xs font-bold uppercase tracking-wider">Receita Realizada</span>
                      </div>
-                     <span className="text-green-400 text-xs font-bold">100%</span>
                   </div>
                   <div className="mt-2">
                      <p className="text-white font-black text-2xl tracking-tight">{formatCurrency(unitsInventory.realizedValue)}</p>
-                     <div className="w-full h-1.5 bg-slate-700 rounded-full mt-3 overflow-hidden">
-                        <div className="h-full bg-green-500 w-full rounded-full"></div>
-                     </div>
                   </div>
                </div>
 
