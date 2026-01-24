@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
 import { Unit } from '../types';
 import MoneyInput from './MoneyInput';
 
@@ -39,8 +39,11 @@ const AddUnitModal: React.FC<AddUnitModalProps> = ({ isOpen, onClose, onSave }) 
         }
     };
 
-    return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+    const modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) return null;
+
+    return ReactDOM.createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-fade-in">
             <div className="glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-700">
                 <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/95">
                     <div className="flex items-center gap-3">
@@ -107,7 +110,8 @@ const AddUnitModal: React.FC<AddUnitModalProps> = ({ isOpen, onClose, onSave }) 
                     </button>
                 </form>
             </div>
-        </div>
+        </div>,
+        modalRoot
     );
 };
 

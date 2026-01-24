@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { ProgressStage, STAGE_NAMES, StageEvidence } from '../types';
 import AttachmentUpload from './AttachmentUpload';
 import { openAttachment } from '../utils/storage';
@@ -93,8 +94,11 @@ const StageEvidenceModal: React.FC<StageEvidenceModalProps> = ({
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+    const modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) return null;
+
+    return ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
             <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
 
                 {/* Header */}
@@ -238,7 +242,8 @@ const StageEvidenceModal: React.FC<StageEvidenceModalProps> = ({
                     </div>
                 )}
             </div>
-        </div>
+        </div>,
+        modalRoot
     );
 };
 

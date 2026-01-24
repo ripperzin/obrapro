@@ -1,17 +1,8 @@
 import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
 import { Project, ProgressStage, STAGE_NAMES } from '../types';
 import StageThumbnail from './StageThumbnail';
 import DateInput from './DateInput';
-
-interface ProjectsDashboardProps {
-  projects: Project[];
-  onSelect: (id: string) => void;
-  onAdd: (project: any) => void;
-  onUpdate?: (id: string, updates: Partial<Project>, logMsg?: string) => void;
-  onDelete?: (id: string) => void;
-  isAdmin: boolean;
-}
-
 import ConfirmModal from './ConfirmModal';
 
 interface ProjectsDashboardProps {
@@ -98,6 +89,8 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
     setShowModal(false);
   };
 
+  const modalRoot = document.getElementById('modal-root');
+
   return (
     <div className="space-y-8">
       {isAdmin && (
@@ -127,16 +120,12 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
               <div className="flex justify-between items-start mb-8 relative z-10">
                 {/* Stage photo or icon - show the most recent stage photo */}
                 {(() => {
-                  // Get the most recent evidence (highest stage number that has photos)
                   const evidencesWithPhotos = (p.stageEvidence || [])
                     .filter(e => e.photos && e.photos.length > 0)
                     .sort((a, b) => b.stage - a.stage);
 
                   const latestEvidence = evidencesWithPhotos[0];
                   const photo = latestEvidence?.photos?.[0];
-
-                  // Debug log
-                  console.log(`Project ${p.name}: stageEvidence=`, p.stageEvidence, 'photo=', photo);
 
                   if (photo) {
                     return (
@@ -156,12 +145,6 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                   <span className="px-4 py-2 bg-slate-50 rounded-full text-xs font-black text-slate-600 border border-slate-100">
                     {p.progress}%
                   </span>
-                  {/* Buttons always visible for now based on user request, or kept under isAdmin if strict. 
-                      User asked to "place edit and delete for each work", suggesting they might not be seeing them.
-                      I'll assume they are admin, but just in case, I'll keep the isAdmin check if that's the intended logic,
-                      BUT if the user is having trouble finding them, maybe I should make them more prominent or remove the check?
-                      The codebase seems to rely on isAdmin for these privileges. I will keep isAdmin but ensure the buttons are distinct.
-                   */}
                   {isAdmin && (
                     <>
                       <button
@@ -207,24 +190,27 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
         </div>
       )}
 
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-300 border-4 border-blue-600">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">
+      {showModal && modalRoot && ReactDOM.createPortal(
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-fade-in">
+          <div className="glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-700">
+            <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/95 sticky top-0 z-10">
+              <h2 className="text-xl font-black text-white uppercase tracking-tight">
                 {editingProject ? 'Editar Obra' : 'Nova Obra'}
               </h2>
-              <button onClick={() => setShowModal(false)} className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-full text-slate-400 hover:text-red-500 hover:border-red-200 transition">
+              <button
+                onClick={() => setShowModal(false)}
+                className="w-10 h-10 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:text-red-400 hover:border-red-400 transition"
+              >
                 <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-4">Nome do Empreendimento</label>
+                <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest ml-4">Nome do Empreendimento</label>
                 <input
                   required
                   type="text"
-                  className="w-full px-6 py-4 bg-white border-2 border-slate-200 focus:border-blue-500 rounded-[1.5rem] outline-none transition-all font-bold text-slate-800 shadow-sm text-sm"
+                  className="w-full px-6 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white shadow-sm text-sm placeholder-slate-500"
                   placeholder="Ex: Residencial Aurora"
                   value={formData.name}
                   onChange={e => setFormData({ ...formData, name: e.target.value })}
@@ -232,20 +218,20 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-1">Início</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Início</label>
                   <DateInput
                     value={formData.startDate}
                     onChange={(val) => setFormData({ ...formData, startDate: val })}
-                    className="w-full px-4 py-3 bg-white border-2 border-slate-200 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-slate-800 shadow-sm text-sm text-center"
+                    className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-white shadow-sm text-sm text-center"
                     placeholder="DD/MM/AAAA"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-1">Entrega</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Entrega</label>
                   <DateInput
                     value={formData.deliveryDate}
                     onChange={(val) => setFormData({ ...formData, deliveryDate: val })}
-                    className="w-full px-4 py-3 bg-white border-2 border-slate-200 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-slate-800 shadow-sm text-sm text-center"
+                    className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-white shadow-sm text-sm text-center"
                     placeholder="DD/MM/AAAA"
                   />
                 </div>
@@ -253,14 +239,15 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
               <div className="pt-2 flex gap-4">
                 <button
                   type="submit"
-                  className="flex-1 py-4 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition shadow-lg shadow-blue-200 font-black uppercase text-xs tracking-widest"
+                  className="flex-1 py-4 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition shadow-lg shadow-blue-600/30 font-black uppercase text-xs tracking-widest"
                 >
                   {editingProject ? 'Salvar Alterações' : 'Criar Projeto'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        modalRoot
       )}
 
       <ConfirmModal
@@ -278,4 +265,3 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
 };
 
 export default ProjectsDashboard;
-

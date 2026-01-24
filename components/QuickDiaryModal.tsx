@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Project } from '../types';
 import DateInput from './DateInput';
 import AttachmentUpload from './AttachmentUpload';
@@ -12,10 +13,7 @@ interface QuickDiaryModalProps {
     initialContent?: string;
 }
 
-import ReactDOM from 'react-dom';
-
 const QuickDiaryModal: React.FC<QuickDiaryModalProps> = ({
-    // ... props ...
     isOpen,
     onClose,
     projects,
@@ -23,7 +21,6 @@ const QuickDiaryModal: React.FC<QuickDiaryModalProps> = ({
     onSave,
     initialContent = ''
 }) => {
-    // ... logic ...
     const [projectId, setProjectId] = useState(preSelectedProjectId || '');
     const [content, setContent] = useState(initialContent);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);

@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
 import { Project, ProgressStage, Expense } from '../types';
 import { formatCurrency, calculateMonthsBetween, formatCurrencyAbbrev } from '../utils';
 
@@ -212,6 +213,8 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
 
       setShowExpenseModal(false);
    };
+
+   const modalRoot = document.getElementById('modal-root');
 
    return (
       <div className="animate-fade-in min-h-full">
@@ -674,10 +677,10 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
          </div>
 
          {/* Modal Nova Obra */}
-         {showModal && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+         {showModal && modalRoot && ReactDOM.createPortal(
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-fade-in">
                <div className="glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-700">
-                  <div className="p-6 border-b border-slate-700 flex justify-between items-center">
+                  <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/95 sticky top-0 z-10">
                      <h2 className="text-xl font-black text-white">{editingProject ? 'Editar Obra' : 'Nova Obra'}</h2>
                      <button
                         onClick={() => setShowModal(false)}
@@ -701,7 +704,6 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                         />
                      </div>
 
-                     {/* Campos de Data */}
                      <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
@@ -734,7 +736,8 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                      </button>
                   </form>
                </div>
-            </div>
+            </div>,
+            modalRoot
          )}
 
          {/* Modal Despesa Rápida (Reutilizável) */}

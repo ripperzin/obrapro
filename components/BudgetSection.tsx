@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Project, ProjectBudget, ProjectMacro, TemplateMacro, CostTemplate, ProjectSubMacro, TemplateSubMacro } from '../types';
 import { supabase } from '../supabaseClient';
 import MoneyInput from './MoneyInput';
@@ -84,6 +85,8 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
     const [isEditing, setIsEditing] = useState(false);
     const [editMacros, setEditMacros] = useState<ProjectMacro[]>([]);
     const [editSubMacros, setEditSubMacros] = useState<ProjectSubMacro[]>([]);
+
+    const modalRoot = document.getElementById('modal-root');
 
     // Carregar dados do orçamento - Watch units length/cost to trigger auto-create
     useEffect(() => {
@@ -544,10 +547,10 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                     )}
                 </div>
 
-                {showSetupModal && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+                {showSetupModal && modalRoot && ReactDOM.createPortal(
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
                         <div className="glass rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in border border-slate-700">
-                            <div className="p-6 border-b border-slate-700 flex justify-between items-center">
+                            <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/95 sticky top-0 z-10">
                                 <h2 className="text-xl font-black text-white">Configurar Orçamento</h2>
                                 <button
                                     onClick={() => setShowSetupModal(false)}
@@ -616,7 +619,8 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </div>,
+                    modalRoot
                 )}
             </div>
         );

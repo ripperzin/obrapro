@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 
 interface VoiceAssistantProps {
     onNavigate: (tab: string) => void;
@@ -209,8 +210,11 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onNavigate, onAction })
         }
     };
 
-    return (
-        <div className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-50 flex flex-col items-end gap-2">
+    const modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) return null;
+
+    return ReactDOM.createPortal(
+        <div className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-[100] flex flex-col items-end gap-2">
             {(isListening || feedback) && (
                 <div className="bg-slate-800 border border-slate-700 text-white px-4 py-2 rounded-xl shadow-xl mb-2 animate-fade-in max-w-[250px] text-right z-[100]">
                     <p className="text-xs font-bold whitespace-pre-wrap">{feedback}</p>
@@ -232,7 +236,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onNavigate, onAction })
             >
                 <i className={`fa-solid ${isListening ? 'fa-stop' : 'fa-microphone'} text-white text-xl`}></i>
             </button>
-        </div>
+        </div>,
+        modalRoot
     );
 };
 

@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import AttachmentUpload from './AttachmentUpload';
 import { getSignedUrl } from '../utils/storage';
 
 interface ManageAttachmentsModalProps {
     isOpen: boolean;
     onClose: () => void;
-    attachments: string[]; // Recebe a lista flat
+    attachments: string[];
     onSave: (newAttachments: string[]) => void;
 }
-
-import ReactDOM from 'react-dom';
 
 const ManageAttachmentsModal: React.FC<ManageAttachmentsModalProps> = ({ isOpen, onClose, attachments: initialAttachments, onSave }) => {
     const [attachments, setAttachments] = useState<string[]>(initialAttachments || []);
@@ -51,7 +50,7 @@ const ManageAttachmentsModal: React.FC<ManageAttachmentsModalProps> = ({ isOpen,
     return ReactDOM.createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
             <div className="glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-700">
-                <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/95">
+                <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/95 sticky top-0 z-10">
                     <h2 className="text-lg font-black text-white flex items-center gap-2">
                         <i className="fa-solid fa-paperclip text-blue-400"></i>
                         Gerenciar Anexos
@@ -132,7 +131,8 @@ const ManageAttachmentsModal: React.FC<ManageAttachmentsModalProps> = ({ isOpen,
                     </button>
                 </div>
             </div>
-        </div >
+        </div>,
+        modalRoot
     );
 };
 
