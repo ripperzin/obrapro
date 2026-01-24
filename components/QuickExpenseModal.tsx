@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Project } from '../types';
 import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
@@ -218,14 +219,17 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             value,
             date,
             attachments, // New array
-            attachmentUrl: attachments.length > 0 ? attachments[0] : undefined, // Legacy fallback
+            attachmentUrl: attachments.length > 0 ? attachments[0] : undefined, // Legacy fallback sync
             macroId: finalMacroId,
             subMacroId: selectedSubMacroId || null
         });
         onClose();
     };
 
-    return (
+    const modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) return null;
+
+    return ReactDOM.createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[60] p-4 animate-fade-in">
             <div className="glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-700 max-h-[90vh] overflow-y-auto">
                 <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/95 sticky top-0 z-10">
@@ -413,7 +417,8 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                     </button>
                 </form>
             </div>
-        </div>
+        </div>,
+        modalRoot
     );
 };
 

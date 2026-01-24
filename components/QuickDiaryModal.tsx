@@ -12,7 +12,10 @@ interface QuickDiaryModalProps {
     initialContent?: string;
 }
 
+import ReactDOM from 'react-dom';
+
 const QuickDiaryModal: React.FC<QuickDiaryModalProps> = ({
+    // ... props ...
     isOpen,
     onClose,
     projects,
@@ -20,6 +23,7 @@ const QuickDiaryModal: React.FC<QuickDiaryModalProps> = ({
     onSave,
     initialContent = ''
 }) => {
+    // ... logic ...
     const [projectId, setProjectId] = useState(preSelectedProjectId || '');
     const [content, setContent] = useState(initialContent);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -43,14 +47,15 @@ const QuickDiaryModal: React.FC<QuickDiaryModalProps> = ({
             return;
         }
 
-        // Convert single photo to array for diary structure
         const photos = photoUrl ? [photoUrl] : [];
-
-        onSave(projectId, { content, date, photos }); // Author handled by App.tsx
+        onSave(projectId, { content, date, photos });
         onClose();
     };
 
-    return (
+    const modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) return null;
+
+    return ReactDOM.createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[60] p-4 animate-fade-in">
             <div className="glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-700 max-h-[90vh] overflow-y-auto">
                 <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/95 sticky top-0 z-10">
@@ -127,7 +132,8 @@ const QuickDiaryModal: React.FC<QuickDiaryModalProps> = ({
                     </button>
                 </form>
             </div>
-        </div>
+        </div>,
+        modalRoot
     );
 };
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { ProjectMacro, ProjectSubMacro } from '../types';
 import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
@@ -80,7 +81,10 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
         onClose();
     };
 
-    return (
+    const modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) return null;
+
+    return ReactDOM.createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-700 max-h-[90vh] overflow-y-auto">
                 <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/95 sticky top-0 z-10">
@@ -169,7 +173,6 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                                     const url = resolvedUrls[path] || path;
                                     return (
                                         <div key={index} className="relative aspect-square bg-slate-700 rounded-xl overflow-hidden border border-slate-600 group">
-                                            {/* Preview (Simplificado - Imagem ou Ícone) */}
                                             {/\.(jpg|jpeg|png|webp|heic|heif)$/i.test(path) ? (
                                                 <div className="w-full h-full relative">
                                                     <img
@@ -184,7 +187,6 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                                                 </div>
                                             )}
 
-                                            {/* Botão Remover */}
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -198,7 +200,6 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                                                 <i className="fa-solid fa-xmark text-xs"></i>
                                             </button>
 
-                                            {/* Overlay nome? */}
                                             <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-1 truncate text-[8px] text-white text-center">
                                                 Anexo {index + 1}
                                             </div>
@@ -208,7 +209,6 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                             </div>
                         )}
 
-                        {/* Botão Adicionar Novo */}
                         <div className="h-16">
                             <AttachmentUpload
                                 value={undefined}
@@ -233,7 +233,8 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                     </button>
                 </form>
             </div>
-        </div>
+        </div>,
+        modalRoot
     );
 };
 

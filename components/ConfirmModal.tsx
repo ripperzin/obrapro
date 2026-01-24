@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 
 interface ConfirmModalProps {
     isOpen: boolean;
@@ -51,7 +52,10 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
     const styles = getVariantStyles();
 
-    return (
+    const modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) return null;
+
+    return ReactDOM.createPortal(
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
             <div
                 className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 border-4 border-white"
@@ -89,7 +93,8 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        modalRoot
     );
 };
 

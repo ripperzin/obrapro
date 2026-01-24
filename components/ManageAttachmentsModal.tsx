@@ -9,6 +9,8 @@ interface ManageAttachmentsModalProps {
     onSave: (newAttachments: string[]) => void;
 }
 
+import ReactDOM from 'react-dom';
+
 const ManageAttachmentsModal: React.FC<ManageAttachmentsModalProps> = ({ isOpen, onClose, attachments: initialAttachments, onSave }) => {
     const [attachments, setAttachments] = useState<string[]>(initialAttachments || []);
     const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({});
@@ -43,8 +45,11 @@ const ManageAttachmentsModal: React.FC<ManageAttachmentsModalProps> = ({ isOpen,
         onClose();
     };
 
-    return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+    const modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) return null;
+
+    return ReactDOM.createPortal(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
             <div className="glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-700">
                 <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/95">
                     <h2 className="text-lg font-black text-white flex items-center gap-2">
