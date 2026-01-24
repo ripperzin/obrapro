@@ -51,6 +51,27 @@ const DateInput: React.FC<DateInputProps> = ({
         return `${year}-${month}-${day}`;
     };
 
+    // Strict validation (No Date.parse quirks)
+    const isValidDate = (iso: string) => {
+        if (!iso) return false;
+        const [yStr, mStr, dStr] = iso.split('-');
+        const y = parseInt(yStr, 10);
+        const m = parseInt(mStr, 10);
+        const d = parseInt(dStr, 10);
+
+        if (isNaN(y) || isNaN(m) || isNaN(d)) return false;
+        if (m < 1 || m > 12) return false;
+        if (d < 1 || d > 31) return false;
+
+        // Simple check for day in month validity
+        const dateObj = new Date(y, m - 1, d);
+        if (dateObj.getFullYear() !== y || dateObj.getMonth() !== m - 1 || dateObj.getDate() !== d) {
+            return false;
+        }
+
+        return true;
+    };
+
     // Sync internal state with external value
     useEffect(() => {
         setDisplayValue(formatDateToDisplay(value));
@@ -94,9 +115,8 @@ const DateInput: React.FC<DateInputProps> = ({
         }
 
         const iso = parseDisplayToIso(displayValue);
-        const isValid = !isNaN(Date.parse(iso));
 
-        if (isValid) {
+        if (isValidDate(iso)) {
             if (onBlur) onBlur(iso);
             if (onChange) onChange(iso);
             // Re-format display to appear perfect
