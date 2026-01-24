@@ -153,7 +153,8 @@ export interface Expense {
   date: string;
   userId: string;
   userName: string;
-  attachmentUrl?: string;
+  attachmentUrl?: string; // Legacy
+  attachments?: string[]; // New
   macroId?: string;
   subMacroId?: string;
 }

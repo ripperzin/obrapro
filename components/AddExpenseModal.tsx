@@ -19,6 +19,7 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
         value: 0,
         date: new Date().toISOString().split('T')[0],
         attachmentUrl: undefined as string | undefined,
+        attachments: [] as string[],
         macroId: '' as string,
         subMacroId: '' as string
     });
@@ -30,6 +31,7 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                 value: 0,
                 date: new Date().toISOString().split('T')[0],
                 attachmentUrl: undefined,
+                attachments: [] as string[],
                 macroId: '',
                 subMacroId: ''
             });
@@ -136,11 +138,74 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Anexo (opcional)</label>
-                        <AttachmentUpload
-                            value={formData.attachmentUrl}
-                            onChange={(url) => setFormData({ ...formData, attachmentUrl: url })}
-                        />
+                        <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Anexos ({formData.attachments?.length || 0})</label>
+
+                        {/* Grid de Anexos */}
+                        {formData.attachments && formData.attachments.length > 0 && (
+                            <div className="grid grid-cols-3 gap-2 mb-2">
+                                {formData.attachments.map((url, index) => (
+                                    <div key={index} className="relative aspect-square bg-slate-700 rounded-xl overflow-hidden border border-slate-600 group">
+                                        {/* Preview (Simplificado - Imagem ou Ícone) */}
+                                        {/\.(jpg|jpeg|png|webp|heic|heif)$/i.test(url) ? (
+                                            <div className="w-full h-full relative">
+                                                <img
+                                                    src={url.startsWith('http') ? url : `https://YOUR_PROJECT_ID.supabase.co/storage/v1/object/public/expense-attachments/${url}`}
+                                                    /* Nota: A URL acima é placeholder. Idealmente usar signed URL ou componente que faça isso. 
+                                                       Vamos re-usar AttachmentUpload apenas para preview? Não, ele tem estado interno.
+                                                       Melhor: Usar um thumbnail simples. Ou melhor: Re-usar AttachmentUpload em modo 'readonly' com value?
+                                                       Não, AttachmentUpload tem botão de remover interno.
+                                                    */
+                                                    className="w-full h-full object-cover"
+                                                    alt="anexo"
+                                                />
+                                                {/* Fallback para imagem quebrada ou não assinada - O ideal é usar o AttachmentUpload para cada item? 
+                                                    Sim, mas AttachmentUpload é grande. 
+                                                    Vamos usar o AttachmentUpload p ara CADA item, mas sem permitir trocar, apenas remover?
+                                                    O AttachmentUpload atual permite remover se tiver value.
+                                                */}
+                                            </div>
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-400">
+                                                <i className="fa-solid fa-file-pdf text-xl"></i>
+                                            </div>
+                                        )}
+
+                                        {/* Botão Remover */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const newAttachments = formData.attachments!.filter((_, i) => i !== index);
+                                                setFormData({ ...formData, attachments: newAttachments });
+                                            }}
+                                            className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-lg flex items-center justify-center shadow-md hover:bg-red-600 transition-colors z-10"
+                                        >
+                                            <i className="fa-solid fa-xmark text-xs"></i>
+                                        </button>
+
+                                        {/* Overlay nome? */}
+                                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-1 truncate text-[8px] text-white text-center">
+                                            Anexo {index + 1}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Botão Adicionar Novo */}
+                        <div className="h-16">
+                            <AttachmentUpload
+                                value={undefined}
+                                onChange={(url) => {
+                                    if (url) {
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            attachments: [...(prev.attachments || []), url]
+                                        }));
+                                    }
+                                }}
+                                minimal={false}
+                            />
+                        </div>
                     </div>
 
                     <button

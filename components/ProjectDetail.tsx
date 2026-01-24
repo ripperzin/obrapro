@@ -15,6 +15,7 @@ import StageThumbnail from './StageThumbnail';
 import BudgetSection from './BudgetSection';
 import AddUnitModal from './AddUnitModal';
 import AddExpenseModal from './AddExpenseModal';
+import ManageAttachmentsModal from './ManageAttachmentsModal';
 
 import { supabase } from '../supabaseClient';
 
@@ -31,6 +32,7 @@ interface ProjectDetailProps {
 const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, onDeleteUnit, onRefresh, onUpdateDiary, onDeleteDiary }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'budget' | 'documents' | 'diary' | 'logs'>('info');
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
+  const [managingAttachmentsId, setManagingAttachmentsId] = useState<string | null>(null);
   const [evidenceModal, setEvidenceModal] = useState<{ isOpen: boolean; stage: number; evidence?: any }>({ isOpen: false, stage: 0 });
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
@@ -1270,6 +1272,30 @@ const ExpensesSection: React.FC<{
         subMacros={projectSubMacros}
       />
 
+      {/* Modal Gerenciar Anexos */}
+      {managingAttachmentsId && (
+        <ManageAttachmentsModal
+          isOpen={true}
+          onClose={() => setManagingAttachmentsId(null)}
+          attachments={(() => {
+            const exp = project.expenses.find(e => e.id === managingAttachmentsId);
+            if (!exp) return [];
+            return exp.attachments || (exp.attachmentUrl ? [exp.attachmentUrl] : []);
+          })()}
+          onSave={(newAttachments) => {
+            if (managingAttachmentsId) {
+              handleEditExpense(managingAttachmentsId, 'attachments' as any, newAttachments);
+              // Also clear legacy url if empty or sync? 
+              // handleEditExpense(managingAttachmentsId, 'attachmentUrl' as any, newAttachments[0] || null);
+              // Let's keep it simple: Save to 'attachments'. Legacy 'attachmentUrl' might persist or we clear it.
+              // Ideally clears it to avoid dual source of truth issues, or syncs it.
+              // Syncing first item to attachmentUrl for backward compat:
+              handleEditExpense(managingAttachmentsId, 'attachmentUrl' as any, newAttachments.length > 0 ? newAttachments[0] : null);
+            }
+          }}
+        />
+      )}
+
       {/* Lista de Despesas - Responsive */}
       <div className="space-y-4">
         {/* Mobile: Lista de Cards */}
@@ -1354,14 +1380,24 @@ const ExpensesSection: React.FC<{
                     </div>
                     <div className="text-xs text-slate-400 font-bold">{exp.userName || 'Sistema'}</div>
                   </div>
-                  {exp.attachmentUrl && (
+                  {/* Botão de Anexos - Mobile */}
+                  {(exp.attachmentUrl || (exp.attachments && exp.attachments.length > 0) || isAdmin) && (
                     <button
                       type="button"
-                      onClick={() => openAttachment(exp.attachmentUrl!)}
-                      className="flex items-center gap-2 px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition text-xs font-bold"
+                      onClick={() => isAdmin ? setManagingAttachmentsId(exp.id) : (exp.attachmentUrl ? openAttachment(exp.attachmentUrl) : null)} // Se não for admin, mantém view simples ou abre manager readonly? Por simplicidade, admin gerencia. User vê.
+                      // Melhor: Se for admin, abre manager. Se user comum, abre o primeiro. (Melhorar depois para user comum ver todos)
+                      // Ajuste: Se user comum, abrir manager em modo visualização (posso adicionar prop readOnly no modal depois).
+                      // Por enquanto: Admin gerencia.
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg transition text-xs font-bold ${(exp.attachments?.length || 0) > 0 || exp.attachmentUrl ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white' : 'bg-slate-800 text-slate-500 hover:text-white'
+                        }`}
                     >
                       <i className="fa-solid fa-paperclip"></i>
-                      Ver Anexo
+                      {isAdmin ? (
+                        (exp.attachments?.length || (exp.attachmentUrl ? 1 : 0)) > 0 ?
+                          `${exp.attachments?.length || 1} Anexo(s)` : 'Adicionar Anexo'
+                      ) : (
+                        'Ver Anexo'
+                      )}
                     </button>
                   )}
                 </div>
@@ -1481,16 +1517,24 @@ const ExpensesSection: React.FC<{
                       isAdmin && (
                         <td className="px-4 py-4 text-center w-36">
                           <div className="flex items-center justify-center gap-1">
-                            {exp.attachmentUrl && (
-                              <button
-                                type="button"
-                                onClick={() => openAttachment(exp.attachmentUrl!)}
-                                className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white transition flex items-center justify-center"
-                                title="Ver Anexo"
-                              >
-                                <i className="fa-solid fa-paperclip"></i>
-                              </button>
-                            )}
+                            {/* Botão Anexo Desktop */}
+                            <button
+                              type="button"
+                              onClick={() => setManagingAttachmentsId(exp.id)}
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${(exp.attachments?.length || (exp.attachmentUrl ? 1 : 0)) > 0
+                                  ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white'
+                                  : 'bg-slate-800 text-slate-500 hover:bg-slate-700 hover:text-white'
+                                }`}
+                              title="Gerenciar Anexos"
+                            >
+                              <i className="fa-solid fa-paperclip"></i>
+                              {(exp.attachments?.length || 0) > 1 && (
+                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] flex items-center justify-center rounded-full pointer-events-none">
+                                  {exp.attachments?.length}
+                                </span>
+                              )}
+                            </button>
+
                             {isEditing ? (
                               <button onClick={() => setEditingExpenseId(null)} className="w-8 h-8 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white transition flex items-center justify-center">
                                 <i className="fa-solid fa-check"></i>
