@@ -292,108 +292,115 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
       <div className="glass rounded-3xl p-8">
         {/* Navegação de Abas - Dark Theme */}
         {/* Navegação BENTO GRID - Redesign Premium */}
-        <div className="mb-10 w-full">
-          <div className="grid grid-cols-2 gap-3">
-            {/* 1. GESTÃO - Card Largo (Compacto) */}
+        {/* Navegação BENTO GRID - Redesign Premium "Chunky" */}
+        <div className="mb-8 w-full">
+          <div className="grid grid-cols-2 gap-3 md:gap-4">
+            {/* 1. GESTÃO - Card Largo (Highlight) */}
             <button
               onClick={() => setActiveTab('info')}
-              className={`col-span-2 p-4 rounded-2xl relative overflow-hidden transition-all duration-300 group border-l-4 ${activeTab === 'info'
+              className={`col-span-2 h-28 md:h-32 p-5 rounded-3xl relative overflow-hidden transition-all duration-300 group border-l-[6px] ${activeTab === 'info'
                 ? 'glass border-blue-500 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.1)]'
                 : 'glass border-transparent hover:bg-slate-800/50'
                 }`}
             >
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="text-left">
-                  <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${activeTab === 'info' ? 'text-blue-400' : 'text-slate-400'}`}>Principal</p>
-                  <h3 className={`text-xl font-black ${activeTab === 'info' ? 'text-white' : 'text-slate-300'}`}>Gestão</h3>
+              <div className="relative z-10 flex items-center justify-between h-full">
+                <div className="text-left flex flex-col justify-center">
+                  <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${activeTab === 'info' ? 'text-blue-400' : 'text-slate-400'}`}>Visão Geral</p>
+                  <h3 className={`text-2xl font-black ${activeTab === 'info' ? 'text-white' : 'text-slate-300'}`}>Gestão</h3>
                 </div>
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg transition-colors ${activeTab === 'info' ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-blue-500/20 group-hover:text-blue-400'}`}>
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-colors ${activeTab === 'info' ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-blue-500/20 group-hover:text-blue-400'}`}>
                   <i className="fa-solid fa-gauge-high"></i>
                 </div>
               </div>
-              {/* Decorative Gradient - Subtler */}
+              {/* Decorative */}
               {activeTab === 'info' && (
-                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -mr-12 -mt-12 blur-xl"></div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-10 -mt-10 blur-2xl"></div>
               )}
             </button>
 
-            {/* 2. UNIDADES - Card Médio (Compacto) */}
+            {/* 2. UNIDADES - Card Médio */}
             {canSeeUnits && (
               <button
                 onClick={() => setActiveTab('units')}
-                className={`col-span-1 p-3 rounded-2xl relative overflow-hidden transition-all duration-300 group border-l-4 flex flex-col justify-between h-24 ${activeTab === 'units'
+                className={`col-span-1 h-32 p-4 rounded-3xl relative overflow-hidden transition-all duration-300 group border-l-[6px] flex flex-col justify-between ${activeTab === 'units'
                   ? 'glass border-emerald-500 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
                   : 'glass border-transparent hover:bg-slate-800/50'
                   }`}
               >
                 <div className="flex justify-between items-start w-full">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-colors ${activeTab === 'units' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-emerald-500/20 group-hover:text-emerald-400'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-colors ${activeTab === 'units' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-emerald-500/20 group-hover:text-emerald-400'}`}>
                     <i className="fa-solid fa-house-user"></i>
                   </div>
-                  <p className={`text-[9px] font-bold ${activeTab === 'units' ? 'text-emerald-400' : 'text-slate-500'}`}>
-                    {project.units.length} total
+                  <p className={`text-[10px] font-black ${activeTab === 'units' ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    {project.units.length}
                   </p>
                 </div>
-                <div className="text-left mt-1">
-                  <h3 className={`text-sm font-black ${activeTab === 'units' ? 'text-white' : 'text-slate-300'}`}>Unidades</h3>
+                <div className="text-left">
+                  <h3 className={`text-base font-black ${activeTab === 'units' ? 'text-white' : 'text-slate-300'}`}>Unidades</h3>
                 </div>
               </button>
             )}
 
-            {/* 3. DESPESAS - Card Médio (Compacto) */}
+            {/* 3. DESPESAS - Card Médio */}
             <button
               onClick={() => setActiveTab('expenses')}
-              className={`col-span-1 p-3 rounded-2xl relative overflow-hidden transition-all duration-300 group border-l-4 flex flex-col justify-between h-24 ${activeTab === 'expenses'
+              className={`col-span-1 h-32 p-4 rounded-3xl relative overflow-hidden transition-all duration-300 group border-l-[6px] flex flex-col justify-between ${activeTab === 'expenses'
                 ? 'glass border-rose-500 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.1)]'
                 : 'glass border-transparent hover:bg-slate-800/50'
                 }`}
             >
               <div className="flex justify-between items-start w-full">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-colors ${activeTab === 'expenses' ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-rose-500/20 group-hover:text-rose-400'}`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-colors ${activeTab === 'expenses' ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-rose-500/20 group-hover:text-rose-400'}`}>
                   <i className="fa-solid fa-wallet"></i>
                 </div>
-                <p className={`text-[9px] font-bold ${activeTab === 'expenses' ? 'text-rose-400' : 'text-slate-500'}`}>
+                <p className={`text-[10px] font-black ${activeTab === 'expenses' ? 'text-rose-400' : 'text-slate-500 whitespace-nowrap'}`}>
                   {formatCurrencyAbbrev(totalActualExpenses)}
                 </p>
               </div>
-              <div className="text-left mt-1">
-                <h3 className={`text-sm font-black ${activeTab === 'expenses' ? 'text-white' : 'text-slate-300'}`}>Despesas</h3>
+              <div className="text-left">
+                <h3 className={`text-base font-black ${activeTab === 'expenses' ? 'text-white' : 'text-slate-300'}`}>Despesas</h3>
               </div>
             </button>
-          </div>
 
-          {/* 4. LINHA INFERIOR - Ícones Menores (Scroll Horizontal se necessário) */}
-          <div className="mt-3 flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-            {[
-              { id: 'budget', label: 'Orçamento', icon: 'fa-chart-pie', color: 'purple' },
-              { id: 'documents', label: 'Docs', icon: 'fa-folder-open', color: 'amber' },
-              { id: 'diary', label: 'Diário', icon: 'fa-book-open', color: 'cyan' }
-            ].map((item) => {
-              const isActive = activeTab === item.id;
-              // Mapeamento de cores dinâmicas para Tailwind
-              const colorClasses: Record<string, string> = {
-                purple: isActive ? 'bg-purple-600 shadow-purple-500/40' : 'text-purple-400 group-hover:text-purple-300',
-                amber: isActive ? 'bg-amber-600 shadow-amber-500/40' : 'text-amber-400 group-hover:text-amber-300',
-                cyan: isActive ? 'bg-cyan-600 shadow-cyan-500/40' : 'text-cyan-400 group-hover:text-cyan-300',
-                slate: isActive ? 'bg-slate-600 shadow-slate-500/40' : 'text-slate-400 group-hover:text-slate-300'
-              };
+            {/* 4. ORÇAMENTO & DOCS (Row 3) */}
+            <button
+              onClick={() => setActiveTab('budget')}
+              className={`col-span-1 h-24 p-3 rounded-3xl flex flex-col items-center justify-center gap-2 transition-all duration-300 group border border-transparent ${activeTab === 'budget'
+                ? 'bg-purple-600 shadow-lg'
+                : 'glass hover:bg-slate-800'
+                }`}
+            >
+              <i className={`fa-solid fa-chart-pie text-2xl mb-1 ${activeTab === 'budget' ? 'text-white' : 'text-purple-400'}`}></i>
+              <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'budget' ? 'text-white' : 'text-slate-400'}`}>Orçamento</span>
+            </button>
 
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as any)}
-                  className={`flex-1 min-w-[80px] p-3 rounded-2xl flex flex-col items-center justify-center gap-2 transition-all duration-300 group border border-transparent ${isActive
-                    ? `${colorClasses[item.color].split(' ')[0]} text-white shadow-lg`
-                    : 'glass hover:bg-slate-800 hover:border-slate-700'
-                    }`}
-                >
-                  <i className={`fa-solid ${item.icon} text-lg mb-1 ${!isActive && colorClasses[item.color]}`}></i>
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-white' : 'text-slate-500'}`}>
-                    {item.label}
-                  </span>
-                </button>
-              );
-            })}
+            <button
+              onClick={() => setActiveTab('documents')}
+              className={`col-span-1 h-24 p-3 rounded-3xl flex flex-col items-center justify-center gap-2 transition-all duration-300 group border border-transparent ${activeTab === 'documents'
+                ? 'bg-amber-600 shadow-lg'
+                : 'glass hover:bg-slate-800'
+                }`}
+            >
+              <i className={`fa-solid fa-folder-open text-2xl mb-1 ${activeTab === 'documents' ? 'text-white' : 'text-amber-400'}`}></i>
+              <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'documents' ? 'text-white' : 'text-slate-400'}`}>Docs</span>
+            </button>
+
+            {/* 5. DIÁRIO (Full Width High Impact) */}
+            <button
+              onClick={() => setActiveTab('diary')}
+              className={`col-span-2 h-24 p-4 rounded-3xl flex items-center justify-between px-8 transition-all duration-300 group border border-transparent ${activeTab === 'diary'
+                ? 'bg-cyan-600 shadow-lg'
+                : 'glass hover:bg-slate-800'
+                }`}
+            >
+              <div className="flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${activeTab === 'diary' ? 'bg-white/20' : 'bg-cyan-900/40'}`}>
+                  <i className={`fa-solid fa-book-open text-xl ${activeTab === 'diary' ? 'text-white' : 'text-cyan-400'}`}></i>
+                </div>
+                <span className={`text-base font-black uppercase tracking-widest ${activeTab === 'diary' ? 'text-white' : 'text-slate-300'}`}>Diário de Obra</span>
+              </div>
+              <i className={`fa-solid fa-chevron-right ${activeTab === 'diary' ? 'text-white' : 'text-slate-600'}`}></i>
+            </button>
           </div>
         </div>
 

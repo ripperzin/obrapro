@@ -19,6 +19,22 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+html,
+body {
+  overscroll-behavior-y: none;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
+#root {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Gradient Cards */
 .gradient-blue {
   background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
@@ -47,13 +63,27 @@
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { filter: drop-shadow(0 0 15px rgba(59, 130, 246, 0.4)); }
-  50% { filter: drop-shadow(0 0 25px rgba(59, 130, 246, 0.7)); }
+
+  0%,
+  100% {
+    filter: drop-shadow(0 0 15px rgba(59, 130, 246, 0.4));
+  }
+
+  50% {
+    filter: drop-shadow(0 0 25px rgba(59, 130, 246, 0.7));
+  }
 }
 
 .animate-fade-in {
