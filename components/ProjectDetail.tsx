@@ -240,66 +240,70 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
         {/* Navegação BENTO GRID - Redesign Premium */}
         <div className="mb-10 w-full">
           <div className="grid grid-cols-2 gap-3">
-            {/* 1. GESTÃO - Card Largo */}
+            {/* 1. GESTÃO - Card Largo (Compacto) */}
             <button
               onClick={() => setActiveTab('info')}
-              className={`col-span-2 p-6 rounded-3xl relative overflow-hidden transition-all duration-300 group border-l-4 ${activeTab === 'info'
-                ? 'glass border-blue-500 bg-blue-500/10 shadow-[0_0_30px_rgba(59,130,246,0.15)]'
+              className={`col-span-2 p-4 rounded-2xl relative overflow-hidden transition-all duration-300 group border-l-4 ${activeTab === 'info'
+                ? 'glass border-blue-500 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.1)]'
                 : 'glass border-transparent hover:bg-slate-800/50'
                 }`}
             >
               <div className="relative z-10 flex items-center justify-between">
                 <div className="text-left">
-                  <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${activeTab === 'info' ? 'text-blue-400' : 'text-slate-400'}`}>Principal</p>
-                  <h3 className={`text-2xl font-black ${activeTab === 'info' ? 'text-white' : 'text-slate-300'}`}>Gestão</h3>
+                  <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${activeTab === 'info' ? 'text-blue-400' : 'text-slate-400'}`}>Principal</p>
+                  <h3 className={`text-xl font-black ${activeTab === 'info' ? 'text-white' : 'text-slate-300'}`}>Gestão</h3>
                 </div>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-colors ${activeTab === 'info' ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-blue-500/20 group-hover:text-blue-400'}`}>
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg transition-colors ${activeTab === 'info' ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-blue-500/20 group-hover:text-blue-400'}`}>
                   <i className="fa-solid fa-gauge-high"></i>
                 </div>
               </div>
-              {/* Decorative Gradient */}
+              {/* Decorative Gradient - Subtler */}
               {activeTab === 'info' && (
-                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16 blur-xl"></div>
+                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -mr-12 -mt-12 blur-xl"></div>
               )}
             </button>
 
-            {/* 2. UNIDADES - Card Médio */}
+            {/* 2. UNIDADES - Card Médio (Compacto) */}
             {canSeeUnits && (
               <button
                 onClick={() => setActiveTab('units')}
-                className={`col-span-1 p-4 rounded-3xl relative overflow-hidden transition-all duration-300 group aspect-[4/3] flex flex-col justify-between border-l-4 ${activeTab === 'units'
-                  ? 'glass border-emerald-500 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.15)]'
+                className={`col-span-1 p-3 rounded-2xl relative overflow-hidden transition-all duration-300 group border-l-4 flex flex-col justify-between h-24 ${activeTab === 'units'
+                  ? 'glass border-emerald-500 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
                   : 'glass border-transparent hover:bg-slate-800/50'
                   }`}
               >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-colors ${activeTab === 'units' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-emerald-500/20 group-hover:text-emerald-400'}`}>
-                  <i className="fa-solid fa-house-user"></i>
-                </div>
-                <div className="text-left">
-                  <h3 className={`text-sm md:text-lg font-black ${activeTab === 'units' ? 'text-white' : 'text-slate-300'}`}>Unidades</h3>
+                <div className="flex justify-between items-start w-full">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-colors ${activeTab === 'units' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-emerald-500/20 group-hover:text-emerald-400'}`}>
+                    <i className="fa-solid fa-house-user"></i>
+                  </div>
                   <p className={`text-[9px] font-bold ${activeTab === 'units' ? 'text-emerald-400' : 'text-slate-500'}`}>
                     {project.units.length} total
                   </p>
                 </div>
+                <div className="text-left mt-1">
+                  <h3 className={`text-sm font-black ${activeTab === 'units' ? 'text-white' : 'text-slate-300'}`}>Unidades</h3>
+                </div>
               </button>
             )}
 
-            {/* 3. DESPESAS - Card Médio */}
+            {/* 3. DESPESAS - Card Médio (Compacto) */}
             <button
               onClick={() => setActiveTab('expenses')}
-              className={`col-span-1 p-4 rounded-3xl relative overflow-hidden transition-all duration-300 group aspect-[4/3] flex flex-col justify-between border-l-4 ${activeTab === 'expenses'
-                ? 'glass border-rose-500 bg-rose-500/10 shadow-[0_0_30px_rgba(244,63,94,0.15)]'
+              className={`col-span-1 p-3 rounded-2xl relative overflow-hidden transition-all duration-300 group border-l-4 flex flex-col justify-between h-24 ${activeTab === 'expenses'
+                ? 'glass border-rose-500 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.1)]'
                 : 'glass border-transparent hover:bg-slate-800/50'
                 }`}
             >
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-colors ${activeTab === 'expenses' ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-rose-500/20 group-hover:text-rose-400'}`}>
-                <i className="fa-solid fa-wallet"></i>
-              </div>
-              <div className="text-left">
-                <h3 className={`text-sm md:text-lg font-black ${activeTab === 'expenses' ? 'text-white' : 'text-slate-300'}`}>Despesas</h3>
+              <div className="flex justify-between items-start w-full">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-colors ${activeTab === 'expenses' ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-rose-500/20 group-hover:text-rose-400'}`}>
+                  <i className="fa-solid fa-wallet"></i>
+                </div>
                 <p className={`text-[9px] font-bold ${activeTab === 'expenses' ? 'text-rose-400' : 'text-slate-500'}`}>
                   {formatCurrencyAbbrev(totalActualExpenses)}
                 </p>
+              </div>
+              <div className="text-left mt-1">
+                <h3 className={`text-sm font-black ${activeTab === 'expenses' ? 'text-white' : 'text-slate-300'}`}>Despesas</h3>
               </div>
             </button>
           </div>
@@ -573,8 +577,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
             {/* Cards Grid - Design Premium */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-              {/* Card SAÚDE FINANCEIRA - Opção B: Barra Horizontal */}
-              <div className="glass rounded-2xl p-4 md:p-6 border border-slate-700">
+              {/* Card SAÚDE FINANCEIRA - Refined V2 */}
+              <div className="glass rounded-2xl p-4 md:p-5 border border-slate-700/50 border-l-4 border-l-blue-500 bg-blue-500/5">
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="font-black text-white uppercase text-xs md:text-sm tracking-widest flex items-center gap-2">
                     <div className="w-7 h-7 md:w-8 md:h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
@@ -613,14 +617,14 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                 </div>
               </div>
 
-              {/* Card VENDAS - Opção A: Grid Compacto */}
-              <div className="rounded-2xl p-4 md:p-6 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 50%, #2dd4bf 100%)' }}>
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+              {/* Card VENDAS - Refined V2 (Glass Consistency) */}
+              <div className="glass rounded-2xl p-4 md:p-5 border border-slate-700/50 border-l-4 border-l-emerald-500 bg-emerald-500/5 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
 
                 <div className="flex items-center justify-between mb-4 relative z-10">
                   <h4 className="font-black text-white uppercase text-xs md:text-sm tracking-widest flex items-center gap-2">
-                    <div className="w-7 h-7 md:w-8 md:h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                      <i className="fa-solid fa-chart-line text-white text-sm"></i>
+                    <div className="w-7 h-7 md:w-8 md:h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                      <i className="fa-solid fa-chart-line text-emerald-400 text-sm"></i>
                     </div>
                     Vendas
                   </h4>
@@ -629,7 +633,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                     const totalUnits = project.units.length;
                     const salesPercent = totalUnits > 0 ? (soldUnits / totalUnits) * 100 : 0;
                     return (
-                      <span className="px-3 py-1 rounded-full text-xs font-black bg-white/20 text-white">
+                      <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                         {salesPercent.toFixed(0)}% Meta
                       </span>
                     );
@@ -639,18 +643,18 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                 <div className="relative z-10 space-y-3">
                   {/* Grid 2x2 com números grandes */}
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-white/15 backdrop-blur-sm p-3 rounded-xl border border-white/20 text-center">
-                      <p className="text-[9px] md:text-[10px] text-white/70 font-bold uppercase">✅ Vendidas</p>
+                    <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 text-center">
+                      <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase">✅ Vendidas</p>
                       <p className="text-3xl md:text-4xl font-black text-white">{project.units.filter(u => u.status === 'Sold').length}</p>
                     </div>
-                    <div className="bg-white/15 backdrop-blur-sm p-3 rounded-xl border border-white/20 text-center">
-                      <p className="text-[9px] md:text-[10px] text-white/70 font-bold uppercase">🏷️ À Venda</p>
+                    <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 text-center">
+                      <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase">🏷️ À Venda</p>
                       <p className="text-3xl md:text-4xl font-black text-white">{project.units.filter(u => u.status === 'Available').length}</p>
                     </div>
                   </div>
                   {/* Total Vendido */}
-                  <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl border border-white/30 text-center">
-                    <p className="text-[9px] md:text-[10px] text-white/70 font-bold uppercase">💰 Total Vendido</p>
+                  <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 text-center">
+                    <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase">💰 Total Vendido</p>
                     <p className="text-lg md:text-xl font-black text-white">{formatCurrency(totalUnitsSales)}</p>
                   </div>
                 </div>
@@ -660,7 +664,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
             {/* Linha de Métricas Complementares */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
               {/* Margem Média */}
-              <div className="glass rounded-xl p-3 md:p-4 border border-green-500/30 bg-green-500/5">
+              <div className="glass rounded-xl p-3 md:p-4 border border-green-500/50 border-l-4 border-l-green-500 bg-green-500/5">
                 <div className="text-center md:text-left">
                   <p className="text-[8px] md:text-[9px] text-green-400 font-bold uppercase mb-1">📈 Margem</p>
                   <p className="text-xl md:text-2xl font-black text-green-400">
@@ -683,7 +687,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               </div>
 
               {/* Margem Mensal */}
-              <div className="glass rounded-xl p-3 md:p-4 border border-purple-500/30 bg-purple-500/5">
+              <div className="glass rounded-xl p-3 md:p-4 border border-purple-500/50 border-l-4 border-l-purple-500 bg-purple-500/5">
                 <div className="text-center md:text-left">
                   <p className="text-[8px] md:text-[9px] text-purple-400 font-bold uppercase mb-1">📅 Mensal</p>
                   <p className="text-xl md:text-2xl font-black text-purple-400">
@@ -712,7 +716,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               </div>
 
               {/* Potencial de Venda */}
-              <div className="glass rounded-xl p-3 md:p-4 border border-orange-500/30 bg-orange-500/5">
+              <div className="glass rounded-xl p-3 md:p-4 border border-orange-500/50 border-l-4 border-l-orange-500 bg-orange-500/5">
                 <div className="text-center md:text-left">
                   <p className="text-[8px] md:text-[9px] text-orange-400 font-bold uppercase mb-1">💎 Potencial</p>
                   <p className="text-lg md:text-xl font-black text-orange-400">
@@ -723,7 +727,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               </div>
 
               {/* Lucro Estimado */}
-              <div className="glass rounded-xl p-3 md:p-4 border border-cyan-500/30 bg-cyan-500/5">
+              <div className="glass rounded-xl p-3 md:p-4 border border-cyan-500/50 border-l-4 border-l-cyan-500 bg-cyan-500/5">
                 <div className="text-center md:text-left">
                   <p className="text-[8px] md:text-[9px] text-cyan-400 font-bold uppercase mb-1">💰 Lucro</p>
                   <p className="text-lg md:text-xl font-black text-cyan-400">
