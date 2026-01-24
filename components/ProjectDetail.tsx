@@ -32,7 +32,7 @@ interface ProjectDetailProps {
 const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, onDeleteUnit, onRefresh, onUpdateDiary, onDeleteDiary }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'budget' | 'documents' | 'diary' | 'logs'>('info');
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
-  const [managingAttachmentsId, setManagingAttachmentsId] = useState<string | null>(null);
+  const [attachmentManagerId, setAttachmentManagerId] = useState<string | null>(null);
   const [evidenceModal, setEvidenceModal] = useState<{ isOpen: boolean; stage: number; evidence?: any }>({ isOpen: false, stage: 0 });
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
@@ -1273,24 +1273,24 @@ const ExpensesSection: React.FC<{
       />
 
       {/* Modal Gerenciar Anexos */}
-      {managingAttachmentsId && (
+      {attachmentManagerId && (
         <ManageAttachmentsModal
           isOpen={true}
-          onClose={() => setManagingAttachmentsId(null)}
+          onClose={() => setAttachmentManagerId(null)}
           attachments={(() => {
-            const exp = project.expenses.find(e => e.id === managingAttachmentsId);
+            const exp = project.expenses.find(e => e.id === attachmentManagerId);
             if (!exp) return [];
             return exp.attachments || (exp.attachmentUrl ? [exp.attachmentUrl] : []);
           })()}
           onSave={(newAttachments) => {
-            if (managingAttachmentsId) {
-              handleEditExpense(managingAttachmentsId, 'attachments' as any, newAttachments);
+            if (attachmentManagerId) {
+              handleEditExpense(attachmentManagerId, 'attachments' as any, newAttachments);
               // Also clear legacy url if empty or sync? 
-              // handleEditExpense(managingAttachmentsId, 'attachmentUrl' as any, newAttachments[0] || null);
+              // handleEditExpense(attachmentManagerId, 'attachmentUrl' as any, newAttachments[0] || null);
               // Let's keep it simple: Save to 'attachments'. Legacy 'attachmentUrl' might persist or we clear it.
               // Ideally clears it to avoid dual source of truth issues, or syncs it.
               // Syncing first item to attachmentUrl for backward compat:
-              handleEditExpense(managingAttachmentsId, 'attachmentUrl' as any, newAttachments.length > 0 ? newAttachments[0] : null);
+              handleEditExpense(attachmentManagerId, 'attachmentUrl' as any, newAttachments.length > 0 ? newAttachments[0] : null);
             }
           }}
         />
@@ -1384,7 +1384,7 @@ const ExpensesSection: React.FC<{
                   {(exp.attachmentUrl || (exp.attachments && exp.attachments.length > 0) || isAdmin) && (
                     <button
                       type="button"
-                      onClick={() => isAdmin ? setManagingAttachmentsId(exp.id) : (exp.attachmentUrl ? openAttachment(exp.attachmentUrl) : null)} // Se não for admin, mantém view simples ou abre manager readonly? Por simplicidade, admin gerencia. User vê.
+                      onClick={() => isAdmin ? setAttachmentManagerId(exp.id) : (exp.attachmentUrl ? openAttachment(exp.attachmentUrl) : null)} // Se não for admin, mantém view simples ou abre manager readonly? Por simplicidade, admin gerencia. User vê.
                       // Melhor: Se for admin, abre manager. Se user comum, abre o primeiro. (Melhorar depois para user comum ver todos)
                       // Ajuste: Se user comum, abrir manager em modo visualização (posso adicionar prop readOnly no modal depois).
                       // Por enquanto: Admin gerencia.
@@ -1520,7 +1520,7 @@ const ExpensesSection: React.FC<{
                             {/* Botão Anexo Desktop */}
                             <button
                               type="button"
-                              onClick={() => setManagingAttachmentsId(exp.id)}
+                              onClick={() => setAttachmentManagerId(exp.id)}
                               className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${(exp.attachments?.length || (exp.attachmentUrl ? 1 : 0)) > 0
                                 ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white'
                                 : 'bg-slate-800 text-slate-500 hover:bg-slate-700 hover:text-white'
