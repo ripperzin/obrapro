@@ -152,7 +152,13 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onNavigate, onAction })
             lowerText.startsWith('lançar')
         ) {
             // --- Parsing Logic ---
-            let cleanText = text.replace(/(\d)\s+e\s+(?=\d)/gi, '$1,');
+            // 1. Handle "15.460 75/100" format (common specific voice output)
+            let cleanText = text.replace(/(\d[\d\.,]*)\s+(\d+)\/100/g, '$1,$2');
+
+            // 2. Handle "10 e 50" format
+            cleanText = cleanText.replace(/(\d)\s+e\s+(?=\d)/gi, '$1,');
+
+            // 3. Cleanup currency words
             cleanText = cleanText.replace(/\s(reais|real|r\$)\s/gi, ' ');
 
             const candidates = cleanText.match(/[\d\.,]+\d/g);
@@ -191,6 +197,9 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onNavigate, onAction })
             // 2. Remove currency words (reais, centavos, etc)
             description = description.replace(/\b(valor|reais|real|centavos|vírgula)\b/gi, '');
             description = description.replace(/R\$\s*/gi, '');
+
+            // 2.1 Remove "X Y/100" from description end if present
+            description = description.replace(/(\d[\d\.,]*)\s+(\d+)\/100\s*$/i, '');
 
             // 3. AGGRESSIVE NUMBER REMOVAL at END of string
             // Matches: "10.500", "10.500 e 50", "50", "10,50" at the very end.
