@@ -1125,6 +1125,7 @@ const ExpensesSection: React.FC<{
   const [projectMacros, setProjectMacros] = useState<ProjectMacro[]>([]);
   const [projectSubMacros, setProjectSubMacros] = useState<ProjectSubMacro[]>([]);
   const [attachmentManagerId, setAttachmentManagerId] = useState<string | null>(null);
+  const [tempDescription, setTempDescription] = useState('');
 
   // Ordenar despesas: Mais recentes primeiro (Ordem Cronológica Inversa)
   // O usuário pediu "cronológica", mas em finanças geralmente isso significa ver o mais recente no topo.
@@ -1316,8 +1317,10 @@ const ExpensesSection: React.FC<{
                         <input
                           onFocus={(e) => e.target.select()}
                           className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm font-bold text-white w-full outline-none"
-                          value={exp.description}
-                          onChange={(e) => handleEditExpense(exp.id, { description: e.target.value })}
+                          value={tempDescription}
+                          onChange={(e) => setTempDescription(e.target.value)}
+                          onBlur={() => handleEditExpense(exp.id, { description: tempDescription })}
+                          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                         />
                       ) : (
                         <h5 className="font-black text-white text-lg">{exp.description}</h5>
@@ -1333,7 +1336,10 @@ const ExpensesSection: React.FC<{
                         </button>
                       ) : (
                         <>
-                          <button onClick={() => setEditingExpenseId(exp.id)} className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-400 rounded-lg hover:bg-blue-600 hover:text-white transition border border-slate-700">
+                          <button onClick={() => {
+                            setEditingExpenseId(exp.id);
+                            setTempDescription(exp.description);
+                          }} className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-400 rounded-lg hover:bg-blue-600 hover:text-white transition border border-slate-700">
                             <i className="fa-solid fa-pen-to-square text-sm"></i>
                           </button>
                           <button onClick={() => setExpenseToDelete(exp.id)} className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-400 rounded-lg hover:bg-red-600 hover:text-white transition border border-slate-700">
@@ -1453,8 +1459,10 @@ const ExpensesSection: React.FC<{
                         <input
                           onFocus={(e) => e.target.select()}
                           className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs font-bold text-white w-full outline-none"
-                          value={exp.description}
-                          onChange={(e) => handleEditExpense(exp.id, { description: e.target.value })}
+                          value={tempDescription}
+                          onChange={(e) => setTempDescription(e.target.value)}
+                          onBlur={() => handleEditExpense(exp.id, { description: tempDescription })}
+                          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                         />
                       ) : exp.description}
                     </td>
@@ -1545,7 +1553,10 @@ const ExpensesSection: React.FC<{
                               </button>
                             ) : (
                               <>
-                                <button onClick={() => setEditingExpenseId(exp.id)} className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:bg-blue-600 hover:text-white transition border border-slate-700 flex items-center justify-center">
+                                <button onClick={() => {
+                                  setEditingExpenseId(exp.id);
+                                  setTempDescription(exp.description);
+                                }} className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:bg-blue-600 hover:text-white transition border border-slate-700 flex items-center justify-center">
                                   <i className="fa-solid fa-pen-to-square"></i>
                                 </button>
                                 <button onClick={() => setExpenseToDelete(exp.id)} className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:bg-red-400 hover:text-white transition border border-slate-700 flex items-center justify-center">
