@@ -34,6 +34,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [evidenceModal, setEvidenceModal] = useState<{ isOpen: boolean; stage: number; evidence?: any }>({ isOpen: false, stage: 0 });
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  // Safety patch for potential ghost reference
+  const [attachmentManagerId, setAttachmentManagerId] = useState<string | null>(null);
 
   const isAdmin = user.role === UserRole.ADMIN;
   const canSeeUnits = user.canSeeUnits || isAdmin;
