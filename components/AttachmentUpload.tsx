@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { compressImage } from '../utils/imageCompression';
 
 interface AttachmentUploadProps {
     value?: string;
@@ -43,16 +44,19 @@ const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
         setUploading(true);
 
         try {
+            // Tentar comprimir se for imagem
+            let fileToUpload = file;
+            if (file.type.startsWith('image/')) {
+                try {
+                    fileToUpload = await compressImage(file);
+                } catch (err) {
+                    console.warn('Falha na compressão, usando arquivo original', err);
+                }
+            }
+
             // Gerar nome único para o arquivo
-            const fileExt = file.name.split('.').pop();
+            const fileExt = fileToUpload.name.split('.').pop();
             const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-            // Se for bucket de projeto, organizar por pastas talvez? Por simplicidade, flat ou pasta documents
-            // Vamos usar prefixo 'documents/' se o bucket for project-documents, ou deixar flat
-            // Mas para expenses era 'expenses/'. Vamos manter simples: nome do arquivo direto ou com prefixo genérico
-            // Para expenses o código original fazia "expenses/${fileName}".
-            // Vamos dinamizar o prefixo? Ou assumir que o bucket tem pastas.
-            // O code original tinha const filePath = `expenses/${fileName}`;
-            // Se eu passar bucket 'project-documents', o path 'expenses/...' fica estranho.
 
             let filePath = '';
             if (bucketName === 'expense-attachments') {
@@ -64,7 +68,7 @@ const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
             // Upload para Supabase Storage
             const { error: uploadError } = await supabase.storage
                 .from(bucketName)
-                .upload(filePath, file);
+                .upload(filePath, fileToUpload);
 
             if (uploadError) {
                 throw uploadError;
@@ -155,7 +159,7 @@ const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
                         ) : (
                             <>
                                 <i className={`fa-solid fa-camera ${minimal ? 'text-xl' : 'text-lg'}`}></i>
-                                {!minimal && <span className="text-sm font-bold">Anexar Foto/PDF</span>}
+                                !minimal && <span className="text-sm font-bold">Anexar Foto/PDF</span>
                             </>
                         )}
                     </button>

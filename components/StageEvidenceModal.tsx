@@ -41,32 +41,55 @@ const StageEvidenceModal: React.FC<StageEvidenceModalProps> = ({
     }, [evidence, isOpen]);
 
     // Generate signed URLs for photo previews
+    // Generate signed URLs for photo previews
     useEffect(() => {
+        let isMounted = true;
+
         const generateUrls = async () => {
+            if (photos.length === 0) {
+                setPhotoUrls({});
+                return;
+            }
+
             const urls: { [key: string]: string } = {};
-            for (const photo of photos) {
+
+            // Processar todas as promessas em paralelo
+            const promises = photos.map(async (photo) => {
                 if (photo.startsWith('http://') || photo.startsWith('https://')) {
-                    urls[photo] = photo;
+                    return { key: photo, url: photo };
                 } else {
                     try {
                         const { data, error } = await supabase.storage
                             .from('project-documents')
                             .createSignedUrl(photo, 3600);
+
                         if (!error && data) {
-                            urls[photo] = data.signedUrl;
+                            return { key: photo, url: data.signedUrl };
                         }
                     } catch (err) {
                         console.error('Error generating signed URL:', err);
                     }
                 }
+                return null;
+            });
+
+            const results = await Promise.all(promises);
+
+            if (isMounted) {
+                results.forEach(result => {
+                    if (result) {
+                        urls[result.key] = result.url;
+                    }
+                });
+                setPhotoUrls(urls);
             }
-            setPhotoUrls(urls);
         };
-        if (photos.length > 0) {
-            generateUrls();
-        } else {
-            setPhotoUrls({});
-        }
+
+        generateUrls();
+
+        return () => {
+            isMounted = false;
+        };
     }, [photos]);
 
     if (!isOpen) return null;
@@ -140,6 +163,7 @@ const StageEvidenceModal: React.FC<StageEvidenceModalProps> = ({
                                                     src={previewUrl}
                                                     alt={`foto da etapa`}
                                                     className="w-full h-full object-cover"
+                                                    loading="lazy"
                                                 />
                                             ) : previewUrl ? (
                                                 <div className="flex flex-col items-center justify-center text-slate-400">
