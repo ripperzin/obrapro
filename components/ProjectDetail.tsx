@@ -32,7 +32,6 @@ interface ProjectDetailProps {
 const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, onDeleteUnit, onRefresh, onUpdateDiary, onDeleteDiary }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'budget' | 'documents' | 'diary' | 'logs'>('info');
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
-  const [attachmentManagerId, setAttachmentManagerId] = useState<string | null>(null);
   const [evidenceModal, setEvidenceModal] = useState<{ isOpen: boolean; stage: number; evidence?: any }>({ isOpen: false, stage: 0 });
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
@@ -1123,6 +1122,7 @@ const ExpensesSection: React.FC<{
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
   const [projectMacros, setProjectMacros] = useState<ProjectMacro[]>([]);
   const [projectSubMacros, setProjectSubMacros] = useState<ProjectSubMacro[]>([]);
+  const [attachmentManagerId, setAttachmentManagerId] = useState<string | null>(null);
 
   // Ordenar despesas: Mais recentes primeiro (Ordem Cronológica Inversa)
   // O usuário pediu "cronológica", mas em finanças geralmente isso significa ver o mais recente no topo.
