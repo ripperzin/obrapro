@@ -364,6 +364,7 @@ const App: React.FC = () => {
           user_id: e.userId,
           user_name: e.userName,
           attachment_url: e.attachmentUrl,
+          attachments: e.attachments, // New Array Field
           macro_id: e.macroId || null,
           sub_macro_id: e.subMacroId || null
         }));
@@ -606,6 +607,7 @@ const App: React.FC = () => {
       user_id: newExpense.userId,
       user_name: newExpense.userName,
       attachment_url: newExpense.attachmentUrl,
+      attachments: newExpense.attachments, // New Array Field
       macro_id: newExpense.macroId || null,
       sub_macro_id: newExpense.subMacroId || null
     }]);
