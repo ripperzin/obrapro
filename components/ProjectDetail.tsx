@@ -1325,7 +1325,12 @@ const ExpensesSection: React.FC<{
                         onBlur={(val) => handleEditExpense(exp.id, 'date', val)}
                       />
                     ) : (
-                      <div className="text-sm font-bold text-slate-300">{new Date(exp.date).toLocaleDateString('pt-BR')}</div>
+                      <div className="text-sm font-bold text-slate-300">
+                        {(() => {
+                          const [y, m, d] = exp.date.split('-');
+                          return `${d}/${m}/${y}`;
+                        })()}
+                      </div>
                     )}
                   </div>
                   <div className="text-right">
@@ -1395,7 +1400,12 @@ const ExpensesSection: React.FC<{
                           onBlur={(val) => handleEditExpense(exp.id, 'date', val)}
                         />
                       ) : (
-                        <span className="font-bold text-slate-300">{new Date(exp.date).toLocaleDateString('pt-BR')}</span>
+                        <span className="font-bold text-slate-300">
+                          {(() => {
+                            const [y, m, d] = exp.date.split('-');
+                            return `${d}/${m}/${y}`;
+                          })()}
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-4 font-bold text-white">
