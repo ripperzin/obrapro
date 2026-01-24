@@ -81,42 +81,48 @@ const ManageAttachmentsModal: React.FC<ManageAttachmentsModalProps> = ({ isOpen,
                                         <i className="fa-solid fa-trash text-xs"></i>
                                     </button>
 
-                                    Ver
-                                </a>
-                                <div className="absolute top-0 left-0 bg-black/50 text-[6px] text-white p-0.5 truncate w-full pointer-events-none opacity-0 group-hover:opacity-100 font-mono">
-                                    {path}
+                                    <a
+                                        href={url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="absolute bottom-1 left-1 right-1 bg-black/60 text-white text-[9px] py-1 px-2 rounded text-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        Ver
+                                    </a>
+                                    <div className="absolute top-0 left-0 bg-black/50 text-[6px] text-white p-0.5 truncate w-full pointer-events-none opacity-0 group-hover:opacity-100 font-mono">
+                                        {path}
+                                    </div>
                                 </div>
-                            </div>
-                    );
+                            );
                         })}
+                    </div>
+
+                    <div className="border-t border-slate-700 pt-4">
+                        <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Adicionar Novo</label>
+                        <AttachmentUpload
+                            value={undefined}
+                            onChange={(url) => {
+                                if (url) setAttachments(prev => [...prev, url]);
+                            }}
+                        />
+                    </div>
                 </div>
 
-                <div className="border-t border-slate-700 pt-4">
-                    <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Adicionar Novo</label>
-                    <AttachmentUpload
-                        value={undefined}
-                        onChange={(url) => {
-                            if (url) setAttachments(prev => [...prev, url]);
-                        }}
-                    />
+                <div className="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-end gap-2">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wide hover:bg-blue-700 transition shadow-lg shadow-blue-600/20"
+                    >
+                        Salvar Alterações
+                    </button>
                 </div>
             </div>
-
-            <div className="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-end gap-2">
-                <button
-                    onClick={onClose}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition"
-                >
-                    Cancelar
-                </button>
-                <button
-                    onClick={handleSave}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wide hover:bg-blue-700 transition shadow-lg shadow-blue-600/20"
-                >
-                    Salvar Alterações
-                </button>
-            </div>
-        </div>
         </div >
     );
 };
