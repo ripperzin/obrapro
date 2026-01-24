@@ -502,20 +502,33 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     </div>
 
                     {/* Top Stats */}
-                    <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
                         <div className="bg-slate-800/50 rounded-xl p-2 md:p-4 text-center">
-                            <p className="text-slate-400 text-[10px] md:text-xs uppercase tracking-widest mb-1">Orçamento</p>
-                            <p className="text-white font-black text-sm md:text-xl">{formatCurrencyAbbrev(metrics.totalCost)}</p>
+                            <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Orçamento</p>
+                            <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
+                                <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
+                                <span className="text-white font-black text-base md:text-xl leading-none">
+                                    {formatCurrencyAbbrev(metrics.totalCost).replace('R$', '').trim()}
+                                </span>
+                            </div>
                         </div>
                         <div className="bg-slate-800/50 rounded-xl p-2 md:p-4 text-center">
-                            <p className="text-slate-400 text-[10px] md:text-xs uppercase tracking-widest mb-1">Gasto</p>
-                            <p className="text-blue-400 font-black text-sm md:text-xl">{formatCurrencyAbbrev(metrics.totalExpenses)}</p>
+                            <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Gasto</p>
+                            <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
+                                <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
+                                <span className="text-blue-400 font-black text-base md:text-xl leading-none">
+                                    {formatCurrencyAbbrev(metrics.totalExpenses).replace('R$', '').trim()}
+                                </span>
+                            </div>
                         </div>
                         <div className="bg-slate-800/50 rounded-xl p-2 md:p-4 text-center">
-                            <p className="text-slate-400 text-[10px] md:text-xs uppercase tracking-widest mb-1">Saldo</p>
-                            <p className={`font-black text-sm md:text-xl ${metrics.totalCost - metrics.totalExpenses >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                {formatCurrencyAbbrev(metrics.totalCost - metrics.totalExpenses)}
-                            </p>
+                            <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Saldo</p>
+                            <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
+                                <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
+                                <span className={`font-black text-base md:text-xl leading-none ${metrics.totalCost - metrics.totalExpenses >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {formatCurrencyAbbrev(metrics.totalCost - metrics.totalExpenses).replace('R$', '').trim()}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
