@@ -13,6 +13,7 @@ import ProjectsDashboard from './components/ProjectsDashboard';
 import ProjectDetail from './components/ProjectDetail';
 import GeneralDashboard from './components/GeneralDashboard';
 import UserManagement from './components/UserManagement';
+import AuditPage from './components/AuditPage';
 import MobileNav from './components/MobileNav';
 import InvestorView from './components/InvestorView';
 import VoiceAssistant from './components/VoiceAssistant';
@@ -31,7 +32,8 @@ const parseInvestorRoute = (): string | null => {
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users'>('general');
+  const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users' | 'audit'>('general');
+
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   const [users, setUsers] = useState<User[]>([INITIAL_ADMIN]);
@@ -654,6 +656,9 @@ const App: React.FC = () => {
       setSelectedProjectId(null);
     } else if (tab === 'users') {
       setActiveTab('users');
+    } else if (tab === 'audit') {
+      setActiveTab('audit');
+      setSelectedProjectId(null);
     }
   };
 
@@ -905,6 +910,10 @@ const App: React.FC = () => {
             onAddExpense={addExpenseToProject}
             isAdmin={currentUser.role === UserRole.ADMIN}
           />
+        )}
+
+        {activeTab === 'audit' && (
+          <AuditPage projects={projects} />
         )}
 
         {activeTab === 'general' && selectedProjectId && selectedProject && (

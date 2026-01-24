@@ -4,8 +4,8 @@ import { UserRole } from '../types';
 
 interface SidebarProps {
   role: UserRole;
-  activeTab: 'projects' | 'general' | 'users';
-  setActiveTab: (tab: 'projects' | 'general' | 'users') => void;
+  activeTab: 'projects' | 'general' | 'users' | 'audit';
+  setActiveTab: (tab: 'projects' | 'general' | 'users' | 'audit') => void;
   onLogout: () => void;
 }
 
@@ -14,8 +14,8 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
     <button
       onClick={() => setActiveTab(id)}
       className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${activeTab === id
-          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
         }`}
     >
       <i className={`fa-solid ${icon} w-6`}></i>
@@ -34,6 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
 
       <nav className="flex-1 space-y-2">
         <NavItem id="general" icon="fa-home" label="Início" />
+        <NavItem id="audit" icon="fa-fingerprint" label="Auditoria" />
         {role === UserRole.ADMIN && <NavItem id="users" icon="fa-users" label="Usuários" />}
       </nav>
 

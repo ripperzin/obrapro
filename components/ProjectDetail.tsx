@@ -30,7 +30,7 @@ interface ProjectDetailProps {
 }
 
 const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, onDeleteUnit, onRefresh, onUpdateDiary, onDeleteDiary }) => {
-  const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'budget' | 'documents' | 'diary' | 'logs'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'budget' | 'documents' | 'diary'>('info');
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [evidenceModal, setEvidenceModal] = useState<{ isOpen: boolean; stage: number; evidence?: any }>({ isOpen: false, stage: 0 });
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -313,8 +313,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
             {[
               { id: 'budget', label: 'Orçamento', icon: 'fa-chart-pie', color: 'purple' },
               { id: 'documents', label: 'Docs', icon: 'fa-folder-open', color: 'amber' },
-              { id: 'diary', label: 'Diário', icon: 'fa-book-open', color: 'cyan' },
-              { id: 'logs', label: 'Auditoria', icon: 'fa-fingerprint', color: 'slate' }
+              { id: 'diary', label: 'Diário', icon: 'fa-book-open', color: 'cyan' }
             ].map((item) => {
               const isActive = activeTab === item.id;
               // Mapeamento de cores dinâmicas para Tailwind
@@ -805,83 +804,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
           </div>
         )}
 
-        {/* ===== ABA AUDITORIA - Timeline Design ===== */}
-        {activeTab === 'logs' && (
-          <div className="space-y-6 animate-fade-in">
-            {(!project.logs || project.logs.length === 0) ? (
-              <div className="text-center py-20">
-                <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                  <i className="fa-solid fa-fingerprint text-3xl text-slate-600"></i>
-                </div>
-                <p className="text-slate-500 font-bold">Nenhum registro de atividade encontrado.</p>
-              </div>
-            ) : (
-              <div className="glass rounded-2xl p-4 md:p-6 border border-slate-700">
-                <h3 className="font-black text-white text-sm uppercase tracking-widest mb-6 flex items-center gap-2">
-                  <i className="fa-solid fa-list-ul text-blue-400"></i>
-                  Histórico de Alterações
-                </h3>
 
-                <div className="relative border-l-2 border-slate-700 ml-3 md:ml-6 space-y-8">
-                  {project.logs.length > 0 && [...project.logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((log, index) => (
-                    <div key={log.id || index} className="relative pl-6 md:pl-8 group">
-                      {/* Timestamp Dot */}
-                      <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-900 border-2 border-blue-500 group-hover:scale-125 transition-transform flex items-center justify-center">
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                      </div>
-
-                      {/* Content Card */}
-                      <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:border-blue-500/30 transition-all">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded text-[10px] uppercase font-black tracking-widest ${log.action === 'Criação' ? 'bg-green-500/20 text-green-400' :
-                              log.action === 'Inclusão' ? 'bg-green-500/20 text-green-400' :
-                                log.action === 'Exclusão' ? 'bg-red-500/20 text-red-400' :
-                                  'bg-blue-500/20 text-blue-400'
-                              }`}>
-                              {log.action}
-                            </span>
-                            <span className="text-xs font-bold text-slate-400">
-                              {new Date(log.timestamp).toLocaleString('pt-BR')}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[8px] font-black text-slate-400">
-                              {(log.userName && log.userName[0]) ? log.userName[0].toUpperCase() : '-'}
-                            </div>
-                            <span className="text-xs text-slate-500 font-bold">{log.userName}</span>
-                          </div>
-                        </div>
-
-                        <div className="text-sm font-bold text-white mb-2">
-                          {log.field === '-' ? (
-                            <span>Realizou uma ação de <span className="text-blue-400">{log.action}</span></span>
-                          ) : (
-                            <span>Alterou <span className="text-blue-400">{log.field}</span></span>
-                          )}
-                        </div>
-
-                        {log.oldValue !== '-' && log.newValue !== '-' && (
-                          <div className="flex items-center gap-3 text-xs bg-slate-900/50 p-3 rounded-lg border border-slate-800">
-                            <div className="flex-1 min-w-0">
-                              <div className="text-[9px] uppercase font-bold text-slate-500 mb-1">De:</div>
-                              <div className="text-red-400 font-mono truncate" title={log.oldValue}>{log.oldValue}</div>
-                            </div>
-                            <i className="fa-solid fa-arrow-right text-slate-600"></i>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-[9px] uppercase font-bold text-slate-500 mb-1">Para:</div>
-                              <div className="text-green-400 font-mono truncate" title={log.newValue}>{log.newValue}</div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Evidence Modal */}
