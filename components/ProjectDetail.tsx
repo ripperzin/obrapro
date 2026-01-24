@@ -243,23 +243,23 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
             {/* 1. GESTÃO - Card Largo */}
             <button
               onClick={() => setActiveTab('info')}
-              className={`col-span-2 p-6 rounded-3xl relative overflow-hidden transition-all duration-300 group ${activeTab === 'info'
-                ? 'bg-blue-600 shadow-lg shadow-blue-500/40 transform scale-[1.02]'
-                : 'glass hover:bg-slate-800'
+              className={`col-span-2 p-6 rounded-3xl relative overflow-hidden transition-all duration-300 group border-l-4 ${activeTab === 'info'
+                ? 'glass border-blue-500 bg-blue-500/10 shadow-[0_0_30px_rgba(59,130,246,0.15)]'
+                : 'glass border-transparent hover:bg-slate-800/50'
                 }`}
             >
               <div className="relative z-10 flex items-center justify-between">
                 <div className="text-left">
-                  <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${activeTab === 'info' ? 'text-blue-200' : 'text-slate-400'}`}>Principal</p>
+                  <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${activeTab === 'info' ? 'text-blue-400' : 'text-slate-400'}`}>Principal</p>
                   <h3 className={`text-2xl font-black ${activeTab === 'info' ? 'text-white' : 'text-slate-300'}`}>Gestão</h3>
                 </div>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-colors ${activeTab === 'info' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-500 group-hover:bg-blue-500/20 group-hover:text-blue-400'}`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-colors ${activeTab === 'info' ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-blue-500/20 group-hover:text-blue-400'}`}>
                   <i className="fa-solid fa-gauge-high"></i>
                 </div>
               </div>
               {/* Decorative Gradient */}
               {activeTab === 'info' && (
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16 blur-xl"></div>
               )}
             </button>
 
@@ -267,17 +267,17 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
             {canSeeUnits && (
               <button
                 onClick={() => setActiveTab('units')}
-                className={`col-span-1 p-4 rounded-3xl relative overflow-hidden transition-all duration-300 group aspect-[4/3] flex flex-col justify-between ${activeTab === 'units'
-                  ? 'bg-emerald-600 shadow-lg shadow-emerald-500/40 transform scale-[1.02]'
-                  : 'glass hover:bg-slate-800'
+                className={`col-span-1 p-4 rounded-3xl relative overflow-hidden transition-all duration-300 group aspect-[4/3] flex flex-col justify-between border-l-4 ${activeTab === 'units'
+                  ? 'glass border-emerald-500 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.15)]'
+                  : 'glass border-transparent hover:bg-slate-800/50'
                   }`}
               >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-colors ${activeTab === 'units' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-500 group-hover:bg-emerald-500/20 group-hover:text-emerald-400'}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-colors ${activeTab === 'units' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-emerald-500/20 group-hover:text-emerald-400'}`}>
                   <i className="fa-solid fa-house-user"></i>
                 </div>
                 <div className="text-left">
                   <h3 className={`text-sm md:text-lg font-black ${activeTab === 'units' ? 'text-white' : 'text-slate-300'}`}>Unidades</h3>
-                  <p className={`text-[9px] font-bold ${activeTab === 'units' ? 'text-emerald-200' : 'text-slate-500'}`}>
+                  <p className={`text-[9px] font-bold ${activeTab === 'units' ? 'text-emerald-400' : 'text-slate-500'}`}>
                     {project.units.length} total
                   </p>
                 </div>
@@ -287,17 +287,17 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
             {/* 3. DESPESAS - Card Médio */}
             <button
               onClick={() => setActiveTab('expenses')}
-              className={`col-span-1 p-4 rounded-3xl relative overflow-hidden transition-all duration-300 group aspect-[4/3] flex flex-col justify-between ${activeTab === 'expenses'
-                ? 'bg-rose-600 shadow-lg shadow-rose-500/40 transform scale-[1.02]'
-                : 'glass hover:bg-slate-800'
+              className={`col-span-1 p-4 rounded-3xl relative overflow-hidden transition-all duration-300 group aspect-[4/3] flex flex-col justify-between border-l-4 ${activeTab === 'expenses'
+                ? 'glass border-rose-500 bg-rose-500/10 shadow-[0_0_30px_rgba(244,63,94,0.15)]'
+                : 'glass border-transparent hover:bg-slate-800/50'
                 }`}
             >
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-colors ${activeTab === 'expenses' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-500 group-hover:bg-rose-500/20 group-hover:text-rose-400'}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-colors ${activeTab === 'expenses' ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-800/50 text-slate-500 group-hover:bg-rose-500/20 group-hover:text-rose-400'}`}>
                 <i className="fa-solid fa-wallet"></i>
               </div>
               <div className="text-left">
                 <h3 className={`text-sm md:text-lg font-black ${activeTab === 'expenses' ? 'text-white' : 'text-slate-300'}`}>Despesas</h3>
-                <p className={`text-[9px] font-bold ${activeTab === 'expenses' ? 'text-rose-200' : 'text-slate-500'}`}>
+                <p className={`text-[9px] font-bold ${activeTab === 'expenses' ? 'text-rose-400' : 'text-slate-500'}`}>
                   {formatCurrencyAbbrev(totalActualExpenses)}
                 </p>
               </div>
