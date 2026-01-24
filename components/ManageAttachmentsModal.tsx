@@ -75,7 +75,11 @@ const ManageAttachmentsModal: React.FC<ManageAttachmentsModalProps> = ({ isOpen,
                                     )}
 
                                     <button
-                                        onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
+                                        onClick={() => {
+                                            if (window.confirm('Tem certeza que deseja excluir este anexo?')) {
+                                                setAttachments(prev => prev.filter((_, i) => i !== index));
+                                            }
+                                        }}
                                         className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-md flex items-center justify-center shadow hover:bg-red-600 transition"
                                     >
                                         <i className="fa-solid fa-trash text-xs"></i>

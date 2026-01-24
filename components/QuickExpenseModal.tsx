@@ -381,7 +381,11 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                                             )}
                                             <button
                                                 type="button"
-                                                onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
+                                                onClick={() => {
+                                                    if (window.confirm('Tem certeza que deseja excluir este anexo?')) {
+                                                        setAttachments(prev => prev.filter((_, i) => i !== index));
+                                                    }
+                                                }}
                                                 className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded flex items-center justify-center shadow hover:bg-red-600 transition z-10"
                                             >
                                                 <i className="fa-solid fa-xmark text-[10px]"></i>

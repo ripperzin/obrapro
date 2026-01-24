@@ -188,8 +188,10 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                                             <button
                                                 type="button"
                                                 onClick={() => {
-                                                    const newAttachments = formData.attachments!.filter((_, i) => i !== index);
-                                                    setFormData({ ...formData, attachments: newAttachments });
+                                                    if (window.confirm('Tem certeza que deseja excluir este anexo?')) {
+                                                        const newAttachments = formData.attachments!.filter((_, i) => i !== index);
+                                                        setFormData({ ...formData, attachments: newAttachments });
+                                                    }
                                                 }}
                                                 className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-lg flex items-center justify-center shadow-md hover:bg-red-600 transition-colors z-10"
                                             >
