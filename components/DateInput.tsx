@@ -75,20 +75,21 @@ const DateInput: React.FC<DateInputProps> = ({
         const iso = parseDisplayToIso(displayValue);
 
         // Basic validation: Check valid date
+        // Allow empty if needed, or enforce validity
+        if (!displayValue) {
+            if (onBlur) onBlur('');
+            if (onChange) onChange('');
+            return;
+        }
+
         const isValid = !isNaN(Date.parse(iso));
 
         if (isValid) {
             if (onBlur) onBlur(iso);
-            if (onChange) onChange(iso); // Sync ensures parent has latest correct value
+            if (onChange) onChange(iso);
         } else {
-            // If invalid, revert to original value or clear if it was empty
-            if (displayValue === '') {
-                if (onBlur) onBlur('');
-                if (onChange) onChange('');
-            } else {
-                // Reset to previous valid value form prop
-                setDisplayValue(formatDateToDisplay(value));
-            }
+            // Revert to original value if invalid
+            setDisplayValue(formatDateToDisplay(value));
         }
     };
 
