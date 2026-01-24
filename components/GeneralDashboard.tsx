@@ -436,32 +436,38 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                {/* Left Column: 2 Cards */}
                <div className="flex flex-col gap-5">
                   {/* Card Vendidas - Blue */}
-                  <div className="w-56 h-36 rounded-3xl p-6 card-hover relative overflow-hidden"
-                     style={{ background: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 50%, #1d4ed8 100%)' }}>
-                     <div className="absolute top-4 left-4 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                        <i className="fa-solid fa-house-circle-check text-white text-xl"></i>
+                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-blue-500 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] transition-all group">
+                     <div className="flex justify-between items-start">
+                        <div>
+                           <div className="flex items-center gap-2 mb-2">
+                              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                                 <i className="fa-solid fa-house-circle-check text-blue-400 text-sm"></i>
+                              </div>
+                              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Vendidas</span>
+                           </div>
+                           <p className="text-4xl font-black text-white tracking-tight mt-1">{unitsInventory.soldCount}</p>
+                        </div>
                      </div>
-                     <div className="absolute bottom-6 left-6">
-                        <p className="text-5xl font-black text-white">{unitsInventory.soldCount}</p>
-                        <p className="text-white/80 font-semibold text-lg">Vendidas</p>
-                     </div>
-                     <div className="absolute top-2 right-2 opacity-10">
-                        <i className="fa-solid fa-home text-6xl text-white"></i>
+                     <div className="absolute -bottom-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity transform rotate-12">
+                        <i className="fa-solid fa-house-circle-check text-5xl text-blue-500"></i>
                      </div>
                   </div>
 
                   {/* Card Disponíveis - Orange */}
-                  <div className="w-56 h-36 rounded-3xl p-6 card-hover relative overflow-hidden"
-                     style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f97316 50%, #ea580c 100%)' }}>
-                     <div className="absolute top-4 left-4 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                        <i className="fa-solid fa-key text-white text-xl"></i>
+                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-orange-500 hover:shadow-[0_0_30px_rgba(249,115,22,0.15)] transition-all group">
+                     <div className="flex justify-between items-start">
+                        <div>
+                           <div className="flex items-center gap-2 mb-2">
+                              <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                                 <i className="fa-solid fa-key text-orange-400 text-sm"></i>
+                              </div>
+                              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Disponíveis</span>
+                           </div>
+                           <p className="text-4xl font-black text-white tracking-tight mt-1">{unitsInventory.availableCount}</p>
+                        </div>
                      </div>
-                     <div className="absolute bottom-6 left-6">
-                        <p className="text-5xl font-black text-white">{unitsInventory.availableCount}</p>
-                        <p className="text-white/80 font-semibold text-lg">Disponíveis</p>
-                     </div>
-                     <div className="absolute top-2 right-2 opacity-10">
-                        <i className="fa-solid fa-key text-6xl text-white"></i>
+                     <div className="absolute -bottom-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity transform rotate-12">
+                        <i className="fa-solid fa-key text-5xl text-orange-500"></i>
                      </div>
                   </div>
                </div>
@@ -496,32 +502,42 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                {/* Right Column: 2 Cards */}
                <div className="flex flex-col gap-5">
                   {/* Card Faturado - Green */}
-                  <div className="w-56 h-36 rounded-3xl p-6 card-hover relative overflow-hidden"
-                     style={{ background: 'linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%)' }}>
-                     <div className="absolute top-4 left-4 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                        <i className="fa-solid fa-money-bill-trend-up text-white text-xl"></i>
+                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-green-500 hover:shadow-[0_0_30px_rgba(34,197,94,0.15)] transition-all group">
+                     <div className="flex justify-between items-start">
+                        <div>
+                           <div className="flex items-center gap-2 mb-2">
+                              <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                                 <i className="fa-solid fa-money-bill-trend-up text-green-400 text-sm"></i>
+                              </div>
+                              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Faturado</span>
+                           </div>
+                           <p className="text-2xl font-black text-white tracking-tight mt-1 truncate max-w-[200px]" title={formatCurrency(unitsInventory.realizedValue)}>
+                              {formatCurrency(unitsInventory.realizedValue)}
+                           </p>
+                        </div>
                      </div>
-                     <div className="absolute bottom-6 left-6">
-                        <p className="text-2xl font-black text-white">{formatCurrency(unitsInventory.realizedValue)}</p>
-                        <p className="text-white/80 font-semibold text-lg">Faturado</p>
-                     </div>
-                     <div className="absolute top-2 right-2 opacity-10">
-                        <i className="fa-solid fa-coins text-6xl text-white"></i>
+                     <div className="absolute -bottom-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity transform rotate-12">
+                        <i className="fa-solid fa-coins text-5xl text-green-500"></i>
                      </div>
                   </div>
 
                   {/* Card Potencial - Purple */}
-                  <div className="w-56 h-36 rounded-3xl p-6 card-hover relative overflow-hidden"
-                     style={{ background: 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 50%, #7c3aed 100%)' }}>
-                     <div className="absolute top-4 left-4 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                        <i className="fa-solid fa-chart-line text-white text-xl"></i>
+                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-purple-500 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] transition-all group">
+                     <div className="flex justify-between items-start">
+                        <div>
+                           <div className="flex items-center gap-2 mb-2">
+                              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                                 <i className="fa-solid fa-chart-line text-purple-400 text-sm"></i>
+                              </div>
+                              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Potencial</span>
+                           </div>
+                           <p className="text-2xl font-black text-white tracking-tight mt-1 truncate max-w-[200px]" title={formatCurrency(unitsInventory.totalPotentialSale)}>
+                              {formatCurrency(unitsInventory.totalPotentialSale)}
+                           </p>
+                        </div>
                      </div>
-                     <div className="absolute bottom-6 left-6">
-                        <p className="text-2xl font-black text-white">{formatCurrency(unitsInventory.totalPotentialSale)}</p>
-                        <p className="text-white/80 font-semibold text-lg">Potencial</p>
-                     </div>
-                     <div className="absolute top-2 right-2 opacity-10">
-                        <i className="fa-solid fa-chart-line text-6xl text-white"></i>
+                     <div className="absolute -bottom-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity transform rotate-12">
+                        <i className="fa-solid fa-chart-line text-5xl text-purple-500"></i>
                      </div>
                   </div>
                </div>
