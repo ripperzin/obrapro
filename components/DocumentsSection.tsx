@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ProjectDocument } from '../types';
 import { openAttachment } from '../utils/storage';
-import AttachmentUpload from './AttachmentUpload';
+import AddDocumentModal from './AddDocumentModal';
 
 interface DocumentsSectionProps {
     documents: ProjectDocument[];
@@ -17,21 +17,6 @@ const DocumentsSection: React.FC<DocumentsSectionProps> = ({
     isAdmin = false
 }) => {
     const [isAdding, setIsAdding] = useState(false);
-    const [newDoc, setNewDoc] = useState({
-        title: '',
-        category: 'Projeto' as ProjectDocument['category'],
-        url: ''
-    });
-
-    const handleAdd = () => {
-        if (!newDoc.title || !newDoc.url) {
-            alert('Preencha o título e anexe o arquivo.');
-            return;
-        }
-        onAdd(newDoc);
-        setIsAdding(false);
-        setNewDoc({ title: '', category: 'Projeto', url: '' });
-    };
 
     const categories = ['Projeto', 'Escritura', 'Contrato', 'Outros'];
 
@@ -46,7 +31,7 @@ const DocumentsSection: React.FC<DocumentsSectionProps> = ({
                     <i className="fa-solid fa-folder-open mr-2 text-blue-500"></i>
                     Documentos
                 </h2>
-                {isAdmin && !isAdding && (
+                {isAdmin && (
                     <button
                         onClick={() => setIsAdding(true)}
                         className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2"
@@ -56,61 +41,11 @@ const DocumentsSection: React.FC<DocumentsSectionProps> = ({
                 )}
             </div>
 
-            {/* Formulário de Adição */}
-            {isAdding && (
-                <div className="bg-slate-800/50 border border-slate-700 p-6 rounded-2xl space-y-4 animate-fade-in relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-
-                    <h3 className="text-sm font-bold text-white uppercase mb-4">Novo Documento</h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-400 uppercase">Título</label>
-                            <input
-                                type="text"
-                                placeholder="Ex: Planta Baixa Térreo"
-                                value={newDoc.title}
-                                onChange={e => setNewDoc({ ...newDoc, title: e.target.value })}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 outline-none transition-colors font-bold"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-400 uppercase">Categoria</label>
-                            <select
-                                value={newDoc.category}
-                                onChange={e => setNewDoc({ ...newDoc, category: e.target.value as any })}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 outline-none transition-colors font-bold appearance-none cursor-pointer"
-                            >
-                                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-400 uppercase">Arquivo</label>
-                        <AttachmentUpload
-                            value={newDoc.url}
-                            onChange={url => setNewDoc({ ...newDoc, url: url || '' })}
-                            bucketName="project-documents"
-                        />
-                    </div>
-
-                    <div className="flex gap-3 pt-2">
-                        <button
-                            onClick={handleAdd}
-                            className="flex-1 bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl text-sm font-black uppercase tracking-wider shadow-lg shadow-green-600/20 transition-all"
-                        >
-                            Salvar Documento
-                        </button>
-                        <button
-                            onClick={() => setIsAdding(false)}
-                            className="px-6 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-bold transition-all"
-                        >
-                            Cancelar
-                        </button>
-                    </div>
-                </div>
-            )}
+            <AddDocumentModal
+                isOpen={isAdding}
+                onClose={() => setIsAdding(false)}
+                onSave={onAdd}
+            />
 
             {/* Lista de Documentos por Categoria */}
             <div className="space-y-8">

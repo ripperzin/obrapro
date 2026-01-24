@@ -3,6 +3,7 @@ import { DiaryEntry } from '../types';
 import AttachmentUpload from './AttachmentUpload';
 import DateInput from './DateInput';
 import { openAttachment } from '../utils/storage';
+import AddDiaryEntryModal from './AddDiaryEntryModal';
 
 interface DiarySectionProps {
     diary: DiaryEntry[];
@@ -23,48 +24,7 @@ const DiarySection: React.FC<DiarySectionProps> = ({
 }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-
-    const [newEntry, setNewEntry] = useState({
-        date: new Date().toISOString().split('T')[0],
-        content: '',
-        photos: [] as string[]
-    });
-
     const [editEntry, setEditEntry] = useState<DiaryEntry | null>(null);
-
-    // --- Create Handlers ---
-
-    const handleAddPhoto = (url: string | undefined) => {
-        if (url) {
-            setNewEntry(prev => ({ ...prev, photos: [...prev.photos, url] }));
-        }
-    };
-
-    const handleRemovePhoto = (index: number) => {
-        setNewEntry(prev => ({
-            ...prev,
-            photos: prev.photos.filter((_, i) => i !== index)
-        }));
-    };
-
-    const handleSubmit = () => {
-        if (!newEntry.content) {
-            alert('Escreva o conteúdo do diário.');
-            return;
-        }
-        onAdd({
-            date: newEntry.date,
-            content: newEntry.content,
-            photos: newEntry.photos,
-            author: currentUserName
-        });
-        setIsAdding(false);
-        setNewEntry({
-            date: new Date().toISOString().split('T')[0],
-            content: '',
-            photos: []
-        });
-    };
 
     // --- Update Handlers ---
 
@@ -124,71 +84,13 @@ const DiarySection: React.FC<DiarySectionProps> = ({
                 )}
             </div>
 
-            {/* Create Form */}
-            {isAdding && (
-                <div className="bg-slate-800/50 border border-slate-700 p-6 rounded-2xl space-y-4 animate-fade-in relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                    <h3 className="text-sm font-bold uppercase mb-4">Adicionar Registro</h3>
 
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-400 uppercase">Data</label>
-                        <DateInput
-                            value={newEntry.date}
-                            onChange={(val) => setNewEntry({ ...newEntry, date: val })}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 outline-none font-bold"
-                            placeholder="DD/MM/AAAA"
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-400 uppercase">Ocorrências / Atividades</label>
-                        <textarea
-                            rows={4}
-                            value={newEntry.content}
-                            onChange={e => setNewEntry({ ...newEntry, content: e.target.value })}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 outline-none transition-colors font-medium resize-none"
-                            placeholder="Descreva o que foi feito hoje na obra..."
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-400 uppercase">Fotos</label>
-                        <div className="flex flex-wrap gap-3 mb-3">
-                            {newEntry.photos.map((photo, index) => (
-                                <div key={index} className="relative w-20 h-20 rounded-xl overflow-hidden group border border-slate-600">
-                                    <div className="w-full h-full bg-slate-700 flex items-center justify-center">
-                                        <i className="fa-solid fa-image text-slate-400"></i>
-                                    </div>
-                                    <button
-                                        onClick={() => handleRemovePhoto(index)}
-                                        className="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 flex items-center justify-center rounded-bl-lg hover:bg-red-600"
-                                    >
-                                        <i className="fa-solid fa-xmark text-xs"></i>
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="h-14 w-full">
-                            <AttachmentUpload
-                                className="w-full h-full"
-                                value={undefined}
-                                onChange={handleAddPhoto}
-                                bucketName="project-documents"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-4">
-                        <button onClick={handleSubmit} className="flex-1 bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl text-sm font-black uppercase tracking-wider shadow-lg shadow-green-600/20">
-                            Salvar no Diário
-                        </button>
-                        <button onClick={() => setIsAdding(false)} className="px-6 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-bold">
-                            Cancelar
-                        </button>
-                    </div>
-                </div>
-            )}
+            <AddDiaryEntryModal
+                isOpen={isAdding}
+                onClose={() => setIsAdding(false)}
+                onAdd={onAdd}
+                currentUserName={currentUserName}
+            />
 
             {/* Timeline */}
             <div className="relative border-l-2 border-slate-700 ml-3 md:ml-6 space-y-8 pl-6 md:pl-8">
