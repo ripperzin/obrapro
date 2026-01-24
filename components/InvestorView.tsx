@@ -136,7 +136,9 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         value: e.value,
                         date: e.date,
                         userId: e.user_id,
-                        userName: e.user_name
+                        userName: e.user_name,
+                        attachmentUrl: e.attachment_url,
+                        attachments: e.attachments || []
                     })),
                     logs: [],
                     documents: [],
@@ -159,7 +161,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                             name: m.name,
                             percentage: m.percentage,
                             estimatedValue: m.estimated_value,
-                            pentValue: m.spent_value || 0, // Typo fix in mapped object if needed locally, but keeping consistent
+                            pentValue: m.spent_value || 0,
                             spentValue: m.spent_value || 0,
                             displayOrder: m.display_order,
                             subMacros: subMacrosData.filter((s: any) => s.project_macro_id === m.id).map((s: any) => ({
@@ -283,6 +285,46 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
         return formatter(value) + suffix;
     };
 
+    // Componente auxiliar para link com assinatura
+    const FileLink = ({ path }: { path: string }) => {
+        const [url, setUrl] = useState<string | null>(null);
+
+        useEffect(() => {
+            if (!path) return;
+            if (path.startsWith('http')) {
+                setUrl(path);
+                return;
+            }
+            // Tenta criar URL assinada, mas considera se usuário é anonimo ou não.
+            // Para portal do investidor (anon), createSignedUrl pode falhar se não tiver regra.
+            // Mas assumindo que o app já usa isso...
+            const getUrl = async () => {
+                const { data } = await supabase.storage
+                    .from('expense-attachments')
+                    .createSignedUrl(path, 3600);
+
+                if (data?.signedUrl) {
+                    setUrl(data.signedUrl);
+                } else {
+                    // Fallback
+                    const { data: d2 } = await supabase.storage
+                        .from('project-documents')
+                        .createSignedUrl(path, 3600);
+                    if (d2?.signedUrl) setUrl(d2.signedUrl);
+                }
+            };
+            getUrl();
+        }, [path]);
+
+        if (!url) return <span className="text-slate-600"><i className="fa-solid fa-spinner fa-spin"></i></span>;
+
+        return (
+            <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors" title="Abrir Anexo">
+                <i className="fa-solid fa-paperclip"></i>
+            </a>
+        );
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
@@ -316,11 +358,42 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         Portal do Investidor
                     </div>
                     <h1 className="text-3xl md:text-4xl font-black text-white mb-2">{project.name}</h1>
-                    <p className="text-slate-400">
+                    <p className="text-slate-400 mb-8">
                         {project.startDate && `Início: ${new Date(project.startDate + 'T00:00:00').toLocaleDateString('pt-BR')}`}
                         {project.startDate && project.deliveryDate && ' • '}
                         {project.deliveryDate && `Entrega: ${new Date(project.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR')}`}
                     </p>
+
+                    {(() => {
+                        // Find latest photo from stage evidence
+                        const currentStageEvidence = (project.stageEvidence || [])
+                            .filter(e => e.photos && e.photos.length > 0)
+                            .sort((a, b) => b.stage - a.stage)[0];
+
+                        const photo = currentStageEvidence?.photos?.[0];
+
+                        if (photo) {
+                            return (
+                                <div className="max-w-2xl mx-auto">
+                                    <div className="rounded-3xl p-2 bg-slate-800/50 backdrop-blur border border-slate-700 shadow-2xl">
+                                        <div className="rounded-2xl overflow-hidden aspect-video relative group">
+                                            <StageThumbnail photoPath={photo} className="w-full h-full" />
+                                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 flex justify-between items-end">
+                                                <div>
+                                                    <p className="text-white font-bold text-lg">{STAGE_NAMES[currentStageEvidence.stage]}</p>
+                                                    <p className="text-slate-300 text-sm">
+                                                        <i className="fa-solid fa-camera mr-2"></i>
+                                                        Registro de {new Date(currentStageEvidence.date).toLocaleDateString('pt-BR')}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        }
+                        return null;
+                    })()}
                 </header>
 
                 {/* Progress Card */}
@@ -546,23 +619,42 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                     <tr className="border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider">
                                         <th className="pb-3 pl-4">Data</th>
                                         <th className="pb-3">Descrição</th>
+                                        <th className="pb-3 text-center">Anexo</th>
                                         <th className="pb-3 text-right pr-4">Valor</th>
                                     </tr>
                                 </thead>
                                 <tbody className="text-sm">
                                     {[...project.expenses]
                                         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                                        .map(exp => (
-                                            <tr key={exp.id} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
-                                                <td className="py-4 pl-4 text-slate-400">
-                                                    {new Date(exp.date + 'T00:00:00').toLocaleDateString('pt-BR')}
-                                                </td>
-                                                <td className="py-4 text-white font-medium">{exp.description}</td>
-                                                <td className="py-4 text-right pr-4 text-slate-200 font-bold">
-                                                    {formatCurrency(exp.value)}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        .map(exp => {
+                                            // Normalizar lista de anexos (legacy + new array)
+                                            const allAttachments = [
+                                                ...(exp.attachmentUrl ? [exp.attachmentUrl] : []),
+                                                ...(exp.attachments || [])
+                                            ];
+
+                                            return (
+                                                <tr key={exp.id} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
+                                                    <td className="py-4 pl-4 text-slate-400">
+                                                        {new Date(exp.date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                                    </td>
+                                                    <td className="py-4 text-white font-medium">{exp.description}</td>
+                                                    <td className="py-4 text-center">
+                                                        <div className="flex gap-2 justify-center">
+                                                            {allAttachments.map((att, idx) => (
+                                                                <FileLink key={idx} path={att} />
+                                                            ))}
+                                                            {allAttachments.length === 0 && (
+                                                                <span className="text-slate-600 opacity-30 px-2">-</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-4 text-right pr-4 text-slate-200 font-bold">
+                                                        {formatCurrency(exp.value)}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                 </tbody>
                             </table>
                         </div>
