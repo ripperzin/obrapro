@@ -28,12 +28,26 @@ const DateInput: React.FC<DateInputProps> = ({
         return `${day}/${month}/${year}`;
     };
 
-    // Helper: DD/MM/YYYY -> YYYY-MM-DD
+    // Helper: DD/MM/YYYY -> YYYY-MM-DD (Robust)
     const parseDisplayToIso = (display: string) => {
+        let clean = display.replace(/\D/g, '');
+        if (!clean) return '';
+
+        // Pads logic: treat d/m/yyyy, dd/m/yyyy etc
         const parts = display.split('/');
         if (parts.length !== 3) return '';
-        const [day, month, year] = parts;
+
+        let [day, month, year] = parts;
+
+        if (!day || !month || !year) return '';
+
+        day = day.padStart(2, '0');
+        month = month.padStart(2, '0');
+
+        if (year.length === 2) year = `20${year}`; // Lazy year handling
+
         if (day.length !== 2 || month.length !== 2 || year.length !== 4) return '';
+
         return `${year}-${month}-${day}`;
     };
 
@@ -45,7 +59,14 @@ const DateInput: React.FC<DateInputProps> = ({
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let input = e.target.value;
 
+        // Allow user to clear completely
+        if (!input) {
+            setDisplayValue('');
+            return;
+        }
+
         // Remove non-digits
+        // Only digits logic for masking
         const digits = input.replace(/\D/g, '');
 
         // Masking logic: DD/MM/YYYY
@@ -59,12 +80,6 @@ const DateInput: React.FC<DateInputProps> = ({
         }
 
         setDisplayValue(masked);
-
-        // If fully filled (10 chars: DD/MM/YYYY), try to propagate change immediately (optional)
-        if (masked.length === 10 && onChange) {
-            const iso = parseDisplayToIso(masked);
-            if (iso) onChange(iso);
-        }
     };
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -72,21 +87,20 @@ const DateInput: React.FC<DateInputProps> = ({
     };
 
     const handleBlur = () => {
-        const iso = parseDisplayToIso(displayValue);
-
-        // Basic validation: Check valid date
-        // Allow empty if needed, or enforce validity
         if (!displayValue) {
             if (onBlur) onBlur('');
             if (onChange) onChange('');
             return;
         }
 
+        const iso = parseDisplayToIso(displayValue);
         const isValid = !isNaN(Date.parse(iso));
 
         if (isValid) {
             if (onBlur) onBlur(iso);
             if (onChange) onChange(iso);
+            // Re-format display to appear perfect
+            setDisplayValue(formatDateToDisplay(iso));
         } else {
             // Revert to original value if invalid
             setDisplayValue(formatDateToDisplay(value));
