@@ -1200,22 +1200,26 @@ const ExpensesSection: React.FC<{
 
   const isAdmin = user.role === UserRole.ADMIN;
 
-  const handleEditExpense = (expId: string, field: 'value' | 'date' | 'description' | 'macroId' | 'subMacroId', newVal: any) => {
+  const handleEditExpense = (expId: string, updates: Partial<Expense>) => {
     if (!isAdmin) return;
     const oldExp = project.expenses.find(e => e.id === expId)!;
-    const oldVal = String(oldExp[field as keyof Expense] || '');
-    const updatedExpenses = project.expenses.map(e => e.id === expId ? { ...e, [field]: newVal } : e);
+    const updatedExpenses = project.expenses.map(e => e.id === expId ? { ...e, ...updates } : e);
 
     // Se mudar a macro, limpar a sub-macro
-    if (field === 'macroId') {
+    if (updates.hasOwnProperty('macroId')) {
       const expIndex = updatedExpenses.findIndex(e => e.id === expId);
       updatedExpenses[expIndex].subMacroId = undefined;
     }
 
     onUpdate(updatedExpenses);
-    if (field !== 'macroId' && field !== 'subMacroId') {
-      logChange('Alteração', `Despesa ${oldExp.description} - ${field}`, oldVal, String(newVal));
-    }
+
+    // Log individual changes
+    Object.keys(updates).forEach(key => {
+      const field = key as keyof Expense;
+      if (field !== 'macroId' && field !== 'subMacroId' && field !== 'attachments') {
+        logChange('Alteração', `Despesa ${oldExp.description} - ${field}`, String(oldExp[field] || ''), String(updates[field]));
+      }
+    });
   };
 
   return (
@@ -1286,13 +1290,11 @@ const ExpensesSection: React.FC<{
           })()}
           onSave={(newAttachments) => {
             if (attachmentManagerId) {
-              handleEditExpense(attachmentManagerId, 'attachments' as any, newAttachments);
-              // Also clear legacy url if empty or sync? 
-              // handleEditExpense(attachmentManagerId, 'attachmentUrl' as any, newAttachments[0] || null);
-              // Let's keep it simple: Save to 'attachments'. Legacy 'attachmentUrl' might persist or we clear it.
-              // Ideally clears it to avoid dual source of truth issues, or syncs it.
-              // Syncing first item to attachmentUrl for backward compat:
-              handleEditExpense(attachmentManagerId, 'attachmentUrl' as any, newAttachments.length > 0 ? newAttachments[0] : null);
+              // ATOMIC UPDATE: Send both fields in a single call to avoid race conditions
+              handleEditExpense(attachmentManagerId, {
+                attachments: newAttachments,
+                attachmentUrl: newAttachments.length > 0 ? newAttachments[0] : null as any
+              });
             }
           }}
         />
@@ -1315,7 +1317,7 @@ const ExpensesSection: React.FC<{
                           onFocus={(e) => e.target.select()}
                           className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm font-bold text-white w-full outline-none"
                           value={exp.description}
-                          onChange={(e) => handleEditExpense(exp.id, 'description', e.target.value)}
+                          onChange={(e) => handleEditExpense(exp.id, { description: e.target.value })}
                         />
                       ) : (
                         <h5 className="font-black text-white text-lg">{exp.description}</h5>
@@ -1350,7 +1352,7 @@ const ExpensesSection: React.FC<{
                       <DateInput
                         className="bg-slate-700 border border-slate-600 rounded px-2 py-2 text-sm font-bold text-white w-full text-center outline-none"
                         value={exp.date}
-                        onBlur={(val) => handleEditExpense(exp.id, 'date', val)}
+                        onBlur={(val) => handleEditExpense(exp.id, { date: val })}
                       />
                     ) : (
                       <div className="text-sm font-bold text-slate-300">
@@ -1367,7 +1369,7 @@ const ExpensesSection: React.FC<{
                       <MoneyInput
                         className="bg-slate-700 border border-slate-600 rounded px-2 py-2 text-sm font-bold text-white text-right w-full outline-none"
                         value={exp.value}
-                        onBlur={(val) => handleEditExpense(exp.id, 'value', val)}
+                        onBlur={(val) => handleEditExpense(exp.id, { value: val })}
                       />
                     ) : (
                       <div className="text-lg font-black text-green-400">{formatCurrency(exp.value)}</div>
@@ -1435,7 +1437,7 @@ const ExpensesSection: React.FC<{
                         <DateInput
                           className="p-2 bg-slate-700 border border-slate-600 rounded-lg text-xs outline-none focus:border-blue-500 font-bold text-white w-28 text-center"
                           value={exp.date}
-                          onBlur={(val) => handleEditExpense(exp.id, 'date', val)}
+                          onBlur={(val) => handleEditExpense(exp.id, { date: val })}
                         />
                       ) : (
                         <span className="font-bold text-slate-300">
@@ -1452,7 +1454,7 @@ const ExpensesSection: React.FC<{
                           onFocus={(e) => e.target.select()}
                           className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs font-bold text-white w-full outline-none"
                           value={exp.description}
-                          onChange={(e) => handleEditExpense(exp.id, 'description', e.target.value)}
+                          onChange={(e) => handleEditExpense(exp.id, { description: e.target.value })}
                         />
                       ) : exp.description}
                     </td>
@@ -1461,7 +1463,7 @@ const ExpensesSection: React.FC<{
                         <select
                           className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs font-bold text-white w-full outline-none"
                           value={exp.macroId || ''}
-                          onChange={(e) => handleEditExpense(exp.id, 'macroId' as any, e.target.value || null)}
+                          onChange={(e) => handleEditExpense(exp.id, { macroId: e.target.value || undefined })}
                         >
                           <option value="">Sem categoria</option>
                           {projectMacros.map(m => (
@@ -1481,7 +1483,7 @@ const ExpensesSection: React.FC<{
                         <select
                           className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs font-bold text-white w-full outline-none"
                           value={exp.subMacroId || ''}
-                          onChange={(e) => handleEditExpense(exp.id, 'subMacroId' as any, e.target.value || null)}
+                          onChange={(e) => handleEditExpense(exp.id, { subMacroId: e.target.value || undefined })}
                         >
                           <option value="">Sem detalhe</option>
                           {projectSubMacros
@@ -1509,7 +1511,7 @@ const ExpensesSection: React.FC<{
                         <MoneyInput
                           className="p-2 bg-slate-700 border border-slate-600 rounded-lg text-xs text-right w-28 outline-none focus:border-blue-500 font-bold text-green-400"
                           value={exp.value}
-                          onBlur={(val) => handleEditExpense(exp.id, 'value', val)}
+                          onBlur={(val) => handleEditExpense(exp.id, { value: val })}
                         />
                       ) : (
                         <span className="font-bold text-green-400">{formatCurrency(exp.value)}</span>

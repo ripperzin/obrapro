@@ -73,6 +73,7 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
 
         onSave({
             ...formData,
+            attachmentUrl: formData.attachments.length > 0 ? formData.attachments[0] : undefined,
             macroId: finalMacroId || undefined,
             subMacroId: formData.subMacroId || undefined
         });
