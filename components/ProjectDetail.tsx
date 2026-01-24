@@ -45,22 +45,76 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
   const totalUnitsCost = project.units.reduce((acc, curr) => acc + curr.cost, 0);
   const totalUnitsSales = project.units.reduce((acc, curr) => acc + (curr.saleValue || 0), 0);
 
+  /* Safe Calculation Helpers */
+  const safeSum = (arr: any[], key: string) => arr.reduce((acc, curr) => acc + (Number(curr[key]) || 0), 0);
+  const safeDiff = (a: number, b: number) => (Number(a) || 0) - (Number(b) || 0);
+
   // Nova Lógica Financeira (valorEstimadoVenda)
   const totalEstimatedSales = project.units.reduce((acc, curr) => acc + (curr.valorEstimadoVenda || 0), 0);
-  const estimatedGrossProfit = totalEstimatedSales - totalUnitsCost;
-
-  // ROI Indicadores (Mantidos no código)
-  const roiUnits = totalUnitsCost > 0 ? (totalEstimatedSales - totalUnitsCost) / totalUnitsCost : 0;
+  const estimatedGrossProfit = safeDiff(totalEstimatedSales, totalUnitsCost);
 
   const firstExpense = project.expenses.length > 0
-    ? project.expenses.reduce((min, e) => e.date < min.date ? e : min, project.expenses[0])
+    ? project.expenses.reduce((min, e) => (e.date && min.date && e.date < min.date) ? e : min, project.expenses[0])
     : null;
 
-  const monthsSinceFirstExpense = firstExpense
-    ? calculateMonthsBetween(firstExpense.date, new Date().toISOString().split('T')[0])
-    : 1;
+  // New/Refined Metrics for Dashboard
+  const soldUnits = project.units.filter(u => u.status === 'Sold');
+  const availableUnits = project.units.filter(u => u.status === 'Available');
 
-  const averageMonthlyROI = roiUnits / (monthsSinceFirstExpense || 1);
+  const potentialSales = availableUnits.reduce((acc, curr) => acc + (curr.valorEstimadoVenda || 0), 0);
+
+  const realProfit = soldUnits.reduce((acc, unit) => {
+    // Logic extracted from existing margin calc
+    const isCompleted = project.progress === 100;
+    const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
+
+    let costBase = unit.cost;
+    if (isCompleted && totalUnitsArea > 0) {
+      costBase = (unit.area / totalUnitsArea) * totalActualExpenses;
+    }
+
+    // Only calculate if we have a sale value
+    if (unit.saleValue && unit.saleValue > 0) {
+      return acc + (unit.saleValue - costBase);
+    }
+    return acc;
+  }, 0);
+
+  // Re-calculating margins cleanly
+  const margins = useMemo(() => {
+    let totalRoi = 0;
+    let totalMonthlyRoi = 0;
+    let count = 0;
+
+    const isCompleted = project.progress === 100;
+    const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
+
+    soldUnits.forEach(unit => {
+      if (unit.saleValue && unit.saleValue > 0) {
+        let costBase = unit.cost;
+        if (isCompleted && totalUnitsArea > 0) {
+          costBase = (unit.area / totalUnitsArea) * totalActualExpenses;
+        }
+
+        if (costBase > 0) {
+          const roi = (unit.saleValue - costBase) / costBase;
+          totalRoi += roi;
+
+          // Monthly
+          if (unit.saleDate && firstExpense) {
+            const months = calculateMonthsBetween(firstExpense.date, unit.saleDate);
+            if (months > 0) totalMonthlyRoi += (roi / months);
+          }
+          count++;
+        }
+      }
+    });
+
+    return {
+      avgRoi: count > 0 ? (totalRoi / count) * 100 : 0,
+      avgMonthlyRoi: count > 0 ? (totalMonthlyRoi / count) * 100 : 0
+    };
+  }, [project.units, project.expenses, project.progress, totalActualExpenses, soldUnits, firstExpense]);
 
   const budgetUsage = totalUnitsCost > 0 ? (totalActualExpenses / totalUnitsCost) * 100 : 0;
 
@@ -573,166 +627,147 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               </div>
             </div>
 
-            {/* Cards Grid - Design Premium */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* NEW VENDAS & LUCRO DASHBOARD (Bento Format) */}
+            <div className="glass rounded-3xl p-6 border border-slate-700/50 relative overflow-hidden group">
+              {/* Background Glow Effects - Reduced Blur for Performance */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-xl -mr-32 -mt-32 pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-xl -ml-32 -mb-32 pointer-events-none"></div>
 
-              {/* Card SAÚDE FINANCEIRA - Refined V2 */}
-              <div className="glass rounded-2xl p-4 md:p-5 border border-slate-700/50 border-l-4 border-l-blue-500 bg-blue-500/5">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-black text-white uppercase text-xs md:text-sm tracking-widest flex items-center gap-2">
-                    <div className="w-7 h-7 md:w-8 md:h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                      <i className="fa-solid fa-chart-pie text-blue-400 text-sm"></i>
-                    </div>
-                    <span className="hidden sm:inline">Saúde Financeira</span>
-                    <span className="sm:hidden">Financeiro</span>
-                  </h4>
-                  <span className={`px-3 py-1 rounded-full text-xs font-black ${budgetUsage > 100 ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}>
-                    {budgetUsage.toFixed(0)}%
-                  </span>
-                </div>
-
-                {/* Barra de Progresso Horizontal */}
-                <div className="h-2 bg-slate-700 rounded-full mb-4 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${budgetUsage > 100 ? 'bg-gradient-to-r from-red-500 to-orange-500' : 'bg-gradient-to-r from-blue-500 to-purple-500'}`}
-                    style={{ width: `${Math.min(budgetUsage, 100)}%` }}
-                  ></div>
-                </div>
-
-                {/* Valores em Grid */}
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-[9px] md:text-[10px] text-blue-400 font-bold uppercase">Realizado</p>
-                    <p className="text-xl md:text-2xl font-black text-white">{formatCurrency(totalActualExpenses)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase">Orçamento Total</p>
-                    <p className="text-base md:text-lg font-bold text-slate-300">{formatCurrency(totalUnitsCost)}</p>
-                  </div>
-                  <div className={`flex items-center gap-2 text-xs md:text-sm ${totalUnitsCost - totalActualExpenses >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    <span className={`w-2 h-2 rounded-full ${totalUnitsCost - totalActualExpenses >= 0 ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                    <span>Saldo: <strong>{formatCurrency(totalUnitsCost - totalActualExpenses)}</strong></span>
+              <div className="relative z-10">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-lg font-black text-white uppercase tracking-widest flex items-center gap-3">
+                    <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 flex items-center justify-center shadow-lg text-blue-400">
+                      <i className="fa-solid fa-sack-dollar"></i>
+                    </span>
+                    Vendas & Lucro
+                  </h3>
+                  <div className="px-4 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-slate-400">
+                    Dashboard Financeiro
                   </div>
                 </div>
-              </div>
 
-              {/* Card VENDAS - Refined V2 (Glass Consistency) */}
-              <div className="glass rounded-2xl p-4 md:p-5 border border-slate-700/50 border-l-4 border-l-emerald-500 bg-emerald-500/5 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                {/* TOP ROW: Sales Gauge & Total Liquidated */}
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
 
-                <div className="flex items-center justify-between mb-4 relative z-10">
-                  <h4 className="font-black text-white uppercase text-xs md:text-sm tracking-widest flex items-center gap-2">
-                    <div className="w-7 h-7 md:w-8 md:h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                      <i className="fa-solid fa-chart-line text-emerald-400 text-sm"></i>
+                  {/* 1. Unidades Vendidas (Gauge Style) - Col Span 2 */}
+                  <div className="lg:col-span-2 bg-slate-800/40 rounded-2xl p-5 border border-slate-700/50 flex flex-col justify-between relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-3 opacity-10">
+                      <i className="fa-solid fa-building text-6xl"></i>
                     </div>
-                    Vendas
-                  </h4>
-                  {(() => {
-                    const soldUnits = project.units.filter(u => u.status === 'Sold').length;
-                    const totalUnits = project.units.length;
-                    const salesPercent = totalUnits > 0 ? (soldUnits / totalUnits) * 100 : 0;
-                    return (
-                      <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        {salesPercent.toFixed(0)}% Meta
-                      </span>
-                    );
-                  })()}
-                </div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Unidades Vendidas</p>
 
-                <div className="relative z-10 space-y-3">
-                  {/* Grid 2x2 com números grandes */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 text-center">
-                      <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase">✅ Vendidas</p>
-                      <p className="text-3xl md:text-4xl font-black text-white">{project.units.filter(u => u.status === 'Sold').length}</p>
-                    </div>
-                    <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 text-center">
-                      <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase">🏷️ À Venda</p>
-                      <p className="text-3xl md:text-4xl font-black text-white">{project.units.filter(u => u.status === 'Available').length}</p>
+                    <div className="flex items-center gap-6 mt-2">
+                      {/* Circular Progress or Simple Stat */}
+                      <div className="relative w-20 h-20 flex-shrink-0">
+                        <svg className="w-full h-full transform -rotate-90">
+                          <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-700" />
+                          <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={226} strokeDashoffset={226 - (226 * (soldUnits.length / (project.units.length || 1)))} className="text-blue-500" />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center font-black text-white text-lg">
+                          {Math.round((soldUnits.length / (project.units.length || 1)) * 100)}%
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-4xl font-black text-white leading-none mb-1">
+                          {soldUnits.length}<span className="text-xl text-slate-500 font-bold">/{project.units.length}</span>
+                        </p>
+                        <p className="text-xs text-blue-400 font-bold uppercase mt-1">Metas Atingidas</p>
+                      </div>
                     </div>
                   </div>
-                  {/* Total Vendido */}
-                  <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 text-center">
-                    <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase">💰 Total Vendido</p>
-                    <p className="text-lg md:text-xl font-black text-white">{formatCurrency(totalUnitsSales)}</p>
+
+                  {/* 2. Total Liquidado (Big Number) - Col Span 3 */}
+                  <div className="lg:col-span-3 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-2xl p-6 border border-emerald-500/20 flex flex-col justify-center relative">
+                    <div className="absolute top-4 right-4 w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center text-emerald-400 animate-pulse">
+                      <i className="fa-solid fa-coins"></i>
+                    </div>
+                    <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">Total Liquidado (Vendas)</p>
+                    <p className="text-4xl md:text-5xl font-black text-white tracking-tight">
+                      {formatCurrency(totalUnitsSales)}
+                    </p>
+                    <div className="mt-3 flex items-center gap-2 text-xs text-slate-400 font-medium">
+                      <i className="fa-solid fa-circle-check text-emerald-500"></i>
+                      <span>Valor total de contratos assinados e validados</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Linha de Métricas Complementares */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
-              {/* Margem Média */}
-              <div className="glass rounded-xl p-3 md:p-4 border border-green-500/50 border-l-4 border-l-green-500 bg-green-500/5">
-                <div className="text-center md:text-left">
-                  <p className="text-[8px] md:text-[9px] text-green-400 font-bold uppercase mb-1">📈 Margem</p>
-                  <p className="text-xl md:text-2xl font-black text-green-400">
-                    {(() => {
-                      const isCompleted = project.progress === 100;
-                      const totalExpenses = project.expenses.reduce((sum, exp) => sum + exp.value, 0);
-                      const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
-                      let totalRoi = 0, soldCount = 0;
-                      project.units.forEach(unit => {
-                        if (unit.status === 'Sold' && unit.saleValue && unit.saleValue > 0) {
-                          const realCost = (isCompleted && totalUnitsArea > 0) ? (unit.area / totalUnitsArea) * totalExpenses : unit.cost;
-                          const costBase = realCost > 0 ? realCost : unit.cost;
-                          if (costBase > 0) { totalRoi += (unit.saleValue - costBase) / costBase; soldCount++; }
-                        }
-                      });
-                      return `${(soldCount > 0 ? (totalRoi / soldCount) * 100 : 0).toFixed(1)}%`;
-                    })()}
-                  </p>
-                </div>
-              </div>
+                {/* BOTTOM GRID: 4 Specs (Lucro Real, Estimado, Potencial, Margem) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
-              {/* Margem Mensal */}
-              <div className="glass rounded-xl p-3 md:p-4 border border-purple-500/50 border-l-4 border-l-purple-500 bg-purple-500/5">
-                <div className="text-center md:text-left">
-                  <p className="text-[8px] md:text-[9px] text-purple-400 font-bold uppercase mb-1">📅 Mensal</p>
-                  <p className="text-xl md:text-2xl font-black text-purple-400">
-                    {(() => {
-                      const isCompleted = project.progress === 100;
-                      const totalExpenses = project.expenses.reduce((sum, exp) => sum + exp.value, 0);
-                      const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
-                      const firstExpenseDate = project.expenses.length > 0 ? project.expenses.reduce((min, e) => e.date < min ? e.date : min, project.expenses[0].date) : null;
-                      let totalMonthlyRoi = 0, soldCount = 0;
-                      project.units.forEach(unit => {
-                        if (unit.status === 'Sold' && unit.saleValue && unit.saleValue > 0) {
-                          const realCost = (isCompleted && totalUnitsArea > 0) ? (unit.area / totalUnitsArea) * totalExpenses : unit.cost;
-                          const costBase = realCost > 0 ? realCost : unit.cost;
-                          if (costBase > 0) {
-                            const roi = (unit.saleValue - costBase) / costBase;
-                            const months = (unit.saleDate && firstExpenseDate) ? calculateMonthsBetween(firstExpenseDate, unit.saleDate) : null;
-                            const roiMensal = (months !== null && months > 0) ? roi / months : 0;
-                            totalMonthlyRoi += roiMensal; soldCount++;
-                          }
-                        }
-                      });
-                      return `${(soldCount > 0 ? (totalMonthlyRoi / soldCount) * 100 : 0).toFixed(1)}%`;
-                    })()}
-                  </p>
-                </div>
-              </div>
+                  {/* Lucro Real */}
+                  <div className="bg-slate-800/40 rounded-2xl p-5 border border-blue-500/30 hover:border-blue-500/60 transition-colors group/card">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
+                        <i className="fa-solid fa-wallet"></i>
+                      </div>
+                      <span className="text-[10px] uppercase font-black bg-blue-500 text-white px-2 py-0.5 rounded">Real</span>
+                    </div>
+                    <p className="text-xs text-slate-400 font-bold uppercase mb-1">Lucro Realizado</p>
+                    <p className="text-xl lg:text-2xl font-black text-white group-hover/card:text-blue-400 transition-colors">
+                      {formatCurrency(realProfit)}
+                    </p>
+                  </div>
 
-              {/* Potencial de Venda */}
-              <div className="glass rounded-xl p-3 md:p-4 border border-orange-500/50 border-l-4 border-l-orange-500 bg-orange-500/5">
-                <div className="text-center md:text-left">
-                  <p className="text-[8px] md:text-[9px] text-orange-400 font-bold uppercase mb-1">💎 Potencial</p>
-                  <p className="text-lg md:text-xl font-black text-orange-400">
-                    <span className="md:hidden">{formatCurrencyAbbrev(project.units.filter(u => u.status === 'Available').reduce((sum, u) => sum + (u.valorEstimadoVenda || 0), 0))}</span>
-                    <span className="hidden md:inline">{formatCurrency(project.units.filter(u => u.status === 'Available').reduce((sum, u) => sum + (u.valorEstimadoVenda || 0), 0))}</span>
-                  </p>
-                </div>
-              </div>
+                  {/* Lucro Estimado */}
+                  <div className="bg-slate-800/40 rounded-2xl p-5 border border-cyan-500/30 hover:border-cyan-500/60 transition-colors group/card">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="p-2 bg-cyan-500/20 rounded-lg text-cyan-400">
+                        <i className="fa-solid fa-chart-line"></i>
+                      </div>
+                      <span className="text-[10px] uppercase font-black bg-slate-700 text-slate-300 px-2 py-0.5 rounded">Estimado</span>
+                    </div>
+                    <p className="text-xs text-slate-400 font-bold uppercase mb-1">Lucro Projetado</p>
+                    <p className="text-xl lg:text-2xl font-black text-slate-200 group-hover/card:text-cyan-400 transition-colors">
+                      {formatCurrency(estimatedGrossProfit)}
+                    </p>
+                  </div>
 
-              {/* Lucro Estimado */}
-              <div className="glass rounded-xl p-3 md:p-4 border border-cyan-500/50 border-l-4 border-l-cyan-500 bg-cyan-500/5">
-                <div className="text-center md:text-left">
-                  <p className="text-[8px] md:text-[9px] text-cyan-400 font-bold uppercase mb-1">💰 Lucro</p>
-                  <p className="text-lg md:text-xl font-black text-cyan-400">
-                    <span className="md:hidden">{formatCurrencyAbbrev(estimatedGrossProfit)}</span>
-                    <span className="hidden md:inline">{formatCurrency(estimatedGrossProfit)}</span>
-                  </p>
+                  {/* Potencial / Vendido */}
+                  <div className={`rounded-2xl p-5 border transition-colors group/card ${potentialSales === 0 ? 'bg-orange-500/10 border-orange-500/50' : 'bg-slate-800/40 border-orange-500/30 hover:border-orange-500/60'}`}>
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="p-2 bg-orange-500/20 rounded-lg text-orange-400">
+                        <i className="fa-solid fa-gem"></i>
+                      </div>
+                      {potentialSales === 0 && (
+                        <span className="text-[10px] uppercase font-black bg-orange-500 text-white px-2 py-0.5 rounded animate-pulse">
+                          Esgotado
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 font-bold uppercase mb-1">Potencial Restante</p>
+                    {potentialSales === 0 ? (
+                      <p className="text-xl lg:text-2xl font-black text-orange-500 tracking-wider">VENDIDO</p>
+                    ) : (
+                      <p className="text-xl lg:text-2xl font-black text-slate-200 group-hover/card:text-orange-400 transition-colors">
+                        {formatCurrency(potentialSales)}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Margens (Combined) */}
+                  <div className="bg-slate-800/40 rounded-2xl p-5 border border-purple-500/30 hover:border-purple-500/60 transition-colors group/card">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="p-2 bg-purple-500/20 rounded-lg text-purple-400">
+                        <i className="fa-solid fa-percent"></i>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between items-end">
+                        <p className="text-xs text-slate-400 font-bold uppercase">ROI Médio</p>
+                        <p className="text-lg font-black text-white">{!isNaN(margins.avgRoi) ? margins.avgRoi.toFixed(1) : '0.0'}%</p>
+                      </div>
+                      <div className="w-full h-1 bg-slate-700 rounded-full overflow-hidden">
+                        <div className="h-full bg-purple-500" style={{ width: `${Math.min(margins.avgRoi || 0, 100)}%` }}></div>
+                      </div>
+                      <div className="flex justify-between items-center mt-1">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase">ROI Mensal</p>
+                        <p className="text-xs font-bold text-purple-400">{!isNaN(margins.avgMonthlyRoi) ? margins.avgMonthlyRoi.toFixed(1) : '0.0'}%</p>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             </div>

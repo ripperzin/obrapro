@@ -59,7 +59,7 @@ const COLORS = {
 };
 
 // Formatting helpers
-const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 const formatCurrencyFull = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 const formatDate = (dateStr: string) => new Date(dateStr + 'T00:00:00').toLocaleDateString('pt-BR');
 
@@ -90,14 +90,30 @@ const calculateMetrics = (project: Project, totalUnitsArea: number = 0) => {
     const totalExpenses = project.expenses.reduce((sum, e) => sum + e.value, 0);
     const budgetUsage = totalCost > 0 ? (totalExpenses / totalCost) * 100 : 0;
     const totalSold = soldUnits.reduce((sum, u) => sum + (u.saleValue || 0), 0);
+
+    // New Metrics (V2)
+    const totalEstimatedSales = project.units.reduce((acc, curr) => acc + (curr.valorEstimadoVenda || 0), 0);
+    const estimatedGrossProfit = totalEstimatedSales - totalCost;
     const potentialSales = availableUnits.reduce((sum, u) => sum + (u.valorEstimadoVenda || 0), 0);
+
+    // Lucro Real Calculation
+    const isCompleted = project.progress === 100;
+    const realProfit = soldUnits.reduce((acc, unit) => {
+        let costBase = unit.cost;
+        if (isCompleted && totalUnitsArea > 0) {
+            costBase = (unit.area / totalUnitsArea) * totalExpenses;
+        }
+        if (unit.saleValue && unit.saleValue > 0) {
+            return acc + (unit.saleValue - costBase);
+        }
+        return acc;
+    }, 0);
 
     // Margins logic
     let averageMargin: number | null = null;
     let monthlyMargin: number | null = null;
 
     if (soldUnits.length > 0) {
-        const isCompleted = project.progress === 100;
         let totalRoi = 0;
         let totalMonthlyRoi = 0;
         let validCount = 0;
@@ -145,7 +161,9 @@ const calculateMetrics = (project: Project, totalUnitsArea: number = 0) => {
         totalSold,
         potentialSales,
         averageMargin,
-        monthlyMargin
+        monthlyMargin,
+        realProfit,
+        estimatedGrossProfit
     };
 };
 
@@ -362,18 +380,22 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         doc.text('Saúde Financeira', margins, cursorY);
 
         cursorY += 8;
-        // 1. Margem Média
-        const avgMarginTxt = metrics.averageMargin ? `${metrics.averageMargin.toFixed(1)}%` : '--';
-        drawCard(doc, margins, cursorY, cardWidth, cardHeight, avgMarginTxt, 'Margem Média', COLORS.green);
-        // 2. Margem Mensal
-        const monthlyMarginTxt = metrics.monthlyMargin ? `${metrics.monthlyMargin.toFixed(1)}%` : '--';
-        drawCard(doc, margins + cardWidth + cardGap, cursorY, cardWidth, cardHeight, monthlyMarginTxt, 'Margem Mensal', COLORS.purple);
+        // 1. Lucro Real (New)
+        const realProfitTxt = formatCurrencyFull(metrics.realProfit);
+        drawCard(doc, margins, cursorY, cardWidth, cardHeight, realProfitTxt, 'Lucro Real', COLORS.blue);
+
+        // 2. Lucro Estimado (New)
+        const estProfitTxt = formatCurrencyFull(metrics.estimatedGrossProfit);
+        drawCard(doc, margins + cardWidth + cardGap, cursorY, cardWidth, cardHeight, estProfitTxt, 'Lucro Estimado', COLORS.cyan);
+
         // 3. Potencial
-        const potTxt = metrics.potentialSales > 0 ? `R$ ${(metrics.potentialSales / 1000).toFixed(0)}k` : '--';
-        drawCard(doc, margins + (cardWidth + cardGap) * 2, cursorY, cardWidth, cardHeight, potTxt, 'Potencial', COLORS.orange);
-        // 4. Uso Orçamento
-        const budgetTxt = metrics.budgetUsage ? `${metrics.budgetUsage.toFixed(0)}%` : '0%';
-        drawCard(doc, margins + (cardWidth + cardGap) * 3, cursorY, cardWidth, cardHeight, budgetTxt, 'Orçamento', COLORS.blue);
+        const potTxt = metrics.potentialSales > 0 ? formatCurrencyFull(metrics.potentialSales) : 'VENDIDO';
+        // Se 0, usar cor especial? Mantemos orange.
+        drawCard(doc, margins + (cardWidth + cardGap) * 2, cursorY, cardWidth, cardHeight, potTxt, metrics.potentialSales > 0 ? 'Potencial' : 'Status', COLORS.orange);
+
+        // 4. Margem Média
+        const avgMarginTxt = metrics.averageMargin ? `${metrics.averageMargin.toFixed(1)}%` : '--';
+        drawCard(doc, margins + (cardWidth + cardGap) * 3, cursorY, cardWidth, cardHeight, avgMarginTxt, 'Margem Média', COLORS.green);
 
 
         // --- Budget Detail (Macros) ---

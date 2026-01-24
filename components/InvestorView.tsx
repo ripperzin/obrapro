@@ -210,6 +210,26 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
         const budgetUsage = totalCost > 0 ? (totalExpenses / totalCost) * 100 : null;
         const totalSold = soldUnits.reduce((sum, u) => sum + (u.saleValue || 0), 0);
 
+        // Nova Lógica de Lucros
+        // Nova Lógica de Lucros - Com proteção
+        const totalEstimatedSales = project.units.reduce((acc, curr) => acc + (Number(curr.valorEstimadoVenda) || 0), 0);
+        const estimatedGrossProfit = (totalEstimatedSales || 0) - (totalCost || 0);
+
+        // Lucro Real
+        const isCompleted = project.progress === 100;
+        const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
+
+        const realProfit = soldUnits.reduce((acc, unit) => {
+            let costBase = unit.cost;
+            if (isCompleted && totalUnitsArea > 0) {
+                costBase = (unit.area / totalUnitsArea) * totalExpenses;
+            }
+            if (unit.saleValue && unit.saleValue > 0) {
+                return acc + (unit.saleValue - costBase);
+            }
+            return acc;
+        }, 0);
+
         // Potencial de venda (soma dos valorEstimadoVenda das unidades disponíveis)
         const potentialSales = availableUnits.reduce((sum, u) => sum + (u.valorEstimadoVenda || 0), 0);
 
@@ -269,7 +289,9 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
             potentialSales: potentialSales > 0 ? potentialSales : null,
             averageMargin,
             monthlyMargin,
-            totalSold
+            totalSold,
+            realProfit,
+            estimatedGrossProfit
         };
     };
 
@@ -414,74 +436,146 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     </p>
                 </div>
 
-                {/* Financial Metrics - Sales */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-slate-800/50 backdrop-blur rounded-2xl p-6 border border-slate-700 text-center">
-                        <i className="fa-solid fa-building text-2xl text-blue-400 mb-3"></i>
-                        <p className="text-2xl font-black text-white">{metrics.totalUnits}</p>
-                        <p className="text-xs text-slate-400 uppercase tracking-wider">Unidades</p>
-                    </div>
-                    <div className="bg-slate-800/50 backdrop-blur rounded-2xl p-6 border border-slate-700 text-center">
-                        <i className="fa-solid fa-check-circle text-2xl text-green-400 mb-3"></i>
-                        <p className="text-2xl font-black text-white">{metrics.soldUnits}</p>
-                        <p className="text-xs text-slate-400 uppercase tracking-wider">Vendidas</p>
-                    </div>
-                    <div className="bg-slate-800/50 backdrop-blur rounded-2xl p-6 border border-slate-700 text-center">
-                        <i className="fa-solid fa-tag text-2xl text-cyan-400 mb-3"></i>
-                        <p className="text-2xl font-black text-white">{metrics.availableUnits}</p>
-                        <p className="text-xs text-slate-400 uppercase tracking-wider">À Venda</p>
-                    </div>
-                    <div className="bg-slate-800/50 backdrop-blur rounded-2xl p-6 border border-slate-700 text-center">
-                        <i className="fa-solid fa-coins text-2xl text-amber-400 mb-3"></i>
-                        <p className="text-2xl font-black text-white">
-                            {metrics.totalSold > 0 ? formatCurrencyAbbrev(metrics.totalSold) : '--'}
-                        </p>
-                        <p className="text-xs text-slate-400 uppercase tracking-wider">Total Vendido</p>
-                    </div>
-                </div>
+                {/* VENDAS & LUCRO DASHBOARD (Bento Format - Investor) */}
+                <div className="glass rounded-3xl p-6 border border-slate-700/50 relative overflow-hidden group mb-8">
+                    {/* Background Glow Effects */}
+                    {/* Background Glow Effects - Reduced Blur */}
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-xl -mr-32 -mt-32 pointer-events-none"></div>
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-xl -ml-32 -mb-32 pointer-events-none"></div>
 
-                {/* Financial Health Card */}
-                <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-8 border border-slate-700 mb-8">
-                    <h2 className="text-lg font-bold text-white mb-6">
-                        <i className="fa-solid fa-heartbeat mr-2 text-red-400"></i>
-                        Saúde Financeira
-                    </h2>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {/* Margem Média */}
-                        <div className="bg-green-500/10 rounded-2xl p-4 border border-green-500/30 text-center">
-                            <i className="fa-solid fa-chart-line text-xl text-green-400 mb-2"></i>
-                            <p className="text-2xl font-black text-green-400">
-                                {displayValue(metrics.averageMargin, v => v.toFixed(1), '%')}
-                            </p>
-                            <p className="text-xs text-slate-400 uppercase tracking-wider">Margem Média</p>
+                    <div className="relative z-10">
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-lg font-black text-white uppercase tracking-widest flex items-center gap-3">
+                                <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 flex items-center justify-center shadow-lg text-blue-400">
+                                    <i className="fa-solid fa-sack-dollar"></i>
+                                </span>
+                                Vendas & Lucro
+                            </h3>
+                            <div className="px-4 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-slate-400">
+                                Visão do Investidor
+                            </div>
                         </div>
 
-                        {/* Margem Mensal */}
-                        <div className="bg-purple-500/10 rounded-2xl p-4 border border-purple-500/30 text-center">
-                            <i className="fa-solid fa-calendar-check text-xl text-purple-400 mb-2"></i>
-                            <p className="text-2xl font-black text-purple-400">
-                                {displayValue(metrics.monthlyMargin, v => v.toFixed(1), '%')}
-                            </p>
-                            <p className="text-xs text-slate-400 uppercase tracking-wider">Margem Mensal</p>
+                        {/* TOP ROW: Sales Gauge & Total Liquidated */}
+                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+
+                            {/* 1. Unidades Vendidas (Gauge Style) */}
+                            <div className="lg:col-span-2 bg-slate-800/40 rounded-2xl p-5 border border-slate-700/50 flex flex-col justify-between relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-3 opacity-10">
+                                    <i className="fa-solid fa-building text-6xl"></i>
+                                </div>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Unidades Vendidas</p>
+
+                                <div className="flex items-center gap-6 mt-2">
+                                    <div className="relative w-20 h-20 flex-shrink-0">
+                                        <svg className="w-full h-full transform -rotate-90">
+                                            <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-700" />
+                                            <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={226} strokeDashoffset={226 - (226 * (metrics.soldUnits / (metrics.totalUnits || 1)))} className="text-blue-500" />
+                                        </svg>
+                                        <div className="absolute inset-0 flex items-center justify-center font-black text-white text-lg">
+                                            {Math.round((metrics.soldUnits / (metrics.totalUnits || 1)) * 100)}%
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-4xl font-black text-white leading-none mb-1">
+                                            {metrics.soldUnits}<span className="text-xl text-slate-500 font-bold">/{metrics.totalUnits}</span>
+                                        </p>
+                                        <p className="text-xs text-blue-400 font-bold uppercase mt-1">Metas Atingidas</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 2. Total Liquidado */}
+                            <div className="lg:col-span-3 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-2xl p-6 border border-emerald-500/20 flex flex-col justify-center relative">
+                                <div className="absolute top-4 right-4 w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center text-emerald-400 animate-pulse">
+                                    <i className="fa-solid fa-coins"></i>
+                                </div>
+                                <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">Total Liquidado (Vendas)</p>
+                                <p className="text-4xl md:text-5xl font-black text-white tracking-tight">
+                                    {formatCurrency(metrics.totalSold)}
+                                </p>
+                                <div className="mt-3 flex items-center gap-2 text-xs text-slate-400 font-medium">
+                                    <i className="fa-solid fa-circle-check text-emerald-500"></i>
+                                    <span>Valor total de contratos validados</span>
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Potencial */}
-                        <div className="bg-orange-500/10 rounded-2xl p-4 border border-orange-500/30 text-center">
-                            <i className="fa-solid fa-gem text-xl text-orange-400 mb-2"></i>
-                            <p className="text-2xl font-black text-orange-400">
-                                {displayValue(metrics.potentialSales, formatCurrencyAbbrev)}
-                            </p>
-                            <p className="text-xs text-slate-400 uppercase tracking-wider">Potencial</p>
-                        </div>
+                        {/* BOTTOM GRID: 4 Specs */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
-                        {/* Execução Orçamento */}
-                        <div className="bg-blue-500/10 rounded-2xl p-4 border border-blue-500/30 text-center">
-                            <i className="fa-solid fa-wallet text-xl text-blue-400 mb-2"></i>
-                            <p className="text-2xl font-black text-blue-400">
-                                {displayValue(metrics.budgetUsage, v => v.toFixed(0), '%')}
-                            </p>
-                            <p className="text-xs text-slate-400 uppercase tracking-wider">Orçamento</p>
+                            {/* Lucro Real */}
+                            <div className="bg-slate-800/40 rounded-2xl p-5 border border-blue-500/30">
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
+                                        <i className="fa-solid fa-wallet"></i>
+                                    </div>
+                                    <span className="text-[10px] uppercase font-black bg-blue-500 text-white px-2 py-0.5 rounded">Real</span>
+                                </div>
+                                <p className="text-xs text-slate-400 font-bold uppercase mb-1">Lucro Realizado</p>
+                                <p className="text-2xl font-black text-white">
+                                    {formatCurrency(metrics.realProfit || 0)}
+                                </p>
+                            </div>
+
+                            {/* Lucro Estimado */}
+                            <div className="bg-slate-800/40 rounded-2xl p-5 border border-cyan-500/30">
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="p-2 bg-cyan-500/20 rounded-lg text-cyan-400">
+                                        <i className="fa-solid fa-chart-line"></i>
+                                    </div>
+                                    <span className="text-[10px] uppercase font-black bg-slate-700 text-slate-300 px-2 py-0.5 rounded">Estimado</span>
+                                </div>
+                                <p className="text-xs text-slate-400 font-bold uppercase mb-1">Lucro Projetado</p>
+                                <p className="text-2xl font-black text-slate-200">
+                                    {formatCurrency(metrics.estimatedGrossProfit || 0)}
+                                </p>
+                            </div>
+
+                            {/* Potencial */}
+                            <div className={`rounded-2xl p-5 border ${!metrics.potentialSales ? 'bg-orange-500/10 border-orange-500/50' : 'bg-slate-800/40 border-orange-500/30'}`}>
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="p-2 bg-orange-500/20 rounded-lg text-orange-400">
+                                        <i className="fa-solid fa-gem"></i>
+                                    </div>
+                                    {!metrics.potentialSales && (
+                                        <span className="text-[10px] uppercase font-black bg-orange-500 text-white px-2 py-0.5 rounded animate-pulse">
+                                            Esgotado
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs text-slate-400 font-bold uppercase mb-1">Potencial Restante</p>
+                                {!metrics.potentialSales ? (
+                                    <p className="text-2xl font-black text-orange-500 tracking-wider">VENDIDO</p>
+                                ) : (
+                                    <p className="text-2xl font-black text-slate-200">
+                                        {metrics.potentialSales ? formatCurrency(metrics.potentialSales) : 'R$ 0,00'}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Margens */}
+                            <div className="bg-slate-800/40 rounded-2xl p-5 border border-purple-500/30">
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="p-2 bg-purple-500/20 rounded-lg text-purple-400">
+                                        <i className="fa-solid fa-percent"></i>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex justify-between items-end">
+                                        <p className="text-xs text-slate-400 font-bold uppercase">ROI Médio</p>
+                                        <p className="text-lg font-black text-white">{metrics.averageMargin && !isNaN(metrics.averageMargin) ? metrics.averageMargin.toFixed(1) : '0.0'}%</p>
+                                    </div>
+                                    <div className="w-full h-1 bg-slate-700 rounded-full overflow-hidden">
+                                        <div className="h-full bg-purple-500" style={{ width: `${Math.min(metrics.averageMargin || 0, 100)}%` }}></div>
+                                    </div>
+                                    <div className="flex justify-between items-center mt-1">
+                                        <p className="text-[10px] text-slate-500 font-bold uppercase">ROI Mensal</p>
+                                        <p className="text-xs font-bold text-purple-400">{metrics.monthlyMargin && !isNaN(metrics.monthlyMargin) ? metrics.monthlyMargin.toFixed(1) : '0.0'}%</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -655,7 +749,9 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                                     <td className="py-4 text-center">
                                                         <div className="flex gap-2 justify-center">
                                                             {allAttachments.map((att, idx) => (
-                                                                <FileLink key={idx} path={att} />
+                                                                <span key={idx}>
+                                                                    <FileLink path={att} />
+                                                                </span>
                                                             ))}
                                                             {allAttachments.length === 0 && (
                                                                 <span className="text-slate-600 opacity-30 px-2">-</span>
