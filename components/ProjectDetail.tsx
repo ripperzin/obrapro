@@ -1522,8 +1522,8 @@ const ExpensesSection: React.FC<{
                               type="button"
                               onClick={() => setManagingAttachmentsId(exp.id)}
                               className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${(exp.attachments?.length || (exp.attachmentUrl ? 1 : 0)) > 0
-                                  ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white'
-                                  : 'bg-slate-800 text-slate-500 hover:bg-slate-700 hover:text-white'
+                                ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white'
+                                : 'bg-slate-800 text-slate-500 hover:bg-slate-700 hover:text-white'
                                 }`}
                               title="Gerenciar Anexos"
                             >

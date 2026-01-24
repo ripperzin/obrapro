@@ -41,7 +41,10 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     const [description, setDescription] = useState(initialDescription);
     const [value, setValue] = useState(initialValue);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    const [attachmentUrl, setAttachmentUrl] = useState<string | undefined>(undefined);
+    const [attachments, setAttachments] = useState<string[]>([]);
+    // Legacy support removal or keep for internal logic? Let's assume we use 'attachments' now.
+    // const [attachmentUrl, setAttachmentUrl] = useState<string | undefined>(undefined); 
+
 
     // Categories State
     const [macros, setMacros] = useState<MacroOption[]>([]);
@@ -56,7 +59,7 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             setDescription(initialDescription);
             setValue(initialValue);
             setDate(new Date().toISOString().split('T')[0]);
-            setAttachmentUrl(undefined);
+            setAttachments([]);
             setSelectedMacroId('');
             setSelectedSubMacroId('');
         }
@@ -195,7 +198,8 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             description,
             value,
             date,
-            attachmentUrl,
+            attachments, // New array
+            attachmentUrl: attachments.length > 0 ? attachments[0] : undefined, // Legacy fallback
             macroId: finalMacroId,
             subMacroId: selectedSubMacroId || null
         });
@@ -334,10 +338,44 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                         </div>
                     </div>
 
-                    <AttachmentUpload
-                        value={attachmentUrl}
-                        onChange={(url) => setAttachmentUrl(url)}
-                    />
+                    {/* Multiple Attachments Section */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Anexos ({attachments?.length || 0})</label>
+
+                        {/* Grid */}
+                        {attachments && attachments.length > 0 && (
+                            <div className="grid grid-cols-4 gap-2 mb-2">
+                                {attachments.map((url, index) => (
+                                    <div key={index} className="relative aspect-square bg-slate-700 rounded-lg overflow-hidden border border-slate-600 group">
+                                        {/\.(jpg|jpeg|png|webp|heic|heif)$/i.test(url) ? (
+                                            <img
+                                                src={url.startsWith('http') ? url : `https://YOUR_PROJECT_ID.supabase.co/storage/v1/object/public/expense-attachments/${url}`}
+                                                className="w-full h-full object-cover"
+                                                alt="anexo"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-400">
+                                                <i className="fa-solid fa-file-pdf text-xs"></i>
+                                            </div>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
+                                            className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded flex items-center justify-center shadow hover:bg-red-600 transition z-10"
+                                        >
+                                            <i className="fa-solid fa-xmark text-[10px]"></i>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <AttachmentUpload
+                            value={undefined}
+                            onChange={(url) => { if (url) setAttachments(prev => [...prev, url]); }}
+                            minimal={false}
+                        />
+                    </div>
 
                     <button
                         type="submit"
