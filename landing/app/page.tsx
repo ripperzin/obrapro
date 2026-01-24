@@ -270,16 +270,13 @@ export default function Home() {
             </p>
             <div className="flex flex-wrap justify-center items-center gap-12 opacity-70">
               <div className="flex items-center gap-2 text-slate-300 font-semibold text-xl">
-                <Building2 className="w-6 h-6 text-blue-500" /> Constructo
+                <Building2 className="w-6 h-6 text-blue-500" /> Construtores
               </div>
               <div className="flex items-center gap-2 text-slate-300 font-semibold text-xl">
-                <HardHat className="w-6 h-6 text-orange-500" /> EngForte
+                <HardHat className="w-6 h-6 text-orange-500" /> Profissionais
               </div>
               <div className="flex items-center gap-2 text-slate-300 font-semibold text-xl">
-                <TrendingUp className="w-6 h-6 text-green-500" /> InvestBens
-              </div>
-              <div className="flex items-center gap-2 text-slate-300 font-semibold text-xl">
-                <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">NexObras</span>
+                <TrendingUp className="w-6 h-6 text-green-500" /> Investidores
               </div>
             </div>
           </div>
