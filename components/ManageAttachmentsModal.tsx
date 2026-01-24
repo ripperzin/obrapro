@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AttachmentUpload from './AttachmentUpload';
+import { getSignedUrl } from '../utils/storage';
 
 interface ManageAttachmentsModalProps {
     isOpen: boolean;
@@ -10,15 +11,30 @@ interface ManageAttachmentsModalProps {
 
 const ManageAttachmentsModal: React.FC<ManageAttachmentsModalProps> = ({ isOpen, onClose, attachments: initialAttachments, onSave }) => {
     const [attachments, setAttachments] = useState<string[]>(initialAttachments || []);
+    const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({});
 
-    // Sync state when opening?
-    // Better to use a useEffect on isOpen to reset/sync if needed, but for now assuming parent passes fresh data.
-    // Actually, if we use internal state, we should sync it.
-    React.useEffect(() => {
+    useEffect(() => {
         if (isOpen) {
             setAttachments(initialAttachments || []);
         }
     }, [isOpen, initialAttachments]);
+
+    // Resolve URLs
+    useEffect(() => {
+        const resolveParams = async () => {
+            const newResolved: Record<string, string> = {};
+            for (const path of attachments) {
+                if (path.startsWith('http')) {
+                    newResolved[path] = path;
+                } else {
+                    const url = await getSignedUrl(path);
+                    if (url) newResolved[path] = url;
+                }
+            }
+            setResolvedUrls(newResolved);
+        };
+        resolveParams();
+    }, [attachments]);
 
     if (!isOpen) return null;
 
@@ -42,37 +58,40 @@ const ManageAttachmentsModal: React.FC<ManageAttachmentsModalProps> = ({ isOpen,
 
                 <div className="p-6 space-y-6">
                     <div className="grid grid-cols-3 gap-2">
-                        {attachments.map((url, index) => (
-                            <div key={index} className="relative aspect-square bg-slate-800 rounded-xl overflow-hidden border border-slate-600 group">
-                                {/\.(jpg|jpeg|png|webp|heic|heif)$/i.test(url) ? (
-                                    <img
-                                        src={url.startsWith('http') ? url : `https://YOUR_PROJECT_ID.supabase.co/storage/v1/object/public/expense-attachments/${url}`}
-                                        className="w-full h-full object-cover"
-                                        alt="anexo"
-                                    />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-slate-700 text-slate-400">
-                                        <i className="fa-solid fa-file-pdf text-2xl"></i>
-                                    </div>
-                                )}
+                        {attachments.map((path, index) => {
+                            const url = resolvedUrls[path] || path;
+                            return (
+                                <div key={index} className="relative aspect-square bg-slate-800 rounded-xl overflow-hidden border border-slate-600 group">
+                                    {/\.(jpg|jpeg|png|webp|heic|heif)$/i.test(path) ? (
+                                        <img
+                                            src={url}
+                                            className="w-full h-full object-cover"
+                                            alt="anexo"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-slate-700 text-slate-400">
+                                            <i className="fa-solid fa-file-pdf text-2xl"></i>
+                                        </div>
+                                    )}
 
-                                <button
-                                    onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
-                                    className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-md flex items-center justify-center shadow hover:bg-red-600 transition"
-                                >
-                                    <i className="fa-solid fa-trash text-xs"></i>
-                                </button>
+                                    <button
+                                        onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
+                                        className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-md flex items-center justify-center shadow hover:bg-red-600 transition"
+                                    >
+                                        <i className="fa-solid fa-trash text-xs"></i>
+                                    </button>
 
-                                <a
-                                    href={url.startsWith('http') ? url : `https://YOUR_PROJECT_ID.supabase.co/storage/v1/object/public/expense-attachments/${url}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="absolute bottom-1 left-1 right-1 bg-black/60 text-white text-[9px] py-1 px-2 rounded text-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                    Ver
-                                </a>
-                            </div>
-                        ))}
+                                    <a
+                                        href={url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="absolute bottom-1 left-1 right-1 bg-black/60 text-white text-[9px] py-1 px-2 rounded text-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        Ver
+                                    </a>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     <div className="border-t border-slate-700 pt-4">

@@ -4,6 +4,7 @@ import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import AttachmentUpload from './AttachmentUpload';
 import { supabase } from '../supabaseClient';
+import { getSignedUrl } from '../utils/storage';
 
 interface QuickExpenseModalProps {
     isOpen: boolean;
@@ -42,9 +43,6 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     const [value, setValue] = useState(initialValue);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [attachments, setAttachments] = useState<string[]>([]);
-    // Legacy support removal or keep for internal logic? Let's assume we use 'attachments' now.
-    // const [attachmentUrl, setAttachmentUrl] = useState<string | undefined>(undefined); 
-
 
     // Categories State
     const [macros, setMacros] = useState<MacroOption[]>([]);
@@ -52,6 +50,7 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     const [selectedMacroId, setSelectedMacroId] = useState<string>('');
     const [selectedSubMacroId, setSelectedSubMacroId] = useState<string>('');
     const [loadingCategories, setLoadingCategories] = useState(false);
+    const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({});
 
     useEffect(() => {
         if (isOpen) {
@@ -62,8 +61,28 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             setAttachments([]);
             setSelectedMacroId('');
             setSelectedSubMacroId('');
+            setResolvedUrls({});
         }
     }, [isOpen, preSelectedProjectId, initialDescription, initialValue, projects]);
+
+    // Resolve URLs
+    useEffect(() => {
+        const resolveParams = async () => {
+            const newResolved: Record<string, string> = {};
+            if (attachments) {
+                for (const path of attachments) {
+                    if (path.startsWith('http')) {
+                        newResolved[path] = path;
+                    } else {
+                        const url = await getSignedUrl(path);
+                        if (url) newResolved[path] = url;
+                    }
+                }
+            }
+            setResolvedUrls(newResolved);
+        };
+        resolveParams();
+    }, [attachments]);
 
     // Fetch Macros when Project Changes
     useEffect(() => {
@@ -345,28 +364,31 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                         {/* Grid */}
                         {attachments && attachments.length > 0 && (
                             <div className="grid grid-cols-4 gap-2 mb-2">
-                                {attachments.map((url, index) => (
-                                    <div key={index} className="relative aspect-square bg-slate-700 rounded-lg overflow-hidden border border-slate-600 group">
-                                        {/\.(jpg|jpeg|png|webp|heic|heif)$/i.test(url) ? (
-                                            <img
-                                                src={url.startsWith('http') ? url : `https://YOUR_PROJECT_ID.supabase.co/storage/v1/object/public/expense-attachments/${url}`}
-                                                className="w-full h-full object-cover"
-                                                alt="anexo"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-400">
-                                                <i className="fa-solid fa-file-pdf text-xs"></i>
-                                            </div>
-                                        )}
-                                        <button
-                                            type="button"
-                                            onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
-                                            className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded flex items-center justify-center shadow hover:bg-red-600 transition z-10"
-                                        >
-                                            <i className="fa-solid fa-xmark text-[10px]"></i>
-                                        </button>
-                                    </div>
-                                ))}
+                                {attachments.map((path, index) => {
+                                    const url = resolvedUrls[path] || path;
+                                    return (
+                                        <div key={index} className="relative aspect-square bg-slate-700 rounded-lg overflow-hidden border border-slate-600 group">
+                                            {/\.(jpg|jpeg|png|webp|heic|heif)$/i.test(path) ? (
+                                                <img
+                                                    src={url}
+                                                    className="w-full h-full object-cover"
+                                                    alt="anexo"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-400">
+                                                    <i className="fa-solid fa-file-pdf text-xs"></i>
+                                                </div>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
+                                                className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded flex items-center justify-center shadow hover:bg-red-600 transition z-10"
+                                            >
+                                                <i className="fa-solid fa-xmark text-[10px]"></i>
+                                            </button>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
 
