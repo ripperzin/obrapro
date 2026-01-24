@@ -180,7 +180,7 @@ export default function Home() {
                 </span>
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-                Aumente a produtividade, reduza custos e entregue seus projetos dentro do prazo com a plataforma de construção mais avançada do mercado.
+                Controle total da sua obra na palma da mão ou no seu computador. Entregue projetos no prazo e reduza custos com uma plataforma baseada em Inteligência Artificial, totalmente integrada entre web e mobile.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20">
