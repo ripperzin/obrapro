@@ -12,8 +12,8 @@ const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
     }).format(value);
 };
 
@@ -505,16 +505,16 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     <div className="grid grid-cols-3 gap-4 mb-6">
                         <div className="bg-slate-800/50 rounded-xl p-4 text-center">
                             <p className="text-slate-400 text-xs uppercase tracking-widest mb-1">Orçamento</p>
-                            <p className="text-white font-black text-lg md:text-xl">{formatCurrency(metrics.totalCost)}</p>
+                            <p className="text-white font-black text-lg md:text-xl">{formatCurrencyAbbrev(metrics.totalCost)}</p>
                         </div>
                         <div className="bg-slate-800/50 rounded-xl p-4 text-center">
                             <p className="text-slate-400 text-xs uppercase tracking-widest mb-1">Gasto</p>
-                            <p className="text-blue-400 font-black text-lg md:text-xl">{formatCurrency(metrics.totalExpenses)}</p>
+                            <p className="text-blue-400 font-black text-lg md:text-xl">{formatCurrencyAbbrev(metrics.totalExpenses)}</p>
                         </div>
                         <div className="bg-slate-800/50 rounded-xl p-4 text-center">
                             <p className="text-slate-400 text-xs uppercase tracking-widest mb-1">Saldo</p>
                             <p className={`font-black text-lg md:text-xl ${metrics.totalCost - metrics.totalExpenses >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                {formatCurrency(metrics.totalCost - metrics.totalExpenses)}
+                                {formatCurrencyAbbrev(metrics.totalCost - metrics.totalExpenses)}
                             </p>
                         </div>
                     </div>
@@ -562,8 +562,8 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
 
                                         {/* Values */}
                                         <div className="flex justify-between text-xs text-slate-400 font-medium">
-                                            <span>Gasto: {formatCurrency(macro.spentValue)}</span>
-                                            <span>Meta: {formatCurrency(macro.estimatedValue)}</span>
+                                            <span>Gasto: {formatCurrencyAbbrev(macro.spentValue)}</span>
+                                            <span>Meta: {formatCurrencyAbbrev(macro.estimatedValue)}</span>
                                         </div>
 
                                         {/* Submacros */}
@@ -577,7 +577,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                                                 <div className="flex justify-between items-center mb-1">
                                                                     <span className="text-slate-300 font-bold">{sub.name}</span>
                                                                     <span className={`${subProgress > 100 ? 'text-red-400' : 'text-slate-400'}`}>
-                                                                        {formatCurrency(sub.spentValue)} / {formatCurrency(sub.estimatedValue)}
+                                                                        {formatCurrencyAbbrev(sub.spentValue)} / {formatCurrencyAbbrev(sub.estimatedValue)}
                                                                     </span>
                                                                 </div>
                                                                 <div className="w-full h-1 bg-slate-700/50 rounded-full overflow-hidden">
