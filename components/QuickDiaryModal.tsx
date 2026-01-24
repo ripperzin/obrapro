@@ -114,10 +114,8 @@ const QuickDiaryModal: React.FC<QuickDiaryModalProps> = ({
                     </div>
 
                     <AttachmentUpload
-                        label="Foto do Dia (Opcional)"
-                        currentUrl={photoUrl}
-                        onUpload={setPhotoUrl}
-                        onRemove={() => setPhotoUrl(undefined)}
+                        value={photoUrl}
+                        onChange={(url) => setPhotoUrl(url)}
                     />
 
                     <button

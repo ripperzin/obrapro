@@ -335,10 +335,8 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                     </div>
 
                     <AttachmentUpload
-                        label="Foto do Comprovante (Opcional)"
-                        currentUrl={attachmentUrl}
-                        onUpload={setAttachmentUrl}
-                        onRemove={() => setAttachmentUrl(undefined)}
+                        value={attachmentUrl}
+                        onChange={(url) => setAttachmentUrl(url)}
                     />
 
                     <button
