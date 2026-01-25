@@ -112,6 +112,17 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
           <p className="font-bold text-lg">Nenhuma obra encontrada. Vamos construir?</p>
         </div>
       ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0 md:gap-10">
+          {projects.map(p => (
+            <div
+              key={p.id}
+              onClick={() => onSelect(p.id)}
+              className="bg-white rounded-[3rem] p-10 cursor-pointer shadow-xl hover:shadow-2xl transition-all group border border-slate-100 hover:-translate-y-2 relative overflow-hidden flex flex-col h-full"
+            >
+              <div className="flex justify-between items-start mb-8">
+                {(() => {
+                  const evidencesWithPhotos = (p.stageEvidence || [])
+                    .filter(e => e.photos && e.photos.length > 0)
                     .sort((a, b) => b.stage - a.stage);
 
                   const latestEvidence = evidencesWithPhotos[0];
@@ -180,78 +191,78 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
         </div >
       )}
 
-{
-  showModal && modalRoot && ReactDOM.createPortal(
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-fade-in">
-      <div className="glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-700">
-        <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/95 sticky top-0 z-10">
-          <h2 className="text-xl font-black text-white uppercase tracking-tight">
-            {editingProject ? 'Editar Obra' : 'Nova Obra'}
-          </h2>
-          <button
-            onClick={() => setShowModal(false)}
-            className="w-10 h-10 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:text-red-400 hover:border-red-400 transition"
-          >
-            <i className="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest ml-4">Nome do Empreendimento</label>
-            <input
-              required
-              type="text"
-              className="w-full px-6 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white shadow-sm text-sm placeholder-slate-500"
-              placeholder="Ex: Residencial Aurora"
-              value={formData.name}
-              onChange={e => setFormData({ ...formData, name: e.target.value })}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Início</label>
-              <DateInput
-                value={formData.startDate}
-                onChange={(val) => setFormData({ ...formData, startDate: val })}
-                className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-white shadow-sm text-sm text-center"
-                placeholder="DD/MM/AAAA"
-              />
+      {
+        showModal && modalRoot && ReactDOM.createPortal(
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-fade-in">
+            <div className="glass rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in border border-slate-700">
+              <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/95 sticky top-0 z-10">
+                <h2 className="text-xl font-black text-white uppercase tracking-tight">
+                  {editingProject ? 'Editar Obra' : 'Nova Obra'}
+                </h2>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="w-10 h-10 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:text-red-400 hover:border-red-400 transition"
+                >
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <form onSubmit={handleSubmit} className="p-8 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest ml-4">Nome do Empreendimento</label>
+                  <input
+                    required
+                    type="text"
+                    className="w-full px-6 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white shadow-sm text-sm placeholder-slate-500"
+                    placeholder="Ex: Residencial Aurora"
+                    value={formData.name}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Início</label>
+                    <DateInput
+                      value={formData.startDate}
+                      onChange={(val) => setFormData({ ...formData, startDate: val })}
+                      className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-white shadow-sm text-sm text-center"
+                      placeholder="DD/MM/AAAA"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Entrega</label>
+                    <DateInput
+                      value={formData.deliveryDate}
+                      onChange={(val) => setFormData({ ...formData, deliveryDate: val })}
+                      className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-white shadow-sm text-sm text-center"
+                      placeholder="DD/MM/AAAA"
+                    />
+                  </div>
+                </div>
+                <div className="pt-2 flex gap-4">
+                  <button
+                    type="submit"
+                    className="flex-1 py-4 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition shadow-lg shadow-blue-600/30 font-black uppercase text-xs tracking-widest"
+                  >
+                    {editingProject ? 'Salvar Alterações' : 'Criar Projeto'}
+                  </button>
+                </div>
+              </form>
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Entrega</label>
-              <DateInput
-                value={formData.deliveryDate}
-                onChange={(val) => setFormData({ ...formData, deliveryDate: val })}
-                className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-white shadow-sm text-sm text-center"
-                placeholder="DD/MM/AAAA"
-              />
-            </div>
-          </div>
-          <div className="pt-2 flex gap-4">
-            <button
-              type="submit"
-              className="flex-1 py-4 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition shadow-lg shadow-blue-600/30 font-black uppercase text-xs tracking-widest"
-            >
-              {editingProject ? 'Salvar Alterações' : 'Criar Projeto'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>,
-    modalRoot
-  )
-}
+          </div>,
+          modalRoot
+        )
+      }
 
-<ConfirmModal
-  isOpen={!!projectToDelete}
-  onClose={() => setProjectToDelete(null)}
-  onConfirm={handleConfirmDelete}
-  title="Excluir Obra?"
-  message="Tem certeza que deseja excluir esta obra? Todas as unidades, despesas e históricos associados serão perdidos permanentemente."
-  confirmText="Sim, Excluir"
-  cancelText="Cancelar"
-  variant="danger"
-/>
+      <ConfirmModal
+        isOpen={!!projectToDelete}
+        onClose={() => setProjectToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Excluir Obra?"
+        message="Tem certeza que deseja excluir esta obra? Todas as unidades, despesas e históricos associados serão perdidos permanentemente."
+        confirmText="Sim, Excluir"
+        cancelText="Cancelar"
+        variant="danger"
+      />
     </div >
   );
 };

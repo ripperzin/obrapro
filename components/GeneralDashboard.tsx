@@ -437,7 +437,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
          </div>
       </div>
 
-         {/* ===== DESKTOP LAYOUT (Variação A - Premium Fullscreen) ===== */ }
+       {/* ===== DESKTOP LAYOUT (Variação A - Premium Fullscreen) ===== */ }
    <div className="hidden md:block">
       {/* Header with Greeting */}
       <div className="mb-8">
