@@ -104,8 +104,8 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
         }
     }, [isEditing, macros, projectSubMacros]);
 
-    const fetchBudgetData = async () => {
-        setLoading(true);
+    const fetchBudgetData = async (background = false) => {
+        if (!background) setLoading(true);
         try {
             // 1. Calcular total real baseado nas unidades cadastradas
             const totalUnitsValue = project.units.reduce((sum, unit) => sum + unit.cost, 0);
@@ -305,7 +305,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                 .eq('id', macro.id);
 
             if (error) throw error;
-            fetchBudgetData();
+            fetchBudgetData(true);
             onBudgetUpdate?.();
         } catch (error) {
             console.error('Erro ao atualizar macro:', error);
@@ -338,7 +338,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                 });
 
             if (error) throw error;
-            fetchBudgetData();
+            fetchBudgetData(true);
             onBudgetUpdate?.();
         } catch (error) {
             console.error('Erro ao adicionar macro:', error);
@@ -364,7 +364,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             const { error } = await supabase.from('project_macros').delete().eq('id', id);
 
             if (error) throw error;
-            fetchBudgetData();
+            fetchBudgetData(true);
             onBudgetUpdate?.();
         } catch (error) {
             console.error('Erro ao remover macro:', error);
@@ -387,7 +387,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                 });
 
             if (error) throw error;
-            fetchBudgetData();
+            fetchBudgetData(true);
             onBudgetUpdate?.();
         } catch (error) {
             console.error('Erro ao adicionar sub-macro:', error);
@@ -410,7 +410,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             const { error } = await supabase.from('project_sub_macros').delete().eq('id', id);
 
             if (error) throw error;
-            fetchBudgetData();
+            fetchBudgetData(true);
             onBudgetUpdate?.();
         } catch (error) {
             console.error('Erro ao remover sub-macro:', error);
@@ -444,7 +444,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                 .eq('id', sub.id);
 
             if (error) throw error;
-            fetchBudgetData();
+            fetchBudgetData(true);
             onBudgetUpdate?.();
         } catch (error) {
             console.error('Erro ao atualizar sub-macro:', error);
@@ -509,7 +509,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             }
 
             setShowSetupModal(false);
-            fetchBudgetData();
+            fetchBudgetData(true);
             onBudgetUpdate?.();
         } catch (error) {
             console.error('Erro ao criar orçamento:', error);
