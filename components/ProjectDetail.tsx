@@ -298,14 +298,14 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
         {/* Navegação de Abas - Dark Theme */}
         {/* Navegação BENTO GRID - Redesign Premium */}
         {/* Navegação BENTO GRID - Redesign Premium "Chunky" */}
-        <div className="mb-8 w-full">
-          <div className="grid grid-cols-2 gap-2 md:gap-4 md:glass-none px-4 md:px-0">
+        <div className="mb-2 w-full">
+          <div className="grid grid-cols-2 gap-1 md:gap-4 md:glass-none px-0 md:px-0">
             {/* 1. GESTÃO - Card Largo (Highlight) */}
             <button
               onClick={() => setActiveTab('info')}
-              className={`col-span-2 h-24 md:h-32 p-4 md:p-5 rounded-xl md:rounded-3xl relative overflow-hidden transition-all duration-300 group ${activeTab === 'info'
-                ? 'glass border-blue-500 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.1)]'
-                : 'glass border-transparent hover:bg-slate-800/50'
+              className={`col-span-2 h-24 md:h-32 p-4 md:p-5 rounded-none md:rounded-3xl relative overflow-hidden transition-all duration-300 group ${activeTab === 'info'
+                ? 'glass border-y border-blue-500/50 bg-blue-500/10 shadow-lg'
+                : 'bg-slate-900 border-y border-slate-800 hover:bg-slate-800'
                 }`}
             >
               <div className="relative z-10 flex items-center justify-between h-full">
@@ -327,9 +327,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
             {canSeeUnits && (
               <button
                 onClick={() => setActiveTab('units')}
-                className={`col-span-1 h-32 p-4 rounded-3xl relative overflow-hidden transition-all duration-300 group border-l-[6px] flex flex-col justify-between ${activeTab === 'units'
-                  ? 'glass border-emerald-500 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
-                  : 'glass border-transparent hover:bg-slate-800/50'
+                className={`col-span-1 h-32 p-4 rounded-none md:rounded-3xl relative overflow-hidden transition-all duration-300 group border-b md:border-l-[6px] flex flex-col justify-between ${activeTab === 'units'
+                  ? 'bg-emerald-500/10 border-emerald-500/50'
+                  : 'bg-slate-900 border-slate-800 hover:bg-slate-800'
                   }`}
               >
                 <div className="flex justify-between items-start w-full">
@@ -349,9 +349,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
             {/* 3. DESPESAS - Card Médio */}
             <button
               onClick={() => setActiveTab('expenses')}
-              className={`col-span-1 h-32 p-4 rounded-3xl relative overflow-hidden transition-all duration-300 group border-l-[6px] flex flex-col justify-between ${activeTab === 'expenses'
-                ? 'glass border-rose-500 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.1)]'
-                : 'glass border-transparent hover:bg-slate-800/50'
+              className={`col-span-1 h-32 p-4 rounded-none md:rounded-3xl relative overflow-hidden transition-all duration-300 group border-b border-l md:border-l-[6px] flex flex-col justify-between ${activeTab === 'expenses'
+                ? 'bg-rose-500/10 border-rose-500/50'
+                : 'bg-slate-900 border-slate-800 hover:bg-slate-800'
                 }`}
             >
               <div className="flex justify-between items-start w-full">
@@ -370,9 +370,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
             {/* 4. ORÇAMENTO & DOCS (Row 3) */}
             <button
               onClick={() => setActiveTab('budget')}
-              className={`col-span-1 h-24 p-3 rounded-3xl flex flex-col items-center justify-center gap-2 transition-all duration-300 group border border-transparent ${activeTab === 'budget'
-                ? 'bg-purple-600 shadow-lg'
-                : 'glass hover:bg-slate-800'
+              className={`col-span-1 h-24 p-3 rounded-none md:rounded-3xl flex flex-col items-center justify-center gap-2 transition-all duration-300 group border-b border-r border-slate-800 ${activeTab === 'budget'
+                ? 'bg-purple-600/20 border-purple-500/50 text-white'
+                : 'bg-slate-900 hover:bg-slate-800'
                 }`}
             >
               <i className={`fa-solid fa-chart-pie text-2xl mb-1 ${activeTab === 'budget' ? 'text-white' : 'text-purple-400'}`}></i>
@@ -381,9 +381,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
 
             <button
               onClick={() => setActiveTab('documents')}
-              className={`col-span-1 h-24 p-3 rounded-3xl flex flex-col items-center justify-center gap-2 transition-all duration-300 group border border-transparent ${activeTab === 'documents'
-                ? 'bg-amber-600 shadow-lg'
-                : 'glass hover:bg-slate-800'
+              className={`col-span-1 h-24 p-3 rounded-none md:rounded-3xl flex flex-col items-center justify-center gap-2 transition-all duration-300 group border-b border-slate-800 ${activeTab === 'documents'
+                ? 'bg-amber-600/20 border-amber-500/50 text-white'
+                : 'bg-slate-900 hover:bg-slate-800'
                 }`}
             >
               <i className={`fa-solid fa-folder-open text-2xl mb-1 ${activeTab === 'documents' ? 'text-white' : 'text-amber-400'}`}></i>
@@ -393,9 +393,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
             {/* 5. DIÁRIO (Full Width High Impact) */}
             <button
               onClick={() => setActiveTab('diary')}
-              className={`col-span-2 h-24 p-4 rounded-3xl flex items-center justify-between px-8 transition-all duration-300 group border border-transparent ${activeTab === 'diary'
-                ? 'bg-cyan-600 shadow-lg'
-                : 'glass hover:bg-slate-800'
+              className={`col-span-2 h-24 p-4 rounded-none md:rounded-3xl flex items-center justify-between px-8 transition-all duration-300 group border-b border-slate-800 ${activeTab === 'diary'
+                ? 'bg-cyan-600/20 border-cyan-500/50'
+                : 'bg-slate-900 hover:bg-slate-800'
                 }`}
             >
               <div className="flex items-center gap-4">
