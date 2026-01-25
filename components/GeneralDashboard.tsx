@@ -395,153 +395,108 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
             })}
          </div>
 
-         {/* ===== DESKTOP LAYOUT (Premium Fullscreen) ===== */}
+         {/* ===== DESKTOP LAYOUT (Horizontal Ribbon - Opção 2) ===== */}
          <div className="hidden md:block">
-            {/* Header with Greeting */}
-            <div className="mb-8 p-8">
-               <h1 className="text-5xl font-black text-white italic tracking-tight">
-                  Olá, {userName}!
-               </h1>
-               <p className="text-slate-400 text-lg mt-2">
-                  Hoje: {formattedDate}
-               </p>
-            </div>
+            {/* Top Ribbon Container */}
+            <div className="p-8 pb-0">
+               <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-700/50 rounded-[2.5rem] p-6 flex items-center justify-between gap-6 shadow-2xl">
+                  {/* Greeting & Date */}
+                  <div className="flex flex-col gap-1 min-w-[200px]">
+                     <h1 className="text-3xl font-black text-white italic tracking-tight truncate">
+                        Olá, {userName}!
+                     </h1>
+                     <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-none">
+                        {formattedDate}
+                     </p>
+                  </div>
 
-            {/* Main Grid: Cards + Conversion Ring - LARGER */}
-            <div className="flex gap-8 items-center justify-center mb-12">
-               {/* Left Column: 2 Cards */}
-               <div className="flex flex-col gap-5">
-                  {/* Card Vendidas - Blue */}
-                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-blue-500 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] transition-all group">
-                     <div className="flex justify-between items-start">
+                  {/* Vertical Divider */}
+                  <div className="h-12 w-px bg-slate-700/50"></div>
+
+                  {/* KPI Items Scrollable/Flex Area */}
+                  <div className="flex-1 flex items-center justify-start gap-4">
+                     {/* Vendidas */}
+                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-blue-500/5 border border-blue-500/10 hover:bg-blue-500/10 transition-colors group">
+                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                           <i className="fa-solid fa-house-circle-check text-blue-400"></i>
+                        </div>
                         <div>
-                           <div className="flex items-center gap-2 mb-2">
-                              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                                 <i className="fa-solid fa-house-circle-check text-blue-400 text-sm"></i>
-                              </div>
-                              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Vendidas</span>
-                           </div>
-                           <p className="text-4xl font-black text-white tracking-tight mt-1">{unitsInventory.soldCount}</p>
+                           <p className="text-white font-black text-xl leading-none">{unitsInventory.soldCount}</p>
+                           <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mt-1">Vendidas</p>
                         </div>
                      </div>
-                     <div className="absolute -bottom-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity transform rotate-12">
-                        <i className="fa-solid fa-house-circle-check text-5xl text-blue-500"></i>
-                     </div>
-                  </div>
 
-                  {/* Card Disponíveis - Orange */}
-                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-orange-500 hover:shadow-[0_0_30px_rgba(249,115,22,0.15)] transition-all group">
-                     <div className="flex justify-between items-start">
+                     {/* Estoque */}
+                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-orange-500/5 border border-orange-500/10 hover:bg-orange-500/10 transition-colors group">
+                        <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                           <i className="fa-solid fa-key text-orange-400"></i>
+                        </div>
                         <div>
-                           <div className="flex items-center gap-2 mb-2">
-                              <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
-                                 <i className="fa-solid fa-key text-orange-400 text-sm"></i>
-                              </div>
-                              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Disponíveis</span>
-                           </div>
-                           <p className="text-4xl font-black text-white tracking-tight mt-1">{unitsInventory.availableCount}</p>
+                           <p className="text-white font-black text-xl leading-none">{unitsInventory.availableCount}</p>
+                           <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mt-1">Estoque</p>
                         </div>
                      </div>
-                     <div className="absolute -bottom-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity transform rotate-12">
-                        <i className="fa-solid fa-key text-5xl text-orange-500"></i>
-                     </div>
-                  </div>
-               </div>
 
-               {/* Center: Conversion Ring - LARGER */}
-               <div className="relative w-72 h-72 animate-pulse-glow mx-8">
-                  <svg className="w-full h-full transform -rotate-90">
-                     <circle cx="144" cy="144" r="90" stroke="#1e293b" strokeWidth="16" fill="transparent" />
-                     <circle
-                        cx="144" cy="144" r="90"
-                        stroke="url(#blueGradient)" strokeWidth="16" fill="transparent"
-                        strokeDasharray={circumference}
-                        strokeDashoffset={strokeDashoffset}
-                        strokeLinecap="round"
-                        className="progress-ring-circle"
-                     />
-                     <defs>
-                        <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                           <stop offset="0%" stopColor="#38bdf8" />
-                           <stop offset="50%" stopColor="#3b82f6" />
-                           <stop offset="100%" stopColor="#8b5cf6" />
-                        </linearGradient>
-                     </defs>
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                     <span className="text-6xl font-black text-white">{salesPerformance.toFixed(0)}%</span>
-                     <span className="text-slate-400 text-base font-medium mt-2">Conversão</span>
-                     <span className="text-slate-500 text-sm">de Vendas</span>
-                  </div>
-               </div>
-
-               {/* Right Column: 2 Cards */}
-               <div className="flex flex-col gap-5">
-                  {/* Card Faturado - Green */}
-                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-green-500 hover:shadow-[0_0_30px_rgba(34,197,94,0.15)] transition-all group">
-                     <div className="flex justify-between items-start">
+                     {/* Faturado */}
+                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-green-500/5 border border-green-500/10 hover:bg-green-500/10 transition-colors group">
+                        <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+                           <i className="fa-solid fa-money-bill-trend-up text-green-400"></i>
+                        </div>
                         <div>
-                           <div className="flex items-center gap-2 mb-2">
-                              <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-                                 <i className="fa-solid fa-money-bill-trend-up text-green-400 text-sm"></i>
-                              </div>
-                              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Faturado</span>
-                           </div>
-                           <p className="text-2xl font-black text-white tracking-tight mt-1 truncate max-w-[200px]" title={formatCurrency(unitsInventory.realizedValue)}>
-                              {formatCurrency(unitsInventory.realizedValue)}
-                           </p>
+                           <p className="text-white font-black text-xl leading-none">{formatCurrencyAbbrev(unitsInventory.realizedValue)}</p>
+                           <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mt-1">Faturado</p>
                         </div>
                      </div>
-                     <div className="absolute -bottom-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity transform rotate-12">
-                        <i className="fa-solid fa-coins text-5xl text-green-500"></i>
-                     </div>
-                  </div>
 
-                  {/* Card Potencial - Purple */}
-                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-purple-500 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] transition-all group">
-                     <div className="flex justify-between items-start">
+                     {/* Potencial */}
+                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-purple-500/5 border border-purple-500/10 hover:bg-purple-500/10 transition-colors group">
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                           <i className="fa-solid fa-chart-line text-purple-400"></i>
+                        </div>
                         <div>
-                           <div className="flex items-center gap-2 mb-2">
-                              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                                 <i className="fa-solid fa-chart-line text-purple-400 text-sm"></i>
-                              </div>
-                              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Potencial</span>
-                           </div>
-                           <p className="text-2xl font-black text-white tracking-tight mt-1 truncate max-w-[200px]" title={formatCurrency(unitsInventory.totalPotentialSale)}>
-                              {formatCurrency(unitsInventory.totalPotentialSale)}
-                           </p>
+                           <p className="text-white font-black text-xl leading-none">{formatCurrencyAbbrev(unitsInventory.totalPotentialSale)}</p>
+                           <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mt-1">Potencial</p>
                         </div>
                      </div>
-                     <div className="absolute -bottom-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity transform rotate-12">
-                        <i className="fa-solid fa-chart-line text-5xl text-purple-500"></i>
+
+                     {/* Margens */}
+                     <div className="flex items-center gap-4 px-6 py-3 rounded-2xl bg-slate-800/40 border border-slate-700/30">
+                        <div className="flex flex-col items-center border-r border-slate-700/50 pr-4">
+                           <p className="text-green-400 font-black text-lg">{(avgRoi * 100).toFixed(0)}%</p>
+                           <p className="text-slate-500 text-[8px] font-bold uppercase">Média</p>
+                        </div>
+                        <div className="flex flex-col items-start pl-2">
+                           <p className="text-blue-400 font-black text-lg">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
+                           <p className="text-slate-500 text-[8px] font-bold uppercase">Real (a.m.)</p>
+                           <div className="flex items-center gap-1 mt-0.5 text-[7px] font-bold">
+                              <span className="text-slate-600">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
+                              <span className="text-red-400/60">-{(inflationRate * 100).toFixed(1)}% IPCA</span>
+                           </div>
+                        </div>
                      </div>
                   </div>
-               </div>
-            </div>
 
-            {/* Margin Stats Row */}
-            <div className="flex gap-4 justify-center mb-10">
-               <div className="glass px-6 py-3 rounded-2xl flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
-                     <i className="fa-solid fa-percentage text-green-400"></i>
-                  </div>
-                  <div>
-                     <p className="text-green-400 font-black text-xl">{(avgRoi * 100).toFixed(1)}%</p>
-                     <p className="text-slate-400 text-xs font-medium">Margem Média</p>
-                  </div>
-               </div>
-               <div className="glass px-6 py-3 rounded-2xl flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                     <i className="fa-solid fa-calendar-check text-blue-400"></i>
-                  </div>
-                  <div className="flex flex-col">
-                     <p className="text-blue-400 font-black text-xl">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
-                     <p className="text-slate-400 text-xs font-medium">Margem Real (a.m.)</p>
-                     <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold">
-                        <span className="text-slate-500">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
-                        <span className="text-red-400/80 flex items-center bg-red-500/10 px-1.5 rounded">
-                           -{(inflationRate * 100).toFixed(1)}% IPCA
-                        </span>
+                  {/* Conversion Ring - Small & Embedded */}
+                  <div className="relative w-24 h-24 shrink-0">
+                     <svg className="w-full h-full transform -rotate-90">
+                        <circle cx="48" cy="48" r="32" stroke="#1e293b" strokeWidth="8" fill="transparent" />
+                        <circle
+                           cx="48" cy="48" r="32"
+                           stroke="url(#blueGradientRibbon)" strokeWidth="8" fill="transparent"
+                           strokeDasharray={2 * Math.PI * 32}
+                           strokeDashoffset={2 * Math.PI * 32 - (2 * Math.PI * 32 * salesPerformance / 100)}
+                           strokeLinecap="round"
+                        />
+                        <defs>
+                           <linearGradient id="blueGradientRibbon" x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stopColor="#38bdf8" />
+                              <stop offset="100%" stopColor="#3b82f6" />
+                           </linearGradient>
+                        </defs>
+                     </svg>
+                     <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-lg font-black text-white leading-none">{salesPerformance.toFixed(0)}%</span>
+                        <span className="text-[7px] text-slate-500 font-bold uppercase mt-1">Vendas</span>
                      </div>
                   </div>
                </div>
