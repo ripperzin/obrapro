@@ -49,6 +49,17 @@ const UnitsSection: React.FC<{
     status: 'Available' as 'Available' | 'Sold'
   });
   const [unitToDelete, setUnitToDelete] = useState<string | null>(null);
+  const [expandedUnitIds, setExpandedUnitIds] = useState<Set<string>>(new Set());
+
+  const toggleExpansion = (id: string) => {
+    const newSet = new Set(expandedUnitIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setExpandedUnitIds(newSet);
+  };
   const { inflationRate } = useInflation();
 
   const isAdmin = user.role === UserRole.ADMIN;
@@ -157,156 +168,187 @@ const UnitsSection: React.FC<{
           const isEditing = editingUnitId === unit.id;
 
           return (
-            <div key={unit.id} className={`glass rounded-2xl p-6 border transition-all hover:shadow-xl ${isEditing ? 'border-orange-500' : 'border-slate-700 hover:border-blue-500/50'}`}>
+            <div
+              key={unit.id}
+              className={`glass rounded-2xl border transition-all ${isEditing ? 'border-orange-500' : 'border-slate-700 hover:border-blue-500/50'} ${expandedUnitIds.has(unit.id) ? 'p-6 shadow-xl' : 'p-4 cursor-pointer hover:bg-slate-800/30'}`}
+              onClick={() => {
+                if (!expandedUnitIds.has(unit.id)) {
+                  toggleExpansion(unit.id);
+                }
+              }}
+            >
               {/* Header */}
-              <div className="flex justify-between items-start mb-6">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-1">
+              <div className={`flex justify-between items-center ${expandedUnitIds.has(unit.id) ? 'mb-6 items-start' : ''}`}>
+                <div className={`flex-1 ${!expandedUnitIds.has(unit.id) ? 'flex items-center gap-4' : ''}`}>
+                  <div className="flex items-center gap-3">
                     <h5 className="font-black text-white text-lg">{unit.identifier}</h5>
                     <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${unit.status === 'Sold' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
                       {unit.status === 'Sold' ? 'Vendida' : 'À Venda'}
                     </div>
                   </div>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase">{unit.area} m² de área</p>
+                  <p className={`text-[10px] text-slate-500 font-bold uppercase ${!expandedUnitIds.has(unit.id) ? 'ml-2' : 'mt-1'}`}>
+                    {unit.area} m² <span className="hidden md:inline">de área</span>
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {isEditing ? (
-                    <button
-                      onClick={() => setEditingUnitId(null)}
-                      className="w-9 h-9 flex items-center justify-center bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500 hover:text-white transition"
-                      title="Confirmar"
-                    >
-                      <i className="fa-solid fa-check"></i>
-                    </button>
-                  ) : (
+                  {expandedUnitIds.has(unit.id) ? (
                     <>
                       <button
-                        onClick={() => setEditingUnitId(unit.id)}
-                        className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-400 rounded-lg hover:bg-blue-600 hover:text-white transition border border-slate-700"
-                        title="Editar"
+                        onClick={(e) => { e.stopPropagation(); toggleExpansion(unit.id); }}
+                        className="w-9 h-9 flex items-center justify-center bg-slate-800/50 text-slate-400 rounded-lg hover:bg-slate-700 hover:text-white transition"
+                        title="Recolher"
                       >
-                        <i className="fa-solid fa-pen-to-square text-sm"></i>
+                        <i className="fa-solid fa-chevron-up"></i>
                       </button>
-                      <button
-                        onClick={() => setUnitToDelete(unit.id)}
-                        className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-400 rounded-lg hover:bg-red-600 hover:text-white transition border border-slate-700"
-                        title="Excluir"
-                      >
-                        <i className="fa-solid fa-trash text-sm"></i>
-                      </button>
+
+                      {isEditing ? (
+                        <button
+                          onClick={() => setEditingUnitId(null)}
+                          className="w-9 h-9 flex items-center justify-center bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500 hover:text-white transition"
+                          title="Confirmar"
+                        >
+                          <i className="fa-solid fa-check"></i>
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setEditingUnitId(unit.id); }}
+                            className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-400 rounded-lg hover:bg-blue-600 hover:text-white transition border border-slate-700"
+                            title="Editar"
+                          >
+                            <i className="fa-solid fa-pen-to-square text-sm"></i>
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setUnitToDelete(unit.id); }}
+                            className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-400 rounded-lg hover:bg-red-600 hover:text-white transition border border-slate-700"
+                            title="Excluir"
+                          >
+                            <i className="fa-solid fa-trash text-sm"></i>
+                          </button>
+                        </>
+                      )}
                     </>
+                  ) : (
+                    <div className="w-9 h-9 flex items-center justify-center text-slate-500 opacity-50">
+                      <i className="fa-solid fa-chevron-down"></i>
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* Métricas */}
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-slate-700">
-                  <span className="text-slate-500 font-bold text-[10px] uppercase">Custo Estimado</span>
-                  {isEditing ? (
-                    <MoneyInput
-                      className="w-28 bg-slate-700 p-2 border border-slate-600 rounded-lg text-right font-bold text-white text-sm outline-none focus:border-blue-500"
-                      value={unit.cost}
-                      onBlur={(val) => handleUpdateUnit(unit.id, { cost: val })}
-                    />
+              {/* Conteúdo Expandido */}
+              {expandedUnitIds.has(unit.id) && (
+                <div className="animate-fade-in">
+                  {/* Métricas */}
+                  <div className="space-y-3 mb-6">
+                    <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-slate-700">
+                      <span className="text-slate-500 font-bold text-[10px] uppercase">Custo Estimado</span>
+                      {isEditing ? (
+                        <MoneyInput
+                          className="w-28 bg-slate-700 p-2 border border-slate-600 rounded-lg text-right font-bold text-white text-sm outline-none focus:border-blue-500"
+                          value={unit.cost}
+                          onBlur={(val) => handleUpdateUnit(unit.id, { cost: val })}
+                        />
+                      ) : (
+                        <span className="font-bold text-white">{formatCurrency(unit.cost)}</span>
+                      )}
+                    </div>
+
+                    <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-slate-700">
+                      <span className="text-blue-400 font-bold text-[10px] uppercase">Venda Estimada</span>
+                      {isEditing ? (
+                        <MoneyInput
+                          className="w-28 bg-slate-700 p-2 border border-slate-600 rounded-lg text-right font-bold text-white text-sm outline-none focus:border-blue-500"
+                          value={unit.valorEstimadoVenda || 0}
+                          onBlur={(val) => handleUpdateUnit(unit.id, { valorEstimadoVenda: val })}
+                        />
+                      ) : (
+                        <span className="font-bold text-blue-400">{formatCurrency(unit.valorEstimadoVenda || 0)}</span>
+                      )}
+                    </div>
+
+                    {/* Custo Real (Apenas 100%) */}
+                    {isCompleted && (
+                      <div className="flex justify-between items-center p-3 bg-red-500/10 rounded-xl border border-red-500/30">
+                        <span className="text-red-400 font-bold text-[10px] uppercase">Custo Real</span>
+                        <span className="font-bold text-red-400">{formatCurrency(realCost)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Valor de Venda */}
+                  {canEditVenda ? (
+                    <div className="space-y-3 pt-4 border-t border-slate-700">
+                      <div className="p-4 bg-slate-800 rounded-xl border border-slate-700">
+                        <label className="text-[9px] font-black text-slate-500 uppercase mb-2 block">Valor de Venda</label>
+                        <MoneyInput
+                          disabled={!isEditing}
+                          className={`w-full p-3 rounded-lg text-sm font-bold outline-none transition ${isEditing
+                            ? 'bg-slate-700 border border-slate-600 text-white focus:border-blue-500'
+                            : 'bg-transparent text-white cursor-default border-none'
+                            }`}
+                          placeholder="R$ 0,00"
+                          value={unit.saleValue || 0}
+                          onBlur={(val) => handleUpdateUnit(unit.id, { saleValue: val === 0 ? undefined : val })}
+                        />
+                      </div>
+
+                      <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700">
+                        <label className="text-[9px] font-black text-slate-500 uppercase mb-2 block">Data da Venda</label>
+                        <DateInput
+                          disabled={!isEditing}
+                          className={`w-full p-3 rounded-lg text-sm font-bold outline-none transition ${isEditing
+                            ? 'bg-slate-700 border border-slate-600 text-white focus:border-blue-500'
+                            : 'bg-transparent text-slate-400 cursor-default border-none'
+                            }`}
+                          value={unit.saleDate}
+                          onBlur={(val) => handleUpdateUnit(unit.id, { saleDate: val === "" ? undefined : val })}
+                        />
+                      </div>
+                    </div>
                   ) : (
-                    <span className="font-bold text-white">{formatCurrency(unit.cost)}</span>
+                    <div className="bg-slate-800/50 p-6 rounded-xl text-center border border-dashed border-slate-700 mt-4">
+                      <i className="fa-solid fa-lock text-slate-600 text-xl mb-2"></i>
+                      <p className="text-[9px] text-slate-500 font-bold uppercase leading-relaxed">Registro de venda<br />após conclusão da obra</p>
+                    </div>
                   )}
-                </div>
 
-                <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-slate-700">
-                  <span className="text-blue-400 font-bold text-[10px] uppercase">Venda Estimada</span>
-                  {isEditing ? (
-                    <MoneyInput
-                      className="w-28 bg-slate-700 p-2 border border-slate-600 rounded-lg text-right font-bold text-white text-sm outline-none focus:border-blue-500"
-                      value={unit.valorEstimadoVenda || 0}
-                      onBlur={(val) => handleUpdateUnit(unit.id, { valorEstimadoVenda: val })}
-                    />
-                  ) : (
-                    <span className="font-bold text-blue-400">{formatCurrency(unit.valorEstimadoVenda || 0)}</span>
-                  )}
-                </div>
+                  {/* ROI Pills */}
+                  <div className="flex gap-3 mt-6 pt-4 border-t border-slate-700">
+                    <div className={`flex-1 p-3 rounded-xl flex flex-col items-center justify-center ${isCompleted ? 'bg-green-500/10 border border-green-500/30' : 'bg-blue-500/10 border border-blue-500/30'}`}>
+                      <span className={`text-[9px] font-black uppercase ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
+                        {isCompleted ? 'Margem' : 'ROI Est.'}
+                      </span>
+                      <span className={`text-xl font-black ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
+                        {roi !== null ? `${(roi * 100).toFixed(1)}%` : '-'}
+                      </span>
+                    </div>
 
-                {/* Custo Real (Apenas 100%) */}
-                {isCompleted && (
-                  <div className="flex justify-between items-center p-3 bg-red-500/10 rounded-xl border border-red-500/30">
-                    <span className="text-red-400 font-bold text-[10px] uppercase">Custo Real</span>
-                    <span className="font-bold text-red-400">{formatCurrency(realCost)}</span>
+                    <div className={`flex-1 p-3 rounded-xl flex flex-col items-center justify-center ${isCompleted ? 'bg-green-500/10 border border-green-500/30' : 'bg-blue-500/10 border border-blue-500/30'}`}>
+                      <span className={`text-[9px] font-black uppercase ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
+                        Mensal
+                      </span>
+                      <span className={`text-xl font-black ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
+                        {roiMensal !== null ? (
+                          <div className="flex flex-col items-center justify-center gap-1">
+                            {/* Real ROI */}
+                            <span className="leading-none text-xl">{((roiMensal - inflationRate) * 100).toFixed(1)}%</span>
+
+                            {/* Nominal & IPCA Row */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-slate-500 font-bold">{(roiMensal * 100).toFixed(1)}%</span>
+                              <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[8px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
+                                -{(inflationRate * 100).toFixed(1)}% IPCA
+                              </span>
+                            </div>
+                          </div>
+                        ) : '-'}
+                      </span>
+                    </div>
                   </div>
-                )}
-              </div>
-
-              {/* Valor de Venda */}
-              {canEditVenda ? (
-                <div className="space-y-3 pt-4 border-t border-slate-700">
-                  <div className="p-4 bg-slate-800 rounded-xl border border-slate-700">
-                    <label className="text-[9px] font-black text-slate-500 uppercase mb-2 block">Valor de Venda</label>
-                    <MoneyInput
-                      disabled={!isEditing}
-                      className={`w-full p-3 rounded-lg text-sm font-bold outline-none transition ${isEditing
-                        ? 'bg-slate-700 border border-slate-600 text-white focus:border-blue-500'
-                        : 'bg-transparent text-white cursor-default border-none'
-                        }`}
-                      placeholder="R$ 0,00"
-                      value={unit.saleValue || 0}
-                      onBlur={(val) => handleUpdateUnit(unit.id, { saleValue: val === 0 ? undefined : val })}
-                    />
-                  </div>
-
-                  <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700">
-                    <label className="text-[9px] font-black text-slate-500 uppercase mb-2 block">Data da Venda</label>
-                    <DateInput
-                      disabled={!isEditing}
-                      className={`w-full p-3 rounded-lg text-sm font-bold outline-none transition ${isEditing
-                        ? 'bg-slate-700 border border-slate-600 text-white focus:border-blue-500'
-                        : 'bg-transparent text-slate-400 cursor-default border-none'
-                        }`}
-                      value={unit.saleDate}
-                      onBlur={(val) => handleUpdateUnit(unit.id, { saleDate: val === "" ? undefined : val })}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-slate-800/50 p-6 rounded-xl text-center border border-dashed border-slate-700 mt-4">
-                  <i className="fa-solid fa-lock text-slate-600 text-xl mb-2"></i>
-                  <p className="text-[9px] text-slate-500 font-bold uppercase leading-relaxed">Registro de venda<br />após conclusão da obra</p>
                 </div>
               )}
-
-              {/* ROI Pills */}
-              <div className="flex gap-3 mt-6 pt-4 border-t border-slate-700">
-                <div className={`flex-1 p-3 rounded-xl flex flex-col items-center justify-center ${isCompleted ? 'bg-green-500/10 border border-green-500/30' : 'bg-blue-500/10 border border-blue-500/30'}`}>
-                  <span className={`text-[9px] font-black uppercase ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
-                    {isCompleted ? 'Margem' : 'ROI Est.'}
-                  </span>
-                  <span className={`text-xl font-black ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
-                    {roi !== null ? `${(roi * 100).toFixed(1)}%` : '-'}
-                  </span>
-                </div>
-
-                <div className={`flex-1 p-3 rounded-xl flex flex-col items-center justify-center ${isCompleted ? 'bg-green-500/10 border border-green-500/30' : 'bg-blue-500/10 border border-blue-500/30'}`}>
-                  <span className={`text-[9px] font-black uppercase ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
-                    Mensal
-                  </span>
-                  <span className={`text-xl font-black ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
-                    {roiMensal !== null ? (
-                      <div className="flex flex-col items-center justify-center gap-1">
-                        {/* Real ROI */}
-                        <span className="leading-none text-xl">{((roiMensal - inflationRate) * 100).toFixed(1)}%</span>
-
-                        {/* Nominal & IPCA Row */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-slate-500 font-bold">{(roiMensal * 100).toFixed(1)}%</span>
-                          <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[8px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
-                            -{(inflationRate * 100).toFixed(1)}% IPCA
-                          </span>
-                        </div>
-                      </div>
-                    ) : '-'}
-                  </span>
-                </div>
-              </div>
             </div>
           );
         })}
