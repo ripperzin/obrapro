@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Project, ProgressStage, Expense } from '../types';
@@ -400,23 +399,10 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
             {/* Top Ribbon Container */}
             <div className="p-8 pb-4">
                <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-700/50 rounded-[2.5rem] p-8 flex items-center justify-between gap-10 shadow-2xl">
-                  {/* Greeting & Date */}
-                  <div className="flex flex-col gap-1 min-w-[200px]">
-                     <h1 className="text-3xl font-black text-white italic tracking-tight truncate">
-                        Olá, {userName}!
-                     </h1>
-                     <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-none">
-                        {formattedDate}
-                     </p>
-                  </div>
-
-                  {/* Vertical Divider */}
-                  <div className="h-12 w-px bg-slate-700/50"></div>
-
                   {/* KPI Items Scrollable/Flex Area */}
-                  <div className="flex-1 flex items-center justify-center gap-6">
+                  <div className="w-full flex items-center justify-between gap-4">
                      {/* Vendidas */}
-                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-blue-500/5 border border-blue-500/10 hover:bg-blue-500/10 transition-colors group">
+                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-blue-500/5 border border-blue-500/10 hover:bg-blue-500/10 transition-colors group flex-1 justify-center">
                         <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
                            <i className="fa-solid fa-house-circle-check text-blue-400"></i>
                         </div>
@@ -427,7 +413,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                      </div>
 
                      {/* Estoque */}
-                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-orange-500/5 border border-orange-500/10 hover:bg-orange-500/10 transition-colors group">
+                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-orange-500/5 border border-orange-500/10 hover:bg-orange-500/10 transition-colors group flex-1 justify-center">
                         <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
                            <i className="fa-solid fa-key text-orange-400"></i>
                         </div>
@@ -438,7 +424,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                      </div>
 
                      {/* Faturado */}
-                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-green-500/5 border border-green-500/10 hover:bg-green-500/10 transition-colors group">
+                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-green-500/5 border border-green-500/10 hover:bg-green-500/10 transition-colors group flex-1 justify-center">
                         <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
                            <i className="fa-solid fa-money-bill-trend-up text-green-400"></i>
                         </div>
@@ -449,7 +435,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                      </div>
 
                      {/* Potencial */}
-                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-purple-500/5 border border-purple-500/10 hover:bg-purple-500/10 transition-colors group">
+                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-purple-500/5 border border-purple-500/10 hover:bg-purple-500/10 transition-colors group flex-1 justify-center">
                         <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
                            <i className="fa-solid fa-chart-line text-purple-400"></i>
                         </div>
@@ -459,54 +445,54 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                         </div>
                      </div>
 
-                     {/* Margens Section - Reimagined for Clarity */}
-                     <div className="flex items-center gap-4 bg-slate-800/40 border border-slate-700/30 p-2 rounded-[2rem]">
-                        {/* Margem Média - Circular Accent */}
-                        <div className="px-5 py-2 flex flex-col items-center justify-center">
-                           <p className="text-green-400 font-black text-2xl leading-tight">{(avgRoi * 100).toFixed(0)}<span className="text-xs ml-0.5">%</span></p>
-                           <p className="text-slate-500 text-[9px] font-black uppercase tracking-tighter">Média</p>
+                     {/* Margens Section */}
+                     <div className="flex items-center gap-3 bg-slate-800/40 border border-slate-700/30 px-4 py-3 rounded-2xl flex-1 justify-center min-w-[180px]">
+                        {/* Margem */}
+                        <div className="flex flex-col items-center justify-center">
+                           <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mb-1">Margem</p>
+                           <p className="text-green-400 font-black text-xl leading-none">{(avgRoi * 100).toFixed(0)}<span className="text-[10px] ml-0.5">%</span></p>
                         </div>
 
                         {/* Divider */}
-                        <div className="h-10 w-px bg-slate-700/50"></div>
+                        <div className="h-8 w-px bg-slate-700/50"></div>
 
-                        {/* Margem Real - Full Info */}
-                        <div className="pl-2 pr-6 py-2 flex flex-col gap-0.5 min-w-[120px]">
-                           <div className="flex items-baseline gap-1.5">
-                              <p className="text-blue-400 font-black text-2xl leading-tight">{(avgRealMonthlyRoi * 100).toFixed(1)}<span className="text-xs ml-0.5">%</span></p>
-                              <span className="text-slate-500 text-[9px] font-bold uppercase">Real (A.M.)</span>
+                        {/* Margem Média */}
+                        <div className="flex flex-col items-center justify-center">
+                           <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mb-1">Margem Média</p>
+                           <div className="flex items-baseline gap-1">
+                              <p className="text-blue-400 font-black text-xl leading-none">{(avgRealMonthlyRoi * 100).toFixed(1)}<span className="text-[10px] ml-0.5">%</span></p>
                            </div>
-                           <div className="flex items-center gap-2">
-                              <span className="text-slate-600 text-[10px] font-bold">{(avgMonthlyRoi * 100).toFixed(2)}%</span>
-                              <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/80 text-[8px] font-black rounded border border-red-500/20 leading-none">
-                                 -{(inflationRate * 100).toFixed(1)}% IPCA
+                           <div className="flex items-center gap-2 mt-1">
+                              <span className="text-slate-600 text-[9px] font-bold">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
+                              <span className="px-1 py-px bg-red-500/10 text-red-400/80 text-[7px] font-black rounded border border-red-500/20 leading-none">
+                                 -{(inflationRate * 100).toFixed(1)}%
                               </span>
                            </div>
                         </div>
                      </div>
-                  </div>
 
-                  {/* Conversion Ring - Small & Embedded */}
-                  <div className="relative w-24 h-24 shrink-0">
-                     <svg className="w-full h-full transform -rotate-90">
-                        <circle cx="48" cy="48" r="32" stroke="#1e293b" strokeWidth="8" fill="transparent" />
-                        <circle
-                           cx="48" cy="48" r="32"
-                           stroke="url(#blueGradientRibbon)" strokeWidth="8" fill="transparent"
-                           strokeDasharray={2 * Math.PI * 32}
-                           strokeDashoffset={2 * Math.PI * 32 - (2 * Math.PI * 32 * salesPerformance / 100)}
-                           strokeLinecap="round"
-                        />
-                        <defs>
-                           <linearGradient id="blueGradientRibbon" x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" stopColor="#38bdf8" />
-                              <stop offset="100%" stopColor="#3b82f6" />
-                           </linearGradient>
-                        </defs>
-                     </svg>
-                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-lg font-black text-white leading-none">{salesPerformance.toFixed(0)}%</span>
-                        <span className="text-[7px] text-slate-500 font-bold uppercase mt-1">Vendas</span>
+                     {/* Conversion Ring - Small & Embedded */}
+                     <div className="relative w-24 h-24 shrink-0">
+                        <svg className="w-full h-full transform -rotate-90">
+                           <circle cx="48" cy="48" r="32" stroke="#1e293b" strokeWidth="8" fill="transparent" />
+                           <circle
+                              cx="48" cy="48" r="32"
+                              stroke="url(#blueGradientRibbon)" strokeWidth="8" fill="transparent"
+                              strokeDasharray={2 * Math.PI * 32}
+                              strokeDashoffset={2 * Math.PI * 32 - (2 * Math.PI * 32 * salesPerformance / 100)}
+                              strokeLinecap="round"
+                           />
+                           <defs>
+                              <linearGradient id="blueGradientRibbon" x1="0%" y1="0%" x2="100%" y2="100%">
+                                 <stop offset="0%" stopColor="#38bdf8" />
+                                 <stop offset="100%" stopColor="#3b82f6" />
+                              </linearGradient>
+                           </defs>
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                           <span className="text-lg font-black text-white leading-none">{salesPerformance.toFixed(0)}%</span>
+                           <span className="text-[7px] text-slate-500 font-bold uppercase mt-1">Vendas</span>
+                        </div>
                      </div>
                   </div>
                </div>

@@ -869,6 +869,18 @@ const App: React.FC = () => {
               <p className="text-slate-400">Bem-vindo, {currentUser.login}</p>
             ) : null}
           </div>
+
+          {activeTab === 'general' && !selectedProjectId && (
+            <div className="flex flex-col gap-1 items-end text-right">
+              <h1 className="text-2xl font-black text-white italic tracking-tight truncate">
+                Olá, {currentUser?.login || 'Usuário'}!
+              </h1>
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-none">
+                {new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+          )}
+
           {selectedProjectId && (
             <button
               onClick={() => setSelectedProjectId(null)}
