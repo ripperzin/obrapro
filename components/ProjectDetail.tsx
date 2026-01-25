@@ -289,7 +289,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Container Principal - Dark Theme (Mobile: Full Width / Desktop: Card) */}
-      <div className="md:glass md:rounded-3xl md:p-8 space-y-6">
+      <div className="!p-0 md:glass md:rounded-3xl md:!p-8 space-y-6">
         {/* Navegação de Abas - Dark Theme */}
         {/* Navegação BENTO GRID - Redesign Premium */}
         {/* Navegação BENTO GRID - Redesign Premium "Chunky" */}
