@@ -33,7 +33,7 @@ const App: React.FC = () => {
   // VERSION LOG
   useEffect(() => {
     // VERSION FLAG
-    const APP_VERSION = 'v15-rtm-final';
+    const APP_VERSION = 'v17-final-sync';
     console.log(`%c App Version: ${APP_VERSION} `, 'background: #22c55e; color: #fff; font-size: 12px; font-weight: bold;');
   }, []);
 
