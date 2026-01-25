@@ -957,6 +957,8 @@ const App: React.FC = () => {
         activeTab={activeTab}
         setActiveTab={(tab) => { setActiveTab(tab); setSelectedProjectId(null); }}
         onLogout={logout}
+        onNavigate={handleVoiceNavigate}
+        onAction={handleVoiceAction}
       />
 
       {/* Voice Assistant & Global Modals */}

@@ -1,14 +1,17 @@
 import React from 'react';
 import { UserRole } from '../types';
+import VoiceAssistant from './VoiceAssistant';
 
 interface MobileNavProps {
     role: UserRole;
     activeTab: 'projects' | 'general' | 'users' | 'audit';
     setActiveTab: (tab: 'projects' | 'general' | 'users' | 'audit') => void;
     onLogout: () => void;
+    onNavigate: (tab: string) => void;
+    onAction: (action: string, data?: any) => void;
 }
 
-const MobileNav: React.FC<MobileNavProps> = ({ role, activeTab, setActiveTab, onLogout }) => {
+const MobileNav: React.FC<MobileNavProps> = ({ role, activeTab, setActiveTab, onLogout, onNavigate, onAction }) => {
     const NavItem = ({ id, icon, label }: { id: typeof activeTab; icon: string; label: string }) => (
         <button
             onClick={() => setActiveTab(id)}
@@ -30,6 +33,12 @@ const MobileNav: React.FC<MobileNavProps> = ({ role, activeTab, setActiveTab, on
             <NavItem id="general" icon="fa-home" label="Início" />
             <NavItem id="audit" icon="fa-fingerprint" label="Auditoria" />
 
+            {/* Voice Assistant Embedded */}
+            <VoiceAssistant
+                isMobile={true}
+                onNavigate={onNavigate}
+                onAction={onAction}
+            />
 
             {role === UserRole.ADMIN && (
                 <NavItem id="users" icon="fa-users" label="Usuários" />

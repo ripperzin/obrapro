@@ -6,7 +6,7 @@ interface VoiceAssistantProps {
     onAction: (action: string, data?: any) => void;
 }
 
-const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onNavigate, onAction }) => {
+const VoiceAssistant: React.FC<VoiceAssistantProps & { isMobile?: boolean }> = ({ onNavigate, onAction, isMobile }) => {
     const [isListening, setIsListening] = useState(false);
     const [feedback, setFeedback] = useState('');
 
@@ -16,11 +16,18 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onNavigate, onAction })
     const silenceTimerRef = useRef<any>(null);
     const accumulatedTextRef = useRef<string>('');
     const hasCentavosRef = useRef<boolean>(false);
+    const isSupportedRef = useRef<boolean>(true);
 
     // Configure standard wait time for silence (in ms)
     const SILENCE_TIMEOUT = 2000;
 
     const startListening = () => {
+        if (!isSupportedRef.current) {
+            setFeedback('Navegador não suporta voz.');
+            setTimeout(() => setFeedback(''), 3000);
+            return;
+        }
+
         setIsListening(true);
         isListeningRef.current = true;
         setFeedback('Ouvindo...');
@@ -32,6 +39,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onNavigate, onAction })
                 recognitionRef.current.start();
             } catch (e) {
                 console.error("Error starting recognition:", e);
+                // Restart manually if needed or handle error
             }
         }
     };
@@ -113,7 +121,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onNavigate, onAction })
 
             recognitionRef.current = recognition;
         } else {
-            setFeedback('Navegador não suporta voz.');
+            isSupportedRef.current = false;
         }
     }, []);
 
@@ -202,14 +210,10 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onNavigate, onAction })
             description = description.replace(/(\d[\d\.,]*)\s+(\d+)\/100\s*$/i, '');
 
             // 3. AGGRESSIVE NUMBER REMOVAL at END of string
-            // Matches: "10.500", "10.500 e 50", "50", "10,50" at the very end.
-            // (\d+[\.,]?\d*)   -> Main number
-            // (\s*(?:e|vírgula|,)\s*\d+)? -> Optional second part (" e 50")
-            // \s*$ -> Must be at end
             const endNumberRegex = /(\d+[\.,]?\d*)(\s*(?:e|vírgula|,)\s*\d+)?\s*$/i;
             description = description.replace(endNumberRegex, '');
 
-            // Double check: if still has " e " pending at end
+            // Double check
             description = description.replace(/\s+e\s*$/i, '');
             description = description.replace(/\s+/g, ' ').trim();
 
@@ -222,8 +226,36 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onNavigate, onAction })
     const modalRoot = document.getElementById('modal-root');
     if (!modalRoot) return null;
 
+    if (isMobile) {
+        return (
+            <>
+                {/* Feedback para Modo Mobile Embedded (aparece acima da barra) */}
+                {(isListening || feedback) && ReactDOM.createPortal(
+                    <div className="fixed bottom-24 left-4 right-4 z-[100] bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-2xl shadow-xl text-center animate-fade-in flex flex-col items-center">
+                        {isListening && <div className="animate-pulse w-3 h-3 bg-red-500 rounded-full mb-2"></div>}
+                        <p className="text-sm font-bold">{feedback}</p>
+                    </div>,
+                    document.body
+                )}
+
+                <div className="relative -top-5"> {/* Lift button up slightly to break the bar line */}
+                    <button
+                        onClick={() => isListening ? stopListening(true) : startListening()}
+                        className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-[0_4px_10px_rgba(0,0,0,0.5)] active:translate-y-1 active:shadow-none ${isListening
+                            ? 'bg-gradient-to-br from-red-500 to-red-700 animate-pulse ring-4 ring-red-500/30'
+                            : 'bg-gradient-to-br from-blue-400 to-blue-600 border-4 border-slate-900 group'
+                            }`}
+                    >
+                        <i className={`fa-solid ${isListening ? 'fa-stop' : 'fa-microphone'} text-white text-2xl drop-shadow-md`}></i>
+                    </button>
+                </div>
+            </>
+        );
+    }
+
+    // Default Desktop View (Floating Button)
     return ReactDOM.createPortal(
-        <div className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-[100] flex flex-col items-end gap-2">
+        <div className="hidden md:flex fixed bottom-24 right-4 md:bottom-8 md:right-8 z-[100] flex-col items-end gap-2">
             {(isListening || feedback) && (
                 <div className="bg-slate-800 border border-slate-700 text-white px-4 py-2 rounded-xl shadow-xl mb-2 animate-fade-in max-w-[250px] text-right z-[100]">
                     <p className="text-xs font-bold whitespace-pre-wrap">{feedback}</p>
