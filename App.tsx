@@ -844,8 +844,8 @@ const App: React.FC = () => {
         onLogout={logout}
       />
 
-      <main className="flex-1 p-4 md:p-8 pl-8 md:pl-10 overflow-y-auto pb-24 md:pb-8">
-        <header className="mb-8 flex justify-between items-center">
+      <main className="flex-1 p-0 md:p-8 pl-0 md:pl-10 overflow-y-auto pb-24 md:pb-8">
+        <header className="mb-0 md:mb-8 flex justify-between items-center p-4 md:p-0 bg-slate-900/95 backdrop-blur md:bg-transparent sticky top-0 z-20 border-b border-slate-800 md:border-none">
           <div>
             <h1 className="text-2xl font-bold text-white">
               {activeTab === 'projects' && (selectedProjectId && selectedProject ? selectedProject.name : 'Obras')}

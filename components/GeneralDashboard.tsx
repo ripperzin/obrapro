@@ -219,7 +219,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    return (
       <div className="animate-fade-in min-h-full">
          {/* ===== MOBILE LAYOUT (Variação C - Estilo App Banco) ===== */}
-         <div className="block md:hidden space-y-6">
+         <div className="block md:hidden space-y-4">
             {/* Resumo Geral Card - Glassmorphism */}
             <div className="glass rounded-3xl p-5 space-y-4">
                <div className="flex justify-between items-end mb-2">
@@ -349,7 +349,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                      <div
                         key={p.id}
                         onClick={() => onSelectProject?.(p.id)}
-                        className="glass rounded-2xl p-4 flex items-center gap-4 card-hover cursor-pointer active:scale-[0.98] transition-transform"
+                        className="glass md:glass rounded-xl md:rounded-2xl p-3 md:p-4 flex items-center gap-4 card-hover cursor-pointer active:scale-[0.98] transition-transform border-b border-white/5 md:border-none"
                      >
                         {/* Project Thumbnail */}
                         {(() => {
