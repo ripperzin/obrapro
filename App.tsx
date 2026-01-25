@@ -32,7 +32,9 @@ const parseInvestorRoute = (): string | null => {
 const App: React.FC = () => {
   // VERSION LOG
   useEffect(() => {
-    console.log('%c App Version: v11-native-flat-recovered ', 'background: #22c55e; color: #fff; font-size: 12px; font-weight: bold;');
+    // VERSION FLAG
+    const APP_VERSION = 'v15-rtm-final';
+    console.log(`%c App Version: ${APP_VERSION} `, 'background: #22c55e; color: #fff; font-size: 12px; font-weight: bold;');
   }, []);
 
   const [session, setSession] = useState<Session | null>(null);
