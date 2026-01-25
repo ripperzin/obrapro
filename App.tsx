@@ -30,6 +30,11 @@ const parseInvestorRoute = (): string | null => {
 };
 
 const App: React.FC = () => {
+  // VERSION LOG
+  useEffect(() => {
+    console.log('%c App Version: v11-native-flat-recovered ', 'background: #22c55e; color: #fff; font-size: 12px; font-weight: bold;');
+  }, []);
+
   const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users' | 'audit'>('general');

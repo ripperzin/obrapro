@@ -47,12 +47,15 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true,
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
               handler: 'NetworkFirst',
               options: {
-                cacheName: 'supabase-api-cache',
+                cacheName: 'supabase-api-cache-v11',
                 expiration: {
                   maxEntries: 100,
                   maxAgeSeconds: 60 * 60 * 24 // 24 hours
@@ -66,7 +69,7 @@ export default defineConfig(({ mode }) => {
               urlPattern: /^https:\/\/cdnjs\.cloudflare\.com\/.*/i,
               handler: 'CacheFirst',
               options: {
-                cacheName: 'cdn-cache',
+                cacheName: 'cdn-cache-v11',
                 expiration: {
                   maxEntries: 50,
                   maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
@@ -80,7 +83,7 @@ export default defineConfig(({ mode }) => {
               urlPattern: /^https:\/\/cdn\.tailwindcss\.com\/.*/i,
               handler: 'CacheFirst',
               options: {
-                cacheName: 'tailwind-cache',
+                cacheName: 'tailwind-cache-v11',
                 expiration: {
                   maxEntries: 10,
                   maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
@@ -94,7 +97,7 @@ export default defineConfig(({ mode }) => {
               urlPattern: /^https:\/\/esm\.sh\/.*/i,
               handler: 'CacheFirst',
               options: {
-                cacheName: 'esm-cache',
+                cacheName: 'esm-cache-v11',
                 expiration: {
                   maxEntries: 50,
                   maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
