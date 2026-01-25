@@ -282,13 +282,13 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
 
                <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
-                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Margem Média</p>
+                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Margem</p>
                      <p className="text-green-400 font-black text-2xl">{(avgRoi * 100).toFixed(0)}%</p>
                      <div className="w-12 h-1 bg-green-500/30 rounded-full mt-1"></div>
                   </div>
 
                   <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
-                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Margem Real (a.m.)</p>
+                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Margem Média</p>
                      <p className="text-blue-400 font-black text-2xl">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
                      <div className="flex items-center gap-1 text-[10px] font-bold bg-slate-800/50 px-2 py-0.5 rounded-full border border-slate-700/50">
                         <span className="text-slate-400">{(avgMonthlyRoi * 100).toFixed(1)}%</span>

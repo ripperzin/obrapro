@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Project, User, UserRole, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense, ProjectMacro, ProjectSubMacro } from '../types';
+import { useInflation } from '../hooks/useInflation';
 import { PROGRESS_STAGES } from '../constants';
 import { formatCurrency, formatCurrencyAbbrev, generateId, calculateMonthsBetween } from '../utils';
 import { openAttachment } from '../utils/storage';
@@ -794,6 +795,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
   const safeSum = (arr: any[], key: string) => arr.reduce((acc, curr) => acc + (Number(curr[key]) || 0), 0);
   const safeDiff = (a: number, b: number) => (Number(a) || 0) - (Number(b) || 0);
 
+  const { inflationRate } = useInflation();
+
   // Nova Lógica Financeira (valorEstimadoVenda)
   const totalEstimatedSales = project.units.reduce((acc, curr) => acc + (curr.valorEstimadoVenda || 0), 0);
   const estimatedGrossProfit = safeDiff(totalEstimatedSales, totalUnitsCost);
@@ -1481,15 +1484,26 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                     </div>
                     <div className="flex flex-col gap-1">
                       <div className="flex justify-between items-end">
-                        <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase">ROI Méd.</p>
-                        <p className="text-base md:text-lg font-black text-white">{(!isNaN(margins.avgRoi) ? margins.avgRoi : 0).toFixed(1)}%</p>
+                        <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase">Margem Média</p>
+                        <p className="text-base md:text-lg font-black text-white">{(!isNaN(margins.avgRoi) ? margins.avgRoi : 0).toFixed(0)}%</p>
                       </div>
                       <div className="w-full h-1 bg-slate-700 rounded-full overflow-hidden">
                         <div className="h-full bg-purple-500" style={{ width: `${Math.min(margins.avgRoi || 0, 100)}%` }}></div>
                       </div>
-                      <div className="flex justify-between items-center mt-1">
-                        <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase">ROI Mês</p>
-                        <p className="text-[10px] md:text-xs font-bold text-purple-400">{(!isNaN(margins.avgMonthlyRoi) ? margins.avgMonthlyRoi : 0).toFixed(1)}%</p>
+                      <div className="mt-2">
+                        <div className="flex justify-between items-baseline mb-1">
+                          <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase">Margem Mensal</p>
+                          <p className="text-[10px] md:text-xs font-bold text-white">
+                            {/* Real Monthly = Nominal - Inflation */}
+                            {((!isNaN(margins.avgMonthlyRoi) ? margins.avgMonthlyRoi : 0) - (inflationRate * 100)).toFixed(1)}%
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span className="text-[9px] text-slate-500 font-bold">{(!isNaN(margins.avgMonthlyRoi) ? margins.avgMonthlyRoi : 0).toFixed(1)}%</span>
+                          <span className="px-1 py-px bg-red-500/10 text-red-400/80 text-[7px] font-black rounded border border-red-500/20 leading-none">
+                            -{(inflationRate * 100).toFixed(1)}% IPCA
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
