@@ -1587,8 +1587,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                       <span className="text-[10px] uppercase font-black bg-blue-500 text-white px-2 py-0.5 rounded">Real</span>
                     </div>
                     <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Lucro Real</p>
-                    <p className="text-lg md:text-2xl font-black text-white group-hover/card:text-blue-400 transition-colors">
-                      {soldUnits.length > 0 ? formatCurrency(realProfit) : <span className="text-gray-500 text-sm uppercase">Não há vendas ainda</span>}
+                    <p className="text-lg md:text-xl font-black text-white group-hover/card:text-blue-400 transition-colors">
+                      {soldUnits.length > 0 ? formatCurrency(realProfit) : <span className="text-gray-500 uppercase md:text-base">Não há vendas ainda</span>}
                     </p>
                   </div>
 
@@ -1598,31 +1598,29 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                       <div className="p-1.5 md:p-2 bg-cyan-500/20 rounded-lg text-cyan-400">
                         <i className="fa-solid fa-chart-line"></i>
                       </div>
-                      <span className="text-[10px] uppercase font-black bg-slate-700 text-slate-300 px-2 py-0.5 rounded">Est.</span>
+                      <span className="text-[10px] uppercase font-black bg-cyan-600 text-white px-2 py-0.5 rounded">Est.</span>
                     </div>
                     <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Lucro Proj.</p>
-                    <p className="text-lg md:text-2xl font-black text-slate-200 group-hover/card:text-cyan-400 transition-colors">
+                    <p className="text-lg md:text-xl font-black text-white group-hover/card:text-cyan-400 transition-colors">
                       {formatCurrency(estimatedGrossProfit)}
                     </p>
                   </div>
 
                   {/* Potencial / Vendido */}
-                  <div className={`rounded-2xl p-4 md:p-5 border transition-colors group/card ${potentialSales === 0 ? 'bg-orange-500/10 border-orange-500/50' : 'bg-slate-800/40 border-orange-500/30 hover:border-orange-500/60'}`}>
+                  <div className={`bg-slate-800/40 rounded-2xl p-4 md:p-5 border transition-colors group/card ${potentialSales === 0 ? 'bg-orange-500/10 border-orange-500/50' : 'border-orange-500/30 hover:border-orange-500/60'}`}>
                     <div className="flex justify-between items-start mb-2 md:mb-3">
                       <div className="p-1.5 md:p-2 bg-orange-500/20 rounded-lg text-orange-400">
                         <i className="fa-solid fa-gem"></i>
                       </div>
-                      {potentialSales === 0 && (
-                        <span className="text-[10px] uppercase font-black bg-orange-500 text-white px-2 py-0.5 rounded animate-pulse">
-                          Esgotado
-                        </span>
-                      )}
+                      <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded ${potentialSales === 0 ? 'bg-orange-600 text-white animate-pulse' : 'bg-orange-500/20 text-orange-400'}`}>
+                        {potentialSales === 0 ? 'Esgotado' : 'Pot.'}
+                      </span>
                     </div>
                     <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Potencial</p>
                     {potentialSales === 0 ? (
-                      <p className="text-lg md:text-2xl font-black text-orange-500 tracking-wider">VENDIDO</p>
+                      <p className="text-lg md:text-xl font-black text-orange-500 tracking-wider">VENDIDO</p>
                     ) : (
-                      <p className="text-lg md:text-2xl font-black text-slate-200 group-hover/card:text-orange-400 transition-colors">
+                      <p className="text-lg md:text-xl font-black text-white group-hover/card:text-orange-400 transition-colors">
                         {formatCurrency(potentialSales)}
                       </p>
                     )}
@@ -1634,31 +1632,39 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                       <div className="p-1.5 md:p-2 bg-purple-500/20 rounded-lg text-purple-400">
                         <i className="fa-solid fa-percent"></i>
                       </div>
+                      <span className="text-[10px] uppercase font-black bg-purple-600 text-white px-2 py-0.5 rounded">Margem</span>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex justify-between items-end">
-                        <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase">Margem Média</p>
-                        <p className="text-base md:text-lg font-black text-white">{(!isNaN(margins.avgRoi) ? margins.avgRoi : 0).toFixed(0)}%</p>
-                      </div>
-                      <div className="w-full h-1 bg-slate-700 rounded-full overflow-hidden">
-                        <div className="h-full bg-purple-500" style={{ width: `${Math.min(margins.avgRoi || 0, 100)}%` }}></div>
-                      </div>
-                      <div className="mt-2">
-                        <div className="flex justify-between items-baseline mb-1">
-                          <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase">Margem Mensal</p>
-                          <p className="text-[10px] md:text-xs font-bold text-white">
-                            {/* Real Monthly */}
-                            {((!isNaN(margins.avgMonthlyRoi) ? margins.avgMonthlyRoi : 0) - (inflationRate * 100)).toFixed(1)}%
+                    {soldUnits.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="flex flex-col">
+                          <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Margem Média</p>
+                          <p className="text-lg md:text-2xl font-black text-white group-hover/card:text-purple-400 transition-colors leading-none">
+                            {(!isNaN(margins.avgRoi) ? margins.avgRoi : 0).toFixed(0)}%
                           </p>
                         </div>
-                        <div className="flex items-center justify-end gap-1.5">
-                          <span className="text-[9px] text-slate-500 font-bold">{(!isNaN(margins.avgMonthlyRoi) ? margins.avgMonthlyRoi : 0).toFixed(1)}%</span>
-                          <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[7px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
-                            -{(inflationRate * 100).toFixed(1)}% IPCA
-                          </span>
+                        <div className="pt-3 border-t border-slate-700/50 flex flex-col">
+                          <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Mensal</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg md:text-2xl font-black text-white leading-none">
+                              {((!isNaN(margins.avgMonthlyRoi) ? margins.avgMonthlyRoi : 0) - (inflationRate * 100)).toFixed(1)}%
+                            </span>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[8px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
+                                -{(inflationRate * 100).toFixed(1)}% IPCA
+                              </span>
+                              <span className="text-[8px] text-slate-500 font-bold leading-none ml-0.5">
+                                Ref. {(!isNaN(margins.avgMonthlyRoi) ? margins.avgMonthlyRoi : 0).toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex flex-col">
+                        <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Margem Média</p>
+                        <p className="text-lg md:text-base font-black text-gray-500 uppercase tracking-tight">Não há vendas ainda</p>
+                      </div>
+                    )}
                   </div>
 
                 </div>

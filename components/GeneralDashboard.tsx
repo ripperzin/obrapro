@@ -264,21 +264,33 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                </div>
 
                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
-                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Margem</p>
-                     <p className="text-green-400 font-black text-2xl">{(avgRoi * 100).toFixed(0)}%</p>
-                     <div className="w-12 h-1 bg-green-500/30 rounded-full mt-1"></div>
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col gap-1">
+                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Margem</p>
+                     {soldUnitsCount > 0 ? (
+                        <>
+                           <p className="text-green-400 font-black text-2xl">{(avgRoi * 100).toFixed(0)}%</p>
+                           <div className="w-12 h-1 bg-green-500/30 rounded-full mt-1"></div>
+                        </>
+                     ) : (
+                        <p className="text-slate-600 font-black text-[10px] uppercase">Não há vendas ainda</p>
+                     )}
                   </div>
 
-                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
-                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Margem Média</p>
-                     <p className="text-blue-400 font-black text-2xl">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
-                     <div className="flex items-center gap-2 mt-1">
-                        <span className="text-slate-500 text-[10px] font-bold">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
-                        <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[8px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
-                           -{(inflationRate * 100).toFixed(1)}% IPCA
-                        </span>
-                     </div>
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col gap-1">
+                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Margem Média</p>
+                     {soldUnitsCount > 0 ? (
+                        <>
+                           <p className="text-blue-400 font-black text-2xl">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
+                           <div className="flex items-center gap-2 mt-1">
+                              <span className="text-slate-500 text-[10px] font-bold">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
+                              <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[8px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
+                                 -{(inflationRate * 100).toFixed(1)}% IPCA
+                              </span>
+                           </div>
+                        </>
+                     ) : (
+                        <p className="text-slate-600 font-black text-[10px] uppercase">Não há vendas ainda</p>
+                     )}
                   </div>
                </div>
 
@@ -429,28 +441,36 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
 
                      {/* Margens Section */}
                      <div className="flex items-center gap-3 bg-slate-800/40 border border-slate-700/30 px-4 py-3 rounded-2xl flex-1 justify-center min-w-[180px]">
-                        {/* Margem */}
-                        <div className="flex flex-col items-center justify-center">
-                           <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mb-1">Margem</p>
-                           <p className="text-green-400 font-black text-xl leading-none">{(avgRoi * 100).toFixed(0)}<span className="text-[10px] ml-0.5">%</span></p>
-                        </div>
+                        {soldUnitsCount > 0 ? (
+                           <>
+                              {/* Margem */}
+                              <div className="flex flex-col items-center justify-center">
+                                 <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mb-1">Margem</p>
+                                 <p className="text-green-400 font-black text-xl leading-none">{(avgRoi * 100).toFixed(0)}<span className="text-[10px] ml-0.5">%</span></p>
+                              </div>
 
-                        {/* Divider */}
-                        <div className="h-8 w-px bg-slate-700/50"></div>
+                              {/* Divider */}
+                              <div className="h-8 w-px bg-slate-700/50"></div>
 
-                        {/* Margem Média */}
-                        <div className="flex flex-col items-center justify-center">
-                           <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mb-1">Margem Média</p>
-                           <div className="flex items-baseline gap-1">
-                              <p className="text-blue-400 font-black text-xl leading-none">{(avgRealMonthlyRoi * 100).toFixed(1)}<span className="text-[10px] ml-0.5">%</span></p>
+                              {/* Margem Média */}
+                              <div className="flex flex-col items-center justify-center">
+                                 <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mb-1">Margem Média</p>
+                                 <div className="flex items-baseline gap-1">
+                                    <p className="text-blue-400 font-black text-xl leading-none">{(avgRealMonthlyRoi * 100).toFixed(1)}<span className="text-[10px] ml-0.5">%</span></p>
+                                 </div>
+                                 <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-slate-600 text-[9px] font-bold">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
+                                    <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[7px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
+                                       -{(inflationRate * 100).toFixed(1)}% IPCA
+                                    </span>
+                                 </div>
+                              </div>
+                           </>
+                        ) : (
+                           <div className="flex flex-col items-center justify-center">
+                              <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Não há vendas ainda</p>
                            </div>
-                           <div className="flex items-center gap-2 mt-1">
-                              <span className="text-slate-600 text-[9px] font-bold">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
-                              <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[7px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
-                                 -{(inflationRate * 100).toFixed(1)}% IPCA
-                              </span>
-                           </div>
-                        </div>
+                        )}
                      </div>
 
                      {/* Conversion Ring - Small & Embedded */}
