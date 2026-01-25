@@ -49,6 +49,7 @@ const UnitsSection: React.FC<{
     status: 'Available' as 'Available' | 'Sold'
   });
   const [unitToDelete, setUnitToDelete] = useState<string | null>(null);
+  const { inflationRate } = useInflation();
 
   const isAdmin = user.role === UserRole.ADMIN;
   const isCompleted = project.progress === ProgressStage.COMPLETED;
@@ -289,7 +290,20 @@ const UnitsSection: React.FC<{
                     Mensal
                   </span>
                   <span className={`text-xl font-black ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
-                    {roiMensal !== null ? `${(roiMensal * 100).toFixed(1)}%` : '-'}
+                    {roiMensal !== null ? (
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        {/* Real ROI */}
+                        <span className="leading-none text-xl">{((roiMensal - inflationRate) * 100).toFixed(1)}%</span>
+
+                        {/* Nominal & IPCA Row */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-500 font-bold">{(roiMensal * 100).toFixed(1)}%</span>
+                          <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[8px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
+                            -{(inflationRate * 100).toFixed(1)}% IPCA
+                          </span>
+                        </div>
+                      </div>
+                    ) : '-'}
                   </span>
                 </div>
               </div>
@@ -1494,13 +1508,13 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                         <div className="flex justify-between items-baseline mb-1">
                           <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase">Margem Mensal</p>
                           <p className="text-[10px] md:text-xs font-bold text-white">
-                            {/* Real Monthly = Nominal - Inflation */}
+                            {/* Real Monthly */}
                             {((!isNaN(margins.avgMonthlyRoi) ? margins.avgMonthlyRoi : 0) - (inflationRate * 100)).toFixed(1)}%
                           </p>
                         </div>
                         <div className="flex items-center justify-end gap-1.5">
                           <span className="text-[9px] text-slate-500 font-bold">{(!isNaN(margins.avgMonthlyRoi) ? margins.avgMonthlyRoi : 0).toFixed(1)}%</span>
-                          <span className="px-1 py-px bg-red-500/10 text-red-400/80 text-[7px] font-black rounded border border-red-500/20 leading-none">
+                          <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[7px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
                             -{(inflationRate * 100).toFixed(1)}% IPCA
                           </span>
                         </div>

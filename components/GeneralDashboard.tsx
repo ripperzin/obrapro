@@ -290,11 +290,10 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Margem Média</p>
                      <p className="text-blue-400 font-black text-2xl">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
-                     <div className="flex items-center gap-1 text-[10px] font-bold bg-slate-800/50 px-2 py-0.5 rounded-full border border-slate-700/50">
-                        <span className="text-slate-400">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
-                        <span className="text-red-400 flex items-center">
-                           <i className="fa-solid fa-arrow-trend-down text-[8px] mr-1"></i>
-                           {(inflationRate * 100).toFixed(1)}%
+                     <div className="flex items-center gap-2 mt-1">
+                        <span className="text-slate-500 text-[10px] font-bold">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
+                        <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[8px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
+                           -{(inflationRate * 100).toFixed(1)}% IPCA
                         </span>
                      </div>
                   </div>
@@ -464,8 +463,8 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                            </div>
                            <div className="flex items-center gap-2 mt-1">
                               <span className="text-slate-600 text-[9px] font-bold">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
-                              <span className="px-1 py-px bg-red-500/10 text-red-400/80 text-[7px] font-black rounded border border-red-500/20 leading-none">
-                                 -{(inflationRate * 100).toFixed(1)}%
+                              <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[7px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
+                                 -{(inflationRate * 100).toFixed(1)}% IPCA
                               </span>
                            </div>
                         </div>
