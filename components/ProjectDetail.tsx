@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Project, User, UserRole, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense, ProjectMacro, ProjectSubMacro } from '../types';
 import { PROGRESS_STAGES } from '../constants';
 import { formatCurrency, formatCurrencyAbbrev, generateId, calculateMonthsBetween } from '../utils';
+import { calculateFinancialMetrics, calculateAverageMetrics } from '../utils/financials';
+import { useInflation } from '../hooks/useInflation';
 import { openAttachment } from '../utils/storage';
 import MoneyInput from './MoneyInput';
 import { generateProjectPDF } from '../utils/pdfGenerator';
@@ -57,6 +59,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
     ? project.expenses.reduce((min, e) => (e.date && min.date && e.date < min.date) ? e : min, project.expenses[0])
     : null;
 
+  const { inflationRate } = useInflation();
+
   // New/Refined Metrics for Dashboard
   const soldUnits = project.units.filter(u => u.status === 'Sold');
   const availableUnits = project.units.filter(u => u.status === 'Available');
@@ -89,7 +93,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
     const isCompleted = project.progress === 100;
     const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
 
-    soldUnits.forEach(unit => {
+    const metricsList = soldUnits.map(unit => {
       if (unit.saleValue && unit.saleValue > 0) {
         let costBase = unit.cost;
         if (isCompleted && totalUnitsArea > 0) {
@@ -97,24 +101,25 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
         }
 
         if (costBase > 0) {
-          const roi = (unit.saleValue - costBase) / costBase;
-          totalRoi += roi;
-
-          // Monthly
+          const profit = unit.saleValue - costBase;
+          let months = 0;
           if (unit.saleDate && firstExpense) {
-            const months = calculateMonthsBetween(firstExpense.date, unit.saleDate);
-            if (months > 0) totalMonthlyRoi += (roi / months);
+            months = calculateMonthsBetween(firstExpense.date, unit.saleDate);
           }
-          count++;
+          return calculateFinancialMetrics(profit, costBase, months, inflationRate);
         }
       }
-    });
+      return null;
+    }).filter(m => m !== null) as any[]; // simple cast
+
+    const avgMetrics = calculateAverageMetrics(metricsList);
 
     return {
-      avgRoi: count > 0 ? (totalRoi / count) * 100 : 0,
-      avgMonthlyRoi: count > 0 ? (totalMonthlyRoi / count) * 100 : 0
+      avgRoi: avgMetrics ? avgMetrics.nominalTotalRoi * 100 : 0,
+      avgMonthlyRoi: avgMetrics ? avgMetrics.nominalMonthlyRoi * 100 : 0,
+      avgRealMonthlyRoi: avgMetrics ? avgMetrics.realMonthlyRoi * 100 : 0
     };
-  }, [project.units, project.expenses, project.progress, totalActualExpenses, soldUnits, firstExpense]);
+  }, [project.units, project.expenses, project.progress, totalActualExpenses, soldUnits, firstExpense, inflationRate]);
 
   const budgetUsage = totalUnitsCost > 0 ? (totalActualExpenses / totalUnitsCost) * 100 : 0;
 
@@ -770,7 +775,11 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                       </div>
                       <div className="flex justify-between items-center mt-1">
                         <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase">ROI Mês</p>
-                        <p className="text-[10px] md:text-xs font-bold text-purple-400">{(!isNaN(margins.avgMonthlyRoi) ? margins.avgMonthlyRoi : 0).toFixed(1)}%</p>
+                        <p className="text-[10px] md:text-xs font-bold text-purple-400">{(!isNaN(margins.avgRealMonthlyRoi) ? margins.avgRealMonthlyRoi : 0).toFixed(1)}%</p>
+                      </div>
+                      <div className="flex justify-end gap-1 text-[8px] mt-0.5">
+                        <span className="text-slate-500">{(margins.avgMonthlyRoi || 0).toFixed(1)}%</span>
+                        <span className="text-red-400">-{(inflationRate * 100).toFixed(1)}% IPCA</span>
                       </div>
                     </div>
                   </div>
@@ -791,6 +800,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               onUpdateUnit={handleUpdateUnit}
               onDeleteUnit={onDeleteUnit}
               logChange={logChange}
+              inflationRate={inflationRate}
             />
           </div>
         )}
@@ -869,8 +879,9 @@ const UnitsSection: React.FC<{
   onAddUnit: (u: any) => Promise<void>,
   onUpdateUnit: (id: string, updates: Partial<Unit>) => void,
   onDeleteUnit: (projectId: string, unitId: string) => void,
-  logChange: (a: string, f: string, o: string, n: string) => void
-}> = ({ project, user, onAddUnit, onUpdateUnit, onDeleteUnit, logChange }) => {
+  logChange: (a: string, f: string, o: string, n: string) => void,
+  inflationRate: number
+}> = ({ project, user, onAddUnit, onUpdateUnit, onDeleteUnit, logChange, inflationRate }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
@@ -977,15 +988,18 @@ const UnitsSection: React.FC<{
           // Base para ROI: Se concluída usa realCost, senão unit.cost
           const costBase = isCompleted ? realCost : unit.cost;
 
-          const roi = (unit.saleValue && unit.saleValue > 0 && costBase > 0)
-            ? (unit.saleValue - costBase) / costBase
-            : null;
+          const profit = (unit.saleValue && unit.saleValue > 0 && costBase > 0)
+            ? (unit.saleValue - costBase)
+            : 0;
 
-          const months = (roi !== null && unit.saleDate && firstExpenseDate)
+          const months = (profit !== 0 && unit.saleDate && firstExpenseDate)
             ? calculateMonthsBetween(firstExpenseDate, unit.saleDate)
+            : 0;
+
+          const metrics = (profit !== 0 && months > 0)
+            ? calculateFinancialMetrics(profit, costBase, months, inflationRate)
             : null;
 
-          const roiMensal = (roi !== null && months !== null && months > 0) ? roi / months : null;
           const isEditing = editingUnitId === unit.id;
 
           return (
@@ -1113,17 +1127,23 @@ const UnitsSection: React.FC<{
                     {isCompleted ? 'Margem' : 'ROI Est.'}
                   </span>
                   <span className={`text-xl font-black ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
-                    {roi !== null ? `${(roi * 100).toFixed(1)}%` : '-'}
+                    {metrics ? `${(metrics.nominalTotalRoi * 100).toFixed(1)}%` : '-'}
                   </span>
                 </div>
 
-                <div className={`flex-1 p-3 rounded-xl flex flex-col items-center justify-center ${isCompleted ? 'bg-green-500/10 border border-green-500/30' : 'bg-blue-500/10 border border-blue-500/30'}`}>
-                  <span className={`text-[9px] font-black uppercase ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
-                    Mensal
+                <div className={`p-3 rounded-xl flex flex-col items-center justify-center ${isCompleted ? 'bg-green-500/10 border border-green-500/30' : 'bg-blue-500/10 border border-blue-500/30'} flex-[1.2]`}>
+                  <span className={`text-[9px] font-black uppercase mb-0.5 ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
+                    Real (a.m.)
                   </span>
                   <span className={`text-xl font-black ${isCompleted ? 'text-green-400' : 'text-blue-400'}`}>
-                    {roiMensal !== null ? `${(roiMensal * 100).toFixed(1)}%` : '-'}
+                    {metrics ? `${(metrics.realMonthlyRoi * 100).toFixed(1)}%` : '-'}
                   </span>
+                  {metrics && (
+                    <div className="flex items-center gap-1 text-[8px] font-bold mt-1 bg-black/20 px-1.5 py-0.5 rounded-full">
+                      <span className="opacity-70">{(metrics.nominalMonthlyRoi * 100).toFixed(1)}%</span>
+                      <span className="text-red-400">-{(metrics.inflationRate * 100).toFixed(1)}%</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

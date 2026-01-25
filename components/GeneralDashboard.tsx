@@ -231,10 +231,10 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    return (
       <div className="animate-fade-in min-h-full">
          {/* ===== MOBILE LAYOUT (Variação C - Estilo App Banco) ===== */}
-         <div className="block md:hidden space-y-4">
+         <div className="block space-y-4">
             {/* DEBUG BANNER - REMOVER DEPOIS */}
-            <div className="bg-red-600/20 border border-red-500 text-red-500 text-xs font-bold text-center py-2 rounded-lg mx-2 uppercase tracking-widest animate-pulse">
-               VERSÃO V8 ATIVADA - CLEAN LAYOUT
+            <div className="bg-red-600 border-4 border-yellow-400 text-white text-xl font-black text-center py-4 rounded-xl mx-2 uppercase tracking-widest animate-pulse z-[9999] relative shadow-2xl">
+               🚨 VERSÃO V9 LIVE - CACHE LIMPO! 🚨
             </div>
 
             {/* Resumo Geral - Layout Clean sem bordas extras */}
@@ -313,7 +313,13 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Margem Real (a.m.)</p>
                      <p className="text-blue-400 font-black text-2xl">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
-                     <div className="w-12 h-1 bg-blue-500/30 rounded-full mt-1"></div>
+                     <div className="flex items-center gap-1 text-[10px] font-bold bg-slate-800/50 px-2 py-0.5 rounded-full border border-slate-700/50">
+                        <span className="text-slate-400">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
+                        <span className="text-red-400 flex items-center">
+                           <i className="fa-solid fa-arrow-trend-down text-[8px] mr-0.5"></i>
+                           {(inflationRate * 100).toFixed(1)}% (IPCA)
+                        </span>
+                     </div>
                   </div>
                </div>
 
@@ -576,9 +582,15 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
                      <i className="fa-solid fa-calendar-check text-blue-400"></i>
                   </div>
-                  <div>
+                  <div className="flex flex-col">
                      <p className="text-blue-400 font-black text-xl">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
                      <p className="text-slate-400 text-xs font-medium">Margem Real (a.m.)</p>
+                     <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold">
+                        <span className="text-slate-500">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
+                        <span className="text-red-400/80 flex items-center bg-red-500/10 px-1.5 rounded">
+                           -{(inflationRate * 100).toFixed(1)}% IPCA
+                        </span>
+                     </div>
                   </div>
                </div>
             </div>

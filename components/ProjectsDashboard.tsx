@@ -2,6 +2,9 @@
 import React from 'react';
 import { Project } from '../types';
 import StageThumbnail from './StageThumbnail';
+import { calculateFinancialMetrics, calculateAverageMetrics } from '../utils/financials';
+import { useInflation } from '../hooks/useInflation';
+import { calculateMonthsBetween } from '../utils';
 
 interface ProjectsDashboardProps {
   projects: Project[];
@@ -13,6 +16,8 @@ interface ProjectsDashboardProps {
 }
 
 const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelect, onAdd, isAdmin }) => {
+  const { inflationRate } = useInflation();
+
   return (
     <div className="animate-fade-in pb-20 md:pb-0">
       {/* Header Mobile Omitted (Already covered in App.tsx) */}
@@ -46,6 +51,37 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
 
             const latestEvidence = evidencesWithPhotos[0];
             const photo = latestEvidence?.photos?.[0];
+
+            // ROI Calculation
+            const soldUnits = project.units.filter(u => u.status === 'Sold');
+            const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
+            const totalExpenses = project.expenses.reduce((s, e) => s + e.value, 0);
+            const isCompleted = project.progress === 100;
+            const firstExpense = project.expenses.length > 0
+              ? project.expenses.reduce((min, e) => (e.date < min.date) ? e : min, project.expenses[0])
+              : null;
+
+            const metricsList = soldUnits.map(unit => {
+              if (unit.saleValue && unit.saleValue > 0) {
+                let costBase = unit.cost;
+                if (isCompleted && totalUnitsArea > 0) {
+                  costBase = (unit.area / totalUnitsArea) * totalExpenses;
+                }
+                if (costBase > 0) {
+                  const profit = unit.saleValue - costBase;
+                  let months = 0;
+                  if (unit.saleDate && firstExpense) {
+                    months = calculateMonthsBetween(firstExpense.date, unit.saleDate);
+                  }
+                  return calculateFinancialMetrics(profit, costBase, months, inflationRate);
+                }
+              }
+              return null;
+            }).filter(m => m !== null) as any[];
+
+            const avgMetrics = calculateAverageMetrics(metricsList);
+            const realMonthlyRoi = avgMetrics ? avgMetrics.realMonthlyRoi : 0;
+            const inflationPct = inflationRate * 100;
 
             return (
               <div
@@ -88,6 +124,14 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                       <div className="flex items-center gap-2 text-slate-400 text-xs md:text-sm">
                         <i className="fa-solid fa-check-circle w-4 text-center"></i>
                         <span>{project.units.filter(u => u.status === 'Sold').length} vendidas</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs md:text-sm mt-1">
+                        <div className="flex items-center gap-1.5 bg-slate-800/80 px-2 py-1 rounded-lg border border-slate-700">
+                          <i className="fa-solid fa-chart-line text-blue-400"></i>
+                          <span className="text-white font-bold">{(realMonthlyRoi * 100).toFixed(1)}%</span>
+                          <span className="text-[10px] text-slate-500 font-bold uppercase">Real (a.m.)</span>
+                          <span className="text-[9px] text-red-400 font-bold ml-1">- {inflationPct.toFixed(1)}% IPCA</span>
+                        </div>
                       </div>
                     </div>
 
