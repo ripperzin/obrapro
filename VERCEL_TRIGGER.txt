@@ -1,0 +1,3 @@
+DEPLOY_V18_TRIGGER_TIME: 2026-01-24 23:06
+VERSION: v18-final-sync-atomic
+ACTION: Forcing Vercel to rebuild after manual repo reconnection.
