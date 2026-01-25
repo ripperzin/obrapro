@@ -232,6 +232,11 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
       <div className="animate-fade-in min-h-full">
          {/* ===== MOBILE LAYOUT (Variação C - Estilo App Banco) ===== */}
          <div className="block md:hidden space-y-4">
+            {/* DEBUG BANNER - REMOVER DEPOIS */}
+            <div className="bg-red-600/20 border border-red-500 text-red-500 text-xs font-bold text-center py-2 rounded-lg mx-2 uppercase tracking-widest animate-pulse">
+               VERSÃO V8 ATIVADA - CLEAN LAYOUT
+            </div>
+
             {/* Resumo Geral - Layout Clean sem bordas extras */}
             <div className="space-y-4 px-1">
                <div className="flex justify-between items-end mb-2 px-2">
