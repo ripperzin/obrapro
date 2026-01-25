@@ -5,6 +5,7 @@ import { Project, ProjectBudget, ProjectMacro, TemplateMacro, CostTemplate, Proj
 import { supabase } from '../supabaseClient';
 import { formatCurrencyAbbrev } from '../utils'; // Import added
 import MoneyInput from './MoneyInput';
+import DateInput from './DateInput';
 
 interface BudgetSectionProps {
     project: Project;
@@ -210,7 +211,9 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                         percentage: m.percentage,
                         estimatedValue: m.estimated_value,
                         spentValue: m.spent_value || 0,
-                        displayOrder: m.display_order
+                        displayOrder: m.display_order,
+                        plannedStartDate: m.planned_start_date,
+                        plannedEndDate: m.planned_end_date
                     })));
 
                     const macroIds = macrosData.map(m => m.id);
@@ -295,7 +298,9 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                 .update({
                     name: macro.name,
                     percentage: macro.percentage,
-                    estimated_value: (budget?.totalEstimated || 0) * (macro.percentage / 100)
+                    estimated_value: (budget?.totalEstimated || 0) * (macro.percentage / 100),
+                    planned_start_date: macro.plannedStartDate,
+                    planned_end_date: macro.plannedEndDate
                 })
                 .eq('id', macro.id);
 
@@ -308,7 +313,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
         }
     };
 
-    const handleUpdateMacroLocal = (id: string, field: 'name' | 'percentage', value: any) => {
+    const handleUpdateMacroLocal = (id: string, field: keyof ProjectMacro, value: any) => {
         setEditMacros(prev => prev.map(m => {
             if (m.id === id) {
                 return { ...m, [field]: value };
@@ -720,7 +725,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                                                 <i className="fa-solid fa-trash text-xs"></i>
                                             </button>
                                         </div>
-                                        <div className="col-span-7">
+                                        <div className="col-span-11 md:col-span-5">
                                             <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Nome da Categoria</label>
                                             <input
                                                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm font-bold text-white outline-none focus:border-blue-500"
@@ -729,7 +734,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                                                 onBlur={() => handleSaveMacroUpdate(macro)}
                                             />
                                         </div>
-                                        <div className="col-span-4">
+                                        <div className="col-span-6 md:col-span-2">
                                             <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Percentual (%)</label>
                                             <div className="relative">
                                                 <input
@@ -741,6 +746,28 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                                                 />
                                                 <span className="absolute right-3 top-2 text-slate-500 text-sm font-bold">%</span>
                                             </div>
+                                        </div>
+                                        <div className="col-span-6 md:col-span-2">
+                                            <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Início Previsto</label>
+                                            <DateInput
+                                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm font-bold text-white outline-none focus:border-blue-500"
+                                                value={macro.plannedStartDate}
+                                                onBlur={(val) => {
+                                                    handleUpdateMacroLocal(macro.id, 'plannedStartDate', val);
+                                                    handleSaveMacroUpdate({ ...macro, plannedStartDate: val });
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="col-span-6 md:col-span-2">
+                                            <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Fim Previsto</label>
+                                            <DateInput
+                                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm font-bold text-white outline-none focus:border-blue-500"
+                                                value={macro.plannedEndDate}
+                                                onBlur={(val) => {
+                                                    handleUpdateMacroLocal(macro.id, 'plannedEndDate', val);
+                                                    handleSaveMacroUpdate({ ...macro, plannedEndDate: val });
+                                                }}
+                                            />
                                         </div>
                                     </div>
 

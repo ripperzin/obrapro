@@ -121,6 +121,8 @@ export interface ProjectMacro {
   estimatedValue: number;
   spentValue: number;
   displayOrder: number;
+  plannedStartDate?: string;
+  plannedEndDate?: string;
 }
 
 export interface TemplateSubMacro {

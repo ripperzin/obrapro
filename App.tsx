@@ -148,6 +148,36 @@ const App: React.FC = () => {
             evidenceMap[e.project_id].push(e);
           });
         }
+
+        // Buscar Orçamentos e Macros de forma independente
+        const { data: budgetsData } = await supabase
+          .from('project_budgets')
+          .select('*, project_macros(*)')
+          .in('project_id', projectIds);
+
+        var budgetMap: Record<string, any> = {};
+        if (budgetsData) {
+          budgetsData.forEach((b: any) => {
+            budgetMap[b.project_id] = {
+              id: b.id,
+              projectId: b.project_id,
+              totalEstimated: b.total_estimated,
+              templateId: b.template_id,
+              createdAt: b.created_at,
+              macros: (b.project_macros || []).map((m: any) => ({
+                id: m.id,
+                budgetId: m.budget_id,
+                name: m.name,
+                percentage: m.percentage,
+                estimatedValue: m.estimated_value,
+                spentValue: m.spent_value,
+                displayOrder: m.display_order,
+                plannedStartDate: m.planned_start_date,
+                plannedEndDate: m.planned_end_date
+              }))
+            };
+          });
+        }
       }
 
       const mappedProjects = projectsData.map((p: any) => ({
@@ -202,7 +232,8 @@ const App: React.FC = () => {
           date: e.date,
           notes: e.notes,
           user: e.user_name
-        }))
+        })),
+        budget: budgetMap[p.id]
       }));
       setProjects(mappedProjects);
     }

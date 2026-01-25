@@ -14,16 +14,22 @@ const SCurveChart: React.FC<SCurveChartProps> = ({ projects }) => {
         if (!projects || projects.length === 0) return [];
 
         // Find global start and end dates across all projects to define the timeline
+        // Find global start and end dates across all projects (Macros ONLY)
         const allStartDates = projects.map(p => {
-            if (p.startDate) return p.startDate;
-            // Fallback: use first expense date if available
-            if (p.expenses && p.expenses.length > 0) {
-                return p.expenses.reduce((min, e) => e.date < min ? e.date : min, p.expenses[0].date);
+            if (p.budget?.macros && p.budget.macros.length > 0) {
+                const starts = p.budget.macros.map(m => m.plannedStartDate).filter(Boolean) as string[];
+                return starts.length > 0 ? starts.reduce((a, b) => a < b ? a : b) : null;
             }
             return null;
         }).filter(Boolean) as string[];
 
-        const allEndDates = projects.map(p => p.deliveryDate).filter(Boolean) as string[];
+        const allEndDates = projects.map(p => {
+            if (p.budget?.macros && p.budget.macros.length > 0) {
+                const ends = p.budget.macros.map(m => m.plannedEndDate).filter(Boolean) as string[];
+                return ends.length > 0 ? ends.reduce((a, b) => a > b ? a : b) : null;
+            }
+            return null;
+        }).filter(Boolean) as string[];
 
         if (allStartDates.length === 0) return [];
 
@@ -68,22 +74,27 @@ const SCurveChart: React.FC<SCurveChartProps> = ({ projects }) => {
                     }
                 });
 
-                // Planned: Linear distribution over project duration
-                // If this month is within project start/end, add (totalCost / durationMonths)
-                if (p.startDate && p.deliveryDate && p.expectedTotalCost) {
-                    const pStart = new Date(p.startDate);
-                    const pEnd = new Date(p.deliveryDate);
+                // Planned: Physical-Financial Schedule logic (BUDGET ONLY)
+                if (p.budget?.macros && p.budget.macros.length > 0) {
+                    p.budget.macros.forEach(m => {
+                        if (m.plannedStartDate && m.plannedEndDate && m.estimatedValue > 0) {
+                            const mStart = new Date(m.plannedStartDate);
+                            const mEnd = new Date(m.plannedEndDate);
 
-                    if (month.date >= pStart && month.date <= pEnd) {
-                        // Calculate duration in months
-                        let duration = (pEnd.getFullYear() - pStart.getFullYear()) * 12;
-                        duration -= pStart.getMonth();
-                        duration += pEnd.getMonth();
-                        duration = duration <= 0 ? 1 : duration;
+                            // Normalize to start of month for comparison
+                            const startCompare = new Date(mStart.getFullYear(), mStart.getMonth(), 1);
+                            const endCompare = new Date(mEnd.getFullYear(), mEnd.getMonth(), 1);
 
-                        const monthlyCost = p.expectedTotalCost / duration;
-                        cumulativePlanned += monthlyCost;
-                    }
+                            if (month.date >= startCompare && month.date <= endCompare) {
+                                // Calculate duration in months (including both start and end)
+                                let duration = (mEnd.getFullYear() - mStart.getFullYear()) * 12;
+                                duration = duration - mStart.getMonth() + mEnd.getMonth() + 1;
+                                duration = duration <= 0 ? 1 : duration;
+
+                                cumulativePlanned += m.estimatedValue / duration;
+                            }
+                        }
+                    });
                 }
             });
 

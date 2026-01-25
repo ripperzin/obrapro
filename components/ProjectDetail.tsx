@@ -17,6 +17,7 @@ import BudgetSection from './BudgetSection';
 import AddUnitModal from './AddUnitModal';
 import AddExpenseModal from './AddExpenseModal';
 import ManageAttachmentsModal from './ManageAttachmentsModal';
+import ScheduleView from './ScheduleView';
 
 import { supabase } from '../supabaseClient';
 
@@ -836,6 +837,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [evidenceModal, setEvidenceModal] = useState<{ isOpen: boolean; stage: number; evidence?: any }>({ isOpen: false, stage: 0 });
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
   // Safety patch for potential ghost reference
   const [attachmentManagerId, setAttachmentManagerId] = useState<string | null>(null);
 
@@ -1332,6 +1334,16 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                     )}
                     <span className="hidden md:inline">{isGeneratingPDF ? 'Gerando...' : 'PDF'}</span>
                   </button>
+
+                  {/* Schedule (Cronograma) Button */}
+                  <button
+                    onClick={() => setShowSchedule(true)}
+                    className="px-3 py-1.5 bg-blue-600/20 border border-blue-500/40 text-blue-400 rounded-full text-xs font-bold hover:bg-blue-600 hover:text-white transition-all flex items-center gap-2"
+                    title="Ver Cronograma Físico-Financeiro"
+                  >
+                    <i className="fa-solid fa-calendar-days text-blue-400"></i>
+                    <span className="hidden md:inline">Cronograma</span>
+                  </button>
                   <div className="md:hidden text-[10px] text-slate-500 font-bold uppercase animate-pulse">
                     Deslize <i className="fa-solid fa-arrow-right ml-1"></i>
                   </div>
@@ -1749,6 +1761,13 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
         evidence={evidenceModal.evidence}
         onSave={handleSaveEvidence}
       />
+
+      {showSchedule && (
+        <ScheduleView
+          project={project}
+          onClose={() => setShowSchedule(false)}
+        />
+      )}
     </div>
   );
 };
