@@ -118,6 +118,14 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    const avgMonthlyRoi = soldUnitsCount > 0 ? totalMonthlyRoi / soldUnitsCount : 0;
    const avgRealMonthlyRoi = avgMonthlyRoi - inflationRate;
 
+   console.log('DEBUG ROI:', {
+      inflationRate,
+      avgMonthlyRoi,
+      avgRealMonthlyRoi,
+      soldUnitsCount,
+      totalMonthlyRoi
+   });
+
    const totalUnits = unitsInventory.availableCount + unitsInventory.soldCount;
    const salesPerformance = totalUnits > 0 ? (unitsInventory.soldCount / totalUnits) * 100 : 0;
 
@@ -760,17 +768,17 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    }
 
    {/* Modal Despesa Rápida (Reutilizável) */ }
-         <QuickExpenseModal
-            isOpen={showExpenseModal}
-            onClose={() => setShowExpenseModal(false)}
-            projects={projects}
-            preSelectedProjectId={expenseFormData.projectId}
-            onSave={(pid, expense) => {
-               if (onAddExpense) {
-                  onAddExpense(pid, expense);
-               }
-            }}
-         />
+          <QuickExpenseModal
+             isOpen={showExpenseModal}
+             onClose={() => setShowExpenseModal(false)}
+             projects={projects}
+             preSelectedProjectId={expenseFormData.projectId}
+             onSave={(pid, expense) => {
+                if (onAddExpense) {
+                   onAddExpense(pid, expense);
+                }
+             }}
+          />
 
          <ConfirmModal
             isOpen={!!projectToDelete}
