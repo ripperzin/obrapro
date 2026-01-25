@@ -3,6 +3,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Project, STAGE_NAMES, STAGE_ICONS } from '../types';
 import { supabase } from '../supabaseClient';
+import { calculateFinancialMetrics, calculateAverageMetrics } from './financials';
 
 // Helper to resolve Supabase URL if needed
 const getPhotoUrl = async (path: string): Promise<string | null> => {
@@ -83,7 +84,7 @@ const drawCard = (doc: jsPDF, x: number, y: number, w: number, h: number, value:
     doc.text(label.toUpperCase(), x + (w / 2), y + (h / 2) + 6, { align: 'center' });
 };
 
-const calculateMetrics = (project: Project, totalUnitsArea: number = 0) => {
+const calculateMetrics = (project: Project, totalUnitsArea: number = 0, inflationRate: number = 0) => {
     const soldUnits = project.units.filter(u => u.status === 'Sold');
     const availableUnits = project.units.filter(u => u.status === 'Available');
     const totalCost = project.units.reduce((sum, u) => sum + u.cost, 0);
@@ -98,6 +99,10 @@ const calculateMetrics = (project: Project, totalUnitsArea: number = 0) => {
 
     // Lucro Real Calculation
     const isCompleted = project.progress === 100;
+    const firstExpense = project.expenses.length > 0
+        ? project.expenses.reduce((min, e) => (e.date < min.date) ? e : min, project.expenses[0])
+        : null;
+
     const realProfit = soldUnits.reduce((acc, unit) => {
         let costBase = unit.cost;
         if (isCompleted && totalUnitsArea > 0) {
@@ -110,46 +115,27 @@ const calculateMetrics = (project: Project, totalUnitsArea: number = 0) => {
     }, 0);
 
     // Margins logic
-    let averageMargin: number | null = null;
-    let monthlyMargin: number | null = null;
-
-    if (soldUnits.length > 0) {
-        let totalRoi = 0;
-        let totalMonthlyRoi = 0;
-        let validCount = 0;
-
-        const firstExpenseDate = project.expenses.length > 0
-            ? project.expenses.reduce((min, e) => e.date < min ? e.date : min, project.expenses[0].date)
-            : null;
-
-        soldUnits.forEach(unit => {
-            if (unit.saleValue && unit.saleValue > 0) {
-                const realCost = (isCompleted && totalUnitsArea > 0)
-                    ? (unit.area / totalUnitsArea) * totalExpenses
-                    : unit.cost;
-                const costBase = realCost > 0 ? realCost : unit.cost;
-
-                if (costBase > 0) {
-                    const roi = (unit.saleValue - costBase) / costBase;
-                    totalRoi += roi;
-
-                    if (unit.saleDate && firstExpenseDate) {
-                        const start = new Date(firstExpenseDate);
-                        const end = new Date(unit.saleDate);
-                        const months = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
-                        const roiMensal = months > 0 ? roi / months : 0;
-                        totalMonthlyRoi += roiMensal;
-                    }
-                    validCount++;
-                }
+    const metricsList = soldUnits.map(unit => {
+        if (unit.saleValue && unit.saleValue > 0) {
+            let costBase = unit.cost;
+            if (isCompleted && totalUnitsArea > 0) {
+                costBase = (unit.area / totalUnitsArea) * totalExpenses;
             }
-        });
-
-        if (validCount > 0) {
-            averageMargin = (totalRoi / validCount) * 100;
-            monthlyMargin = (totalMonthlyRoi / validCount) * 100;
+            if (costBase > 0) {
+                const profit = unit.saleValue - costBase;
+                let months = 0;
+                if (unit.saleDate && firstExpense) {
+                    const start = new Date(firstExpense.date);
+                    const end = new Date(unit.saleDate);
+                    months = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+                }
+                return calculateFinancialMetrics(profit, costBase, months, inflationRate);
+            }
         }
-    }
+        return null;
+    }).filter(m => m !== null) as any[];
+
+    const avgMetrics = calculateAverageMetrics(metricsList);
 
     return {
         totalUnits: project.units.length,
@@ -160,10 +146,12 @@ const calculateMetrics = (project: Project, totalUnitsArea: number = 0) => {
         budgetUsage,
         totalSold,
         potentialSales,
-        averageMargin,
-        monthlyMargin,
+        averageMargin: avgMetrics ? avgMetrics.nominalTotalRoi * 100 : 0,
+        monthlyMargin: avgMetrics ? avgMetrics.nominalMonthlyRoi * 100 : 0,
+        realMonthlyMargin: avgMetrics ? avgMetrics.realMonthlyRoi * 100 : 0,
         realProfit,
-        estimatedGrossProfit
+        estimatedGrossProfit,
+        inflationRate
     };
 };
 
@@ -254,7 +242,16 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         const margins = 15;
         const contentWidth = pageWidth - (margins * 2);
 
-        const metrics = calculateMetrics(project, project.totalArea);
+        const { data: inflationData } = await supabase
+            .from('inflation_rates')
+            .select('rate')
+            .order('month', { ascending: false })
+            .limit(1)
+            .single();
+
+        const inflationRate = inflationData?.rate || 0.005;
+
+        const metrics = calculateMetrics(project, project.totalArea, inflationRate);
 
         // --- Helper to set Dark Background on new pages ---
         const setDarkBg = () => {
@@ -384,6 +381,11 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         const realProfitTxt = formatCurrencyFull(metrics.realProfit);
         drawCard(doc, margins, cursorY, cardWidth, cardHeight, realProfitTxt, 'Lucro Real', COLORS.blue);
 
+        // Add Real ROI Subtext
+        doc.setFontSize(8);
+        doc.setTextColor(COLORS.red);
+        doc.text(`-${(metrics.inflationRate * 100).toFixed(1)}% IPCA`, margins + (cardWidth / 2), cursorY + cardHeight + 4, { align: 'center' });
+
         // 2. Lucro Estimado (New)
         const estProfitTxt = formatCurrencyFull(metrics.estimatedGrossProfit);
         drawCard(doc, margins + cardWidth + cardGap, cursorY, cardWidth, cardHeight, estProfitTxt, 'Lucro Estimado', COLORS.cyan);
@@ -393,9 +395,9 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         // Se 0, usar cor especial? Mantemos orange.
         drawCard(doc, margins + (cardWidth + cardGap) * 2, cursorY, cardWidth, cardHeight, potTxt, metrics.potentialSales > 0 ? 'Potencial' : 'Status', COLORS.orange);
 
-        // 4. Margem Média
-        const avgMarginTxt = metrics.averageMargin ? `${metrics.averageMargin.toFixed(1)}%` : '--';
-        drawCard(doc, margins + (cardWidth + cardGap) * 3, cursorY, cardWidth, cardHeight, avgMarginTxt, 'Margem Média', COLORS.green);
+        // 4. Margem Média (ROI Real)
+        const avgMarginTxt = metrics.realMonthlyMargin ? `${metrics.realMonthlyMargin.toFixed(1)}%` : '--';
+        drawCard(doc, margins + (cardWidth + cardGap) * 3, cursorY, cardWidth, cardHeight, avgMarginTxt, 'ROI Real (a.m.)', COLORS.green);
 
 
         // --- Budget Detail (Macros) ---

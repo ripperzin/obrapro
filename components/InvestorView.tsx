@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Project, STAGE_NAMES, STAGE_ICONS, ProgressStage } from '../types';
 import { supabase } from '../supabaseClient';
 import StageThumbnail from './StageThumbnail';
+import { calculateFinancialMetrics, calculateAverageMetrics } from '../utils/financials';
+import { useInflation } from '../hooks/useInflation';
+import { calculateMonthsBetween } from '../utils';
 
 interface InvestorViewProps {
     projectId: string;
@@ -27,14 +30,10 @@ const formatCurrencyAbbrev = (value: number): string => {
     return formatCurrency(value);
 };
 
-// Calculate months between two dates
-const calculateMonthsBetween = (startDate: string, endDate: string): number => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    return Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
-};
+
 
 const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
+    const { inflationRate } = useInflation();
     const [project, setProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -234,50 +233,34 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
         const potentialSales = availableUnits.reduce((sum, u) => sum + (u.valorEstimadoVenda || 0), 0);
 
         // Margem média (ROI médio das unidades vendidas)
-        let averageMargin: number | null = null;
-        let monthlyMargin: number | null = null;
+        const firstExpenseDate = project.expenses.length > 0
+            ? project.expenses.reduce((min, e) => (e.date < min.date ? e : min), project.expenses[0]).date
+            : null;
 
-        if (soldUnits.length > 0) {
-            const isCompleted = project.progress === 100;
-            const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
-
-            let totalRoi = 0;
-            let totalMonthlyRoi = 0;
-            let validCount = 0;
-
-            const firstExpenseDate = project.expenses.length > 0
-                ? project.expenses.reduce((min, e) => e.date < min ? e.date : min, project.expenses[0].date)
-                : null;
-
-            soldUnits.forEach(unit => {
-                if (unit.saleValue && unit.saleValue > 0) {
-                    // Calculate real cost based on area proportion if completed
-                    const realCost = (isCompleted && totalUnitsArea > 0)
-                        ? (unit.area / totalUnitsArea) * totalExpenses
-                        : unit.cost;
-                    const costBase = realCost > 0 ? realCost : unit.cost;
-
-                    if (costBase > 0) {
-                        const roi = (unit.saleValue - costBase) / costBase;
-                        totalRoi += roi;
-
-                        // Monthly ROI calculation
-                        if (unit.saleDate && firstExpenseDate) {
-                            const months = calculateMonthsBetween(firstExpenseDate, unit.saleDate);
-                            const roiMensal = months > 0 ? roi / months : 0;
-                            totalMonthlyRoi += roiMensal;
-                        }
-
-                        validCount++;
-                    }
+        const metricsList = soldUnits.map(unit => {
+            if (unit.saleValue && unit.saleValue > 0) {
+                let costBase = unit.cost;
+                if (isCompleted && totalUnitsArea > 0) {
+                    costBase = (unit.area / totalUnitsArea) * totalExpenses;
                 }
-            });
 
-            if (validCount > 0) {
-                averageMargin = (totalRoi / validCount) * 100;
-                monthlyMargin = (totalMonthlyRoi / validCount) * 100;
+                if (costBase > 0) {
+                    const profit = unit.saleValue - costBase;
+                    let months = 0;
+                    if (unit.saleDate && firstExpenseDate) {
+                        months = calculateMonthsBetween(firstExpenseDate, unit.saleDate);
+                    }
+                    return calculateFinancialMetrics(profit, costBase, months, inflationRate);
+                }
             }
-        }
+            return null;
+        }).filter(m => m !== null) as any[];
+
+        const avgMetrics = calculateAverageMetrics(metricsList);
+
+        const averageMargin = avgMetrics ? avgMetrics.nominalTotalRoi * 100 : null;
+        const monthlyMargin = avgMetrics ? avgMetrics.nominalMonthlyRoi * 100 : null;
+        const realMonthlyMargin = avgMetrics ? avgMetrics.realMonthlyRoi * 100 : null;
 
         return {
             totalUnits: project.units.length,
@@ -289,6 +272,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
             potentialSales: potentialSales > 0 ? potentialSales : null,
             averageMargin,
             monthlyMargin,
+            realMonthlyMargin,
             totalSold,
             realProfit,
             estimatedGrossProfit
@@ -564,15 +548,24 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                 </div>
                                 <div className="flex flex-col gap-1">
                                     <div className="flex justify-between items-end">
-                                        <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase">ROI Méd.</p>
-                                        <p className="text-base md:text-lg font-black text-white">{metrics.averageMargin && !isNaN(metrics.averageMargin) ? metrics.averageMargin.toFixed(1) : '0.0'}%</p>
+                                        <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase">ROI Real</p>
+                                        <p className="text-base md:text-lg font-black text-blue-400">
+                                            {metrics.realMonthlyMargin && !isNaN(metrics.realMonthlyMargin) ? metrics.realMonthlyMargin.toFixed(1) : '0.0'}%
+                                        </p>
                                     </div>
                                     <div className="w-full h-1 bg-slate-700 rounded-full overflow-hidden">
-                                        <div className="h-full bg-purple-500" style={{ width: `${Math.min(metrics.averageMargin || 0, 100)}%` }}></div>
+                                        <div className="h-full bg-blue-500" style={{ width: `${Math.min(metrics.realMonthlyMargin || 0, 100)}%` }}></div>
                                     </div>
                                     <div className="flex justify-between items-center mt-1">
-                                        <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase">ROI Mês</p>
-                                        <p className="text-[10px] md:text-xs font-bold text-purple-400">{metrics.monthlyMargin && !isNaN(metrics.monthlyMargin) ? metrics.monthlyMargin.toFixed(1) : '0.0'}%</p>
+                                        <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase">Nominal</p>
+                                        <div className="flex gap-1">
+                                            <span className="text-[10px] md:text-xs font-bold text-slate-500">
+                                                {(metrics.monthlyMargin || 0).toFixed(1)}%
+                                            </span>
+                                            <span className="text-[10px] md:text-xs font-bold text-red-400">
+                                                -{(inflationRate * 100).toFixed(1)}%
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -291,7 +291,13 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Margem Real (a.m.)</p>
                      <p className="text-blue-400 font-black text-2xl">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
-                     <div className="w-12 h-1 bg-blue-500/30 rounded-full mt-1"></div>
+                     <div className="flex items-center gap-1 text-[10px] font-bold bg-slate-800/50 px-2 py-0.5 rounded-full border border-slate-700/50">
+                        <span className="text-slate-400">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
+                        <span className="text-red-400 flex items-center">
+                           <i className="fa-solid fa-arrow-trend-down text-[8px] mr-1"></i>
+                           {(inflationRate * 100).toFixed(1)}%
+                        </span>
+                     </div>
                   </div>
                </div>
 
@@ -528,9 +534,15 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
                      <i className="fa-solid fa-calendar-check text-blue-400"></i>
                   </div>
-                  <div>
+                  <div className="flex flex-col">
                      <p className="text-blue-400 font-black text-xl">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
                      <p className="text-slate-400 text-xs font-medium">Margem Real (a.m.)</p>
+                     <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold">
+                        <span className="text-slate-500">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
+                        <span className="text-red-400/80 flex items-center bg-red-500/10 px-1.5 rounded">
+                           -{(inflationRate * 100).toFixed(1)}% IPCA
+                        </span>
+                     </div>
                   </div>
                </div>
             </div>
