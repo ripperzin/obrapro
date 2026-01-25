@@ -33,8 +33,8 @@ const App: React.FC = () => {
   // VERSION LOG
   useEffect(() => {
     // VERSION FLAG
-    const APP_VERSION = 'v19-stable-release';
-    console.log(`%c ObraPro: ${APP_VERSION} `, 'background: #2563eb; color: #fff; font-size: 12px; font-weight: bold;');
+    const APP_VERSION = 'v20-master-main-sync';
+    console.log(`%c ObraPro: ${APP_VERSION} `, 'background: #7c3aed; color: #fff; font-size: 14px; font-weight: bold;');
   }, []);
 
   const [session, setSession] = useState<Session | null>(null);
