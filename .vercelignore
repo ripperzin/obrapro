@@ -1,4 +1,6 @@
-
 supabase_landing_leads.sql
 README.md
 .gemini
+landing
+dist
+node_modules
