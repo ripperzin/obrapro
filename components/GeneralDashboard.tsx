@@ -222,6 +222,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
 
    return (
       <div className="animate-fade-in min-h-full px-0 md:px-0">
+         {/* ===== MOBILE LAYOUT ===== */}
          <div className="block md:hidden space-y-4">
             <div className="space-y-4 px-1">
                <div className="flex justify-between items-end mb-2 px-2">
@@ -388,81 +389,239 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
             })}
          </div>
 
+         {/* ===== DESKTOP LAYOUT (Premium Fullscreen) ===== */}
          <div className="hidden md:block">
+            {/* Header with Greeting */}
             <div className="mb-8 p-8">
-               <h1 className="text-5xl font-black text-white italic tracking-tight">Olá, {userName}!</h1>
-               <p className="text-slate-400 text-lg mt-2">Hoje: {formattedDate}</p>
+               <h1 className="text-5xl font-black text-white italic tracking-tight">
+                  Olá, {userName}!
+               </h1>
+               <p className="text-slate-400 text-lg mt-2">
+                  Hoje: {formattedDate}
+               </p>
             </div>
 
+            {/* Main Grid: Cards + Conversion Ring - LARGER */}
             <div className="flex gap-8 items-center justify-center mb-12">
+               {/* Left Column: 2 Cards */}
                <div className="flex flex-col gap-5">
-                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-blue-500 group">
-                     <div>
-                        <div className="flex items-center gap-2 mb-2">
-                           <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Vendidas</span>
+                  {/* Card Vendidas - Blue */}
+                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-blue-500 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] transition-all group">
+                     <div className="flex justify-between items-start">
+                        <div>
+                           <div className="flex items-center gap-2 mb-2">
+                              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                                 <i className="fa-solid fa-house-circle-check text-blue-400 text-sm"></i>
+                              </div>
+                              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Vendidas</span>
+                           </div>
+                           <p className="text-4xl font-black text-white tracking-tight mt-1">{unitsInventory.soldCount}</p>
                         </div>
-                        <p className="text-4xl font-black text-white">{unitsInventory.soldCount}</p>
+                     </div>
+                     <div className="absolute -bottom-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity transform rotate-12">
+                        <i className="fa-solid fa-house-circle-check text-5xl text-blue-500"></i>
                      </div>
                   </div>
-                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-orange-500 group">
-                     <div>
-                        <div className="flex items-center gap-2 mb-2">
-                           <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Disponíveis</span>
+
+                  {/* Card Disponíveis - Orange */}
+                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-orange-500 hover:shadow-[0_0_30px_rgba(249,115,22,0.15)] transition-all group">
+                     <div className="flex justify-between items-start">
+                        <div>
+                           <div className="flex items-center gap-2 mb-2">
+                              <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                                 <i className="fa-solid fa-key text-orange-400 text-sm"></i>
+                              </div>
+                              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Disponíveis</span>
+                           </div>
+                           <p className="text-4xl font-black text-white tracking-tight mt-1">{unitsInventory.availableCount}</p>
                         </div>
-                        <p className="text-4xl font-black text-white">{unitsInventory.availableCount}</p>
+                     </div>
+                     <div className="absolute -bottom-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity transform rotate-12">
+                        <i className="fa-solid fa-key text-5xl text-orange-500"></i>
                      </div>
                   </div>
                </div>
 
-               <div className="relative w-72 h-72 mx-8">
+               {/* Center: Conversion Ring - LARGER */}
+               <div className="relative w-72 h-72 animate-pulse-glow mx-8">
                   <svg className="w-full h-full transform -rotate-90">
                      <circle cx="144" cy="144" r="90" stroke="#1e293b" strokeWidth="16" fill="transparent" />
-                     <circle cx="144" cy="144" r="90" stroke="#3b82f6" strokeWidth="16" fill="transparent" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" />
+                     <circle
+                        cx="144" cy="144" r="90"
+                        stroke="url(#blueGradient)" strokeWidth="16" fill="transparent"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={strokeDashoffset}
+                        strokeLinecap="round"
+                        className="progress-ring-circle"
+                     />
+                     <defs>
+                        <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                           <stop offset="0%" stopColor="#38bdf8" />
+                           <stop offset="50%" stopColor="#3b82f6" />
+                           <stop offset="100%" stopColor="#8b5cf6" />
+                        </linearGradient>
+                     </defs>
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                      <span className="text-6xl font-black text-white">{salesPerformance.toFixed(0)}%</span>
                      <span className="text-slate-400 text-base font-medium mt-2">Conversão</span>
+                     <span className="text-slate-500 text-sm">de Vendas</span>
                   </div>
                </div>
 
+               {/* Right Column: 2 Cards */}
                <div className="flex flex-col gap-5">
-                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-green-500 group">
-                     <div>
-                        <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Faturado</span>
-                        <p className="text-2xl font-black text-white mt-1">{formatCurrency(unitsInventory.realizedValue)}</p>
+                  {/* Card Faturado - Green */}
+                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-green-500 hover:shadow-[0_0_30px_rgba(34,197,94,0.15)] transition-all group">
+                     <div className="flex justify-between items-start">
+                        <div>
+                           <div className="flex items-center gap-2 mb-2">
+                              <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                                 <i className="fa-solid fa-money-bill-trend-up text-green-400 text-sm"></i>
+                              </div>
+                              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Faturado</span>
+                           </div>
+                           <p className="text-2xl font-black text-white tracking-tight mt-1 truncate max-w-[200px]" title={formatCurrency(unitsInventory.realizedValue)}>
+                              {formatCurrency(unitsInventory.realizedValue)}
+                           </p>
+                        </div>
+                     </div>
+                     <div className="absolute -bottom-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity transform rotate-12">
+                        <i className="fa-solid fa-coins text-5xl text-green-500"></i>
                      </div>
                   </div>
-                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-purple-500 group">
-                     <div>
-                        <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Potencial</span>
-                        <p className="text-2xl font-black text-white mt-1">{formatCurrency(unitsInventory.totalPotentialSale)}</p>
+
+                  {/* Card Potencial - Purple */}
+                  <div className="w-64 h-32 rounded-2xl p-5 relative overflow-hidden bg-slate-900/60 backdrop-blur-md border border-slate-700/50 border-l-4 border-l-purple-500 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] transition-all group">
+                     <div className="flex justify-between items-start">
+                        <div>
+                           <div className="flex items-center gap-2 mb-2">
+                              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                                 <i className="fa-solid fa-chart-line text-purple-400 text-sm"></i>
+                              </div>
+                              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Potencial</span>
+                           </div>
+                           <p className="text-2xl font-black text-white tracking-tight mt-1 truncate max-w-[200px]" title={formatCurrency(unitsInventory.totalPotentialSale)}>
+                              {formatCurrency(unitsInventory.totalPotentialSale)}
+                           </p>
+                        </div>
+                     </div>
+                     <div className="absolute -bottom-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity transform rotate-12">
+                        <i className="fa-solid fa-chart-line text-5xl text-purple-500"></i>
                      </div>
                   </div>
                </div>
             </div>
 
-            <div className="px-8">
-               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                  {projects.map(p => (
-                     <div key={p.id} onClick={() => onSelectProject?.(p.id)} className="bg-slate-800 p-6 rounded-3xl cursor-pointer hover:bg-slate-700 transition">
-                        <p className="text-white font-bold text-lg">{p.name}</p>
-                        <div className="mt-4 w-full bg-slate-900 h-2 rounded-full overflow-hidden">
-                           <div className="h-full bg-blue-500" style={{ width: `${p.progress}%` }} />
+            {/* Margin Stats Row */}
+            <div className="flex gap-4 justify-center mb-10">
+               <div className="glass px-6 py-3 rounded-2xl flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
+                     <i className="fa-solid fa-percentage text-green-400"></i>
+                  </div>
+                  <div>
+                     <p className="text-green-400 font-black text-xl">{(avgRoi * 100).toFixed(1)}%</p>
+                     <p className="text-slate-400 text-xs font-medium">Margem Média</p>
+                  </div>
+               </div>
+               <div className="glass px-6 py-3 rounded-2xl flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                     <i className="fa-solid fa-calendar-check text-blue-400"></i>
+                  </div>
+                  <div>
+                     <p className="text-blue-400 font-black text-xl">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
+                     <p className="text-slate-400 text-xs font-medium">Margem Real (a.m.)</p>
+                  </div>
+               </div>
+            </div>
+
+            {/* Desktop Projects Grid - CLICKABLE PREMIUM CARDS */}
+            <div className="px-10">
+               <div className="flex justify-between items-center mb-8">
+                  <h3 className="text-white font-black text-2xl flex items-center gap-3">
+                     <i className="fa-solid fa-building text-blue-400"></i>
+                     EMPREENDIMENTOS
+                  </h3>
+                  {isAdmin && onAddProject && (
+                     <button
+                        onClick={openAddModal}
+                        className="px-8 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-600/30 font-black flex items-center gap-2 border border-blue-400/50"
+                     >
+                        <i className="fa-solid fa-plus"></i>
+                        NOVA OBRA
+                     </button>
+                  )}
+               </div>
+
+               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+                  {projects.map(p => {
+                     const sold = p.units.filter(u => u.status === 'Sold').length;
+                     const total = p.units.length;
+                     return (
+                        <div
+                           key={p.id}
+                           onClick={() => onSelectProject?.(p.id)}
+                           className="bg-slate-800/40 backdrop-blur-md rounded-[2.5rem] overflow-hidden border border-slate-700/50 hover:border-blue-500/50 transition-all hover:-translate-y-2 group cursor-pointer shadow-xl hover:shadow-blue-500/10"
+                        >
+                           <div className="h-48 relative overflow-hidden bg-slate-900">
+                              {(() => {
+                                 const evidencesWithPhotos = (p.stageEvidence || [])
+                                    .filter(e => e.photos && e.photos.length > 0)
+                                    .sort((a, b) => b.stage - a.stage);
+                                 const latestEvidence = evidencesWithPhotos[0];
+                                 const photo = latestEvidence?.photos?.[0];
+
+                                 if (photo) {
+                                    return <StageThumbnail photoPath={photo} className="w-full h-full" />;
+                                 }
+                                 return <div className="w-full h-full flex items-center justify-center bg-slate-800"><i className="fa-solid fa-city text-4xl text-slate-700"></i></div>;
+                              })()}
+                              <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60"></div>
+                              <div className="absolute top-4 right-4 flex gap-2">
+                                 {isAdmin && (
+                                    <>
+                                       <button onClick={(e) => openEditModal(e, p)} className="w-8 h-8 rounded-lg bg-slate-900/80 backdrop-blur-md text-blue-400 flex items-center justify-center border border-slate-700 hover:bg-blue-600 hover:text-white transition">
+                                          <i className="fa-solid fa-pen text-xs"></i>
+                                       </button>
+                                       <button onClick={(e) => requestDelete(e, p.id)} className="w-8 h-8 rounded-lg bg-slate-900/80 backdrop-blur-md text-red-400 flex items-center justify-center border border-slate-700 hover:bg-red-600 hover:text-white transition">
+                                          <i className="fa-solid fa-trash text-xs"></i>
+                                       </button>
+                                    </>
+                                 )}
+                              </div>
+                           </div>
+                           <div className="p-8">
+                              <h4 className="text-2xl font-black text-white mb-2 group-hover:text-blue-400 transition-colors uppercase tracking-tight">{p.name}</h4>
+                              <div className="flex justify-between items-center mb-6">
+                                 <span className="text-slate-400 font-bold text-sm tracking-widest">{sold}/{total} VENDIDAS</span>
+                                 <span className="text-blue-400 font-black">{p.progress}%</span>
+                              </div>
+                              <div className="w-full bg-slate-900/50 h-3 rounded-full overflow-hidden border border-slate-700/30">
+                                 <div className="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(59,130,246,0.5)]" style={{ width: `${p.progress}%` }}></div>
+                              </div>
+                           </div>
                         </div>
-                     </div>
-                  ))}
+                     );
+                  })}
                </div>
             </div>
          </div>
 
+         {/* MODALS SECTION */}
          {showModal && modalRoot && ReactDOM.createPortal(
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-               <div className="bg-slate-800 rounded-3xl p-6 w-full max-w-md">
-                  <h2 className="text-xl font-black text-white mb-6">{editingProject ? 'Editar Obra' : 'Nova Obra'}</h2>
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                     <input required type="text" className="w-full p-4 bg-slate-900 text-white rounded-xl" placeholder="Nome" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                     <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold uppercase">Salvar</button>
-                     <button type="button" onClick={() => setShowModal(false)} className="w-full py-2 text-slate-400">Cancelar</button>
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center z-[100] p-4 animate-fade-in">
+               <div className="bg-slate-900 rounded-[3rem] p-10 w-full max-w-md border border-slate-800 shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600"></div>
+                  <div className="flex justify-between items-center mb-10">
+                     <h2 className="text-2xl font-black text-white tracking-tight italic">{editingProject ? 'EDITAR OBRA' : 'NOVA OBRA'}</h2>
+                     <button onClick={() => setShowModal(false)} className="text-slate-500 hover:text-white transition"><i className="fa-solid fa-xmark text-xl"></i></button>
+                  </div>
+                  <form onSubmit={handleSubmit} className="space-y-8">
+                     <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">NOME DO PROJETO</label>
+                        <input required type="text" className="w-full px-6 py-5 bg-slate-800/50 border border-slate-700/50 rounded-2xl outline-none focus:border-blue-500 transition-all font-bold text-white text-lg" placeholder="Ex: Residencial Aurora" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                     </div>
+                     <button type="submit" className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition shadow-xl shadow-blue-600/20 active:scale-95">SALVAR ALTERAÇÕES</button>
                   </form>
                </div>
             </div>,
@@ -481,10 +640,10 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
             isOpen={!!projectToDelete}
             onClose={() => setProjectToDelete(null)}
             onConfirm={handleConfirmDelete}
-            title="Excluir Obra?"
-            message="Confirmar exclusão irrevogável?"
-            confirmText="Sim, Excluir"
-            cancelText="Cancelar"
+            title="EXCLUIR OBRA?"
+            message="Esta ação é permanente e apagará todos os dados vinculados."
+            confirmText="SIM, EXCLUIR"
+            cancelText="CANCELAR"
             variant="danger"
          />
       </div>
