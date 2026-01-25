@@ -269,7 +269,6 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                      {soldUnitsCount > 0 ? (
                         <>
                            <p className="text-green-400 font-black text-2xl">{(avgRoi * 100).toFixed(0)}%</p>
-                           <div className="w-12 h-1 bg-green-500/30 rounded-full mt-1"></div>
                         </>
                      ) : (
                         <p className="text-slate-600 font-black text-[10px] uppercase">Não há vendas ainda</p>
@@ -310,7 +309,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
          </div>
 
          {isAdmin && onAddExpense && projects.length > 0 && (
-            <div className="mt-4 block md:hidden">
+            <div className="mt-8 mb-6 block md:hidden">
                <button
                   onClick={openExpenseModal}
                   className="w-full flex items-center justify-center gap-3 py-4 bg-green-600/20 border border-green-500/40 rounded-2xl text-green-400 hover:bg-green-600/30 transition-all active:scale-[0.98]"
@@ -327,9 +326,10 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                {isAdmin && onAddProject && (
                   <button
                      onClick={() => setShowModal(true)}
-                     className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-600/30"
+                     className="px-4 py-2 bg-blue-600/20 border border-blue-500/40 rounded-xl text-blue-400 flex items-center gap-2 hover:bg-blue-600/30 transition-all active:scale-95"
                   >
-                     <i className="fa-solid fa-plus"></i>
+                     <i className="fa-solid fa-plus text-xs"></i>
+                     <span className="font-black text-[10px] uppercase tracking-wider">Adicionar Obra</span>
                   </button>
                )}
             </div>
