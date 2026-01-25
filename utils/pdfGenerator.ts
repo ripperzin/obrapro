@@ -230,7 +230,7 @@ const fetchProjectData = async (projectId: string) => {
     return project;
 };
 
-export const generateProjectPDF = async (projectPartial: Project, userName: string) => {
+export const generateProjectPDF = async (projectPartial: Project, userName: string, inflationRateOverride?: number) => {
     try {
         // Always fetch fresh data to ensure we have budget and everything
         const project = await fetchProjectData(projectPartial.id);
@@ -242,14 +242,18 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         const margins = 15;
         const contentWidth = pageWidth - (margins * 2);
 
-        const { data: inflationData } = await supabase
-            .from('inflation_rates')
-            .select('rate')
-            .order('month', { ascending: false })
-            .limit(1)
-            .single();
-
-        const inflationRate = inflationData?.rate || 0.005;
+        let inflationRate = 0.005;
+        if (typeof inflationRateOverride === 'number') {
+            inflationRate = inflationRateOverride;
+        } else {
+            const { data: inflationData } = await supabase
+                .from('inflation_rates')
+                .select('rate')
+                .order('month', { ascending: false })
+                .limit(1)
+                .single();
+            inflationRate = inflationData?.rate || 0.005;
+        }
 
         const metrics = calculateMetrics(project, project.totalArea, inflationRate);
 
@@ -381,23 +385,67 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         const realProfitTxt = formatCurrencyFull(metrics.realProfit);
         drawCard(doc, margins, cursorY, cardWidth, cardHeight, realProfitTxt, 'Lucro Real', COLORS.blue);
 
-        // Add Real ROI Subtext
-        doc.setFontSize(8);
-        doc.setTextColor(COLORS.red);
-        doc.text(`-${(metrics.inflationRate * 100).toFixed(1)}% IPCA`, margins + (cardWidth / 2), cursorY + cardHeight + 4, { align: 'center' });
-
         // 2. Lucro Estimado (New)
         const estProfitTxt = formatCurrencyFull(metrics.estimatedGrossProfit);
         drawCard(doc, margins + cardWidth + cardGap, cursorY, cardWidth, cardHeight, estProfitTxt, 'Lucro Estimado', COLORS.cyan);
 
         // 3. Potencial
         const potTxt = metrics.potentialSales > 0 ? formatCurrencyFull(metrics.potentialSales) : 'VENDIDO';
-        // Se 0, usar cor especial? Mantemos orange.
         drawCard(doc, margins + (cardWidth + cardGap) * 2, cursorY, cardWidth, cardHeight, potTxt, metrics.potentialSales > 0 ? 'Potencial' : 'Status', COLORS.orange);
 
-        // 4. Margem Média (ROI Real)
-        const avgMarginTxt = metrics.realMonthlyMargin ? `${metrics.realMonthlyMargin.toFixed(1)}%` : '--';
-        drawCard(doc, margins + (cardWidth + cardGap) * 3, cursorY, cardWidth, cardHeight, avgMarginTxt, 'ROI Real (a.m.)', COLORS.green);
+        // 4. Margem Média (ROI Real - Custom Card with IPCA)
+        {
+            const x = margins + (cardWidth + cardGap) * 3;
+            const y = cursorY;
+            const w = cardWidth;
+            const h = cardHeight;
+            const realRoiTxt = metrics.realMonthlyMargin ? `${metrics.realMonthlyMargin.toFixed(1)}%` : '--';
+            const nominalRoiTxt = metrics.monthlyMargin ? `${metrics.monthlyMargin.toFixed(1)}%` : '';
+            const ipcaTxt = `-${(metrics.inflationRate * 100).toFixed(1)}% IPCA`;
+
+            // Draw Card Background
+            doc.setFillColor(30, 41, 59); // Slate-800
+            doc.setDrawColor(51, 65, 85); // Slate-700
+            doc.roundedRect(x, y, w, h, 3, 3, 'FD');
+
+            // Draw Value (Real ROI) - Moved slightly up
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(COLORS.green);
+            doc.text(realRoiTxt, x + (w / 2), y + (h / 2) - 5, { align: 'center' });
+
+            // Draw Detail Row (Nominal + Badge)
+            if (nominalRoiTxt) {
+                // Nominal (Grey)
+                doc.setFontSize(8);
+                doc.setTextColor(COLORS.textMuted);
+                doc.text(nominalRoiTxt, x + (w / 2) - 8, y + (h / 2) + 2, { align: 'center' });
+
+                // IPCA Badge (Red)
+                const badgeW = doc.getTextWidth(ipcaTxt) + 4;
+                const badgeH = 4;
+                const badgeX = x + (w / 2) + 1; // Offset right
+                const badgeY = y + (h / 2) - 1;
+
+                doc.setFillColor(248, 113, 113, 0.2); // Red-400 with opacity simulation (solid color approximation for PDF: darker red bg)
+                // Actually PDF doesn't support alpha in setFillColor easily without extended API.
+                // We'll use a very dark red color to simulate "bg-red-500/10" on dark bg.
+                doc.setFillColor(50, 20, 20);
+                doc.setDrawColor(127, 29, 29); // Red-900 border
+                doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 1, 1, 'FD');
+
+                doc.setTextColor(COLORS.red);
+                doc.setFontSize(7);
+                doc.setFont('helvetica', 'bold');
+                doc.text(ipcaTxt, badgeX + (badgeW / 2), badgeY + 3, { align: 'center' });
+            }
+
+            // Label
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(COLORS.textMuted);
+            doc.text('ROI REAL (A.M.)', x + (w / 2), y + h - 4, { align: 'center' });
+        }
 
 
         // --- Budget Detail (Macros) ---

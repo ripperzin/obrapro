@@ -1232,7 +1232,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                       if (isGeneratingPDF) return;
                       setIsGeneratingPDF(true);
                       try {
-                        await generateProjectPDF(project, user.login || 'Usuário');
+                        await generateProjectPDF(project, user.login || 'Usuário', inflationRate);
                       } catch (err) {
                         console.error('Error generating PDF', err);
                         alert('Erro ao gerar PDF. Tente novamente.');
