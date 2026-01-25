@@ -249,34 +249,17 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   </div>
                </div>
 
-               <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 relative overflow-hidden">
-                  <div className="flex justify-between items-center mb-1">
-                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-                           <i className="fa-solid fa-money-bill-trend-up text-green-400 text-xs"></i>
-                        </div>
-                        <span className="text-slate-300 text-xs font-bold uppercase tracking-wider">Receita Realizada</span>
-                     </div>
+               <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1 relative overflow-hidden">
+                     <i className="fa-solid fa-money-bill-trend-up text-green-400 text-2xl mb-1"></i>
+                     <p className="text-white font-black text-xl tracking-tight">{formatCurrencyAbbrev(unitsInventory.realizedValue)}</p>
+                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Receita</p>
                   </div>
-                  <div className="mt-2">
-                     <p className="text-white font-black text-2xl tracking-tight">{formatCurrency(unitsInventory.realizedValue)}</p>
-                  </div>
-               </div>
 
-               <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 relative overflow-hidden">
-                  <div className="flex justify-between items-center mb-1">
-                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                           <i className="fa-solid fa-chart-pie text-purple-400 text-xs"></i>
-                        </div>
-                        <span className="text-slate-300 text-xs font-bold uppercase tracking-wider">Potencial de Vendas</span>
-                     </div>
-                  </div>
-                  <div className="mt-2">
-                     <p className="text-white font-black text-2xl tracking-tight">{formatCurrencyAbbrev(unitsInventory.totalPotentialSale)}</p>
-                     <div className="w-full h-1.5 bg-slate-700 rounded-full mt-3 overflow-hidden">
-                        <div className="h-full bg-purple-500 w-2/3 rounded-full"></div>
-                     </div>
+                  <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1 relative overflow-hidden">
+                     <i className="fa-solid fa-chart-pie text-purple-400 text-2xl mb-1"></i>
+                     <p className="text-white font-black text-xl tracking-tight">{formatCurrencyAbbrev(unitsInventory.totalPotentialSale)}</p>
+                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Potencial</p>
                   </div>
                </div>
 

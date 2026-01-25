@@ -1239,8 +1239,47 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               })()}
             </button>
 
-            {/* Cards de Resumo */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {/* Cards de Resumo - MOBILE GRID (2x2 Compact) */}
+            <div className="grid grid-cols-2 gap-3 md:hidden mb-6">
+              {/* 1. Vendidas */}
+              <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-2xl flex flex-col justify-center items-center relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-2 opacity-5">
+                  <i className="fa-solid fa-handshake text-4xl"></i>
+                </div>
+                <p className="text-2xl font-black text-white">{soldUnits.length}</p>
+                <p className="text-[10px] uppercase font-bold text-slate-500">Vendidas</p>
+              </div>
+
+              {/* 2. Estoque */}
+              <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-2xl flex flex-col justify-center items-center relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-2 opacity-5">
+                  <i className="fa-solid fa-boxes-stacked text-4xl"></i>
+                </div>
+                <p className="text-2xl font-black text-white">{availableUnits.length}</p>
+                <p className="text-[10px] uppercase font-bold text-slate-500">Estoque</p>
+              </div>
+
+              {/* 3. Receita */}
+              <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-2xl flex flex-col justify-center items-center relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-2 opacity-5">
+                  <i className="fa-solid fa-sack-dollar text-4xl"></i>
+                </div>
+                <p className="text-lg font-black text-emerald-400">{formatCurrencyAbbrev(totalUnitsSales)}</p>
+                <p className="text-[10px] uppercase font-bold text-slate-500">Receita</p>
+              </div>
+
+              {/* 4. Potencial */}
+              <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-2xl flex flex-col justify-center items-center relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-2 opacity-5">
+                  <i className="fa-solid fa-gem text-4xl"></i>
+                </div>
+                <p className="text-lg font-black text-blue-400">{formatCurrencyAbbrev(potentialSales)}</p>
+                <p className="text-[10px] uppercase font-bold text-slate-500">Potencial</p>
+              </div>
+            </div>
+
+            {/* Cards de Resumo - DESKTOP ORIGINAL */}
+            <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               {/* ... (existing cards) ... */}
             </div>
 
@@ -1527,7 +1566,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                     </div>
                     <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">Total Liquidado</p>
                     <p className="text-3xl md:text-5xl font-black text-white tracking-tight">
-                      {formatCurrency(totalUnitsSales)}
+                      {soldUnits.length > 0 ? formatCurrency(totalUnitsSales) : <span className="text-gray-500 text-lg uppercase">Não há vendas ainda</span>}
                     </p>
                     <div className="mt-3 flex items-center gap-2 text-[10px] md:text-xs text-slate-400 font-medium">
                       <i className="fa-solid fa-circle-check text-emerald-500"></i>
@@ -1549,7 +1588,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                     </div>
                     <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Lucro Real</p>
                     <p className="text-lg md:text-2xl font-black text-white group-hover/card:text-blue-400 transition-colors">
-                      {formatCurrency(realProfit)}
+                      {soldUnits.length > 0 ? formatCurrency(realProfit) : <span className="text-gray-500 text-sm uppercase">Não há vendas ainda</span>}
                     </p>
                   </div>
 
