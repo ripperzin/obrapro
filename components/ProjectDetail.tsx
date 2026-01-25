@@ -1092,6 +1092,30 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
     onUpdate(project.id, { diary: newDiary }, `Diário: nova entrada`);
   };
 
+  // Scroll to current stage on load
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (activeTab === 'info' && scrollContainerRef.current) {
+      // Small timeout to ensure rendering
+      setTimeout(() => {
+        const currentElement = document.getElementById('current-stage-indicator');
+        const container = scrollContainerRef.current;
+        if (currentElement && container) {
+          const containerRect = container.getBoundingClientRect();
+          const elementRect = currentElement.getBoundingClientRect();
+
+          // Calculate offset relative to the container scroll
+          const relativeLeft = elementRect.left - containerRect.left + container.scrollLeft;
+
+          // Center: relativeLeft - halfContainer + halfElement
+          const scrollLeft = relativeLeft - (container.clientWidth / 2) + (elementRect.width / 2);
+
+          container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+        }
+      }, 300);
+    }
+  }, [activeTab, project.progress]);
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Container Principal - Dark Theme (Mobile: Flat / Desktop: Card) */}
@@ -1241,44 +1265,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               })()}
             </button>
 
-            {/* Cards de Resumo - MOBILE GRID (2x2 Compact) */}
-            <div className="grid grid-cols-2 gap-3 md:hidden mb-6">
-              {/* 1. Vendidas */}
-              <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-2xl flex flex-col justify-center items-center relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-2 opacity-5">
-                  <i className="fa-solid fa-handshake text-4xl"></i>
-                </div>
-                <p className="text-2xl font-black text-white">{soldUnits.length}</p>
-                <p className="text-[10px] uppercase font-bold text-slate-500">Vendidas</p>
-              </div>
 
-              {/* 2. Estoque */}
-              <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-2xl flex flex-col justify-center items-center relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-2 opacity-5">
-                  <i className="fa-solid fa-boxes-stacked text-4xl"></i>
-                </div>
-                <p className="text-2xl font-black text-white">{availableUnits.length}</p>
-                <p className="text-[10px] uppercase font-bold text-slate-500">Estoque</p>
-              </div>
-
-              {/* 3. Receita */}
-              <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-2xl flex flex-col justify-center items-center relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-2 opacity-5">
-                  <i className="fa-solid fa-sack-dollar text-4xl"></i>
-                </div>
-                <p className="text-lg font-black text-emerald-400">{formatCurrencyAbbrev(totalUnitsSales)}</p>
-                <p className="text-[10px] uppercase font-bold text-slate-500">Receita</p>
-              </div>
-
-              {/* 4. Potencial */}
-              <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-2xl flex flex-col justify-center items-center relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-2 opacity-5">
-                  <i className="fa-solid fa-gem text-4xl"></i>
-                </div>
-                <p className="text-lg font-black text-blue-400">{formatCurrencyAbbrev(potentialSales)}</p>
-                <p className="text-[10px] uppercase font-bold text-slate-500">Potencial</p>
-              </div>
-            </div>
 
             {/* Cards de Resumo - DESKTOP ORIGINAL */}
             <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -1288,7 +1275,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
 
 
             {/* Cronograma de Obra - Opção Visual com Fotos */}
-            <div className="glass rounded-2xl p-4 md:p-6 border border-slate-700 overflow-x-auto">
+            <div ref={scrollContainerRef} className="glass rounded-2xl p-3 md:p-6 border border-slate-700 overflow-x-auto">
               <div className="flex items-center justify-between mb-8 sticky left-0">
                 <h3 className="font-black text-white text-xs md:text-sm uppercase tracking-widest flex items-center gap-2">
                   <i className="fa-solid fa-timeline text-blue-400"></i>
@@ -1351,7 +1338,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               </div>
 
               {/* Stepper Visual Fotos */}
-              <div className="relative py-4 min-w-[800px] px-10">
+              <div className="relative py-1 md:py-4 w-full md:min-w-[800px] px-4 md:px-10">
                 {/* Linha de fundo */}
                 <div className="absolute top-1/2 left-0 right-0 h-[4px] bg-slate-800 rounded-full -translate-y-1/2 z-0"></div>
 
@@ -1386,6 +1373,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                         </div>
 
                         <button
+                          id={isCurrent ? 'current-stage-indicator' : undefined}
                           disabled={false}
                           onClick={() => {
                             if (isCurrent) {
@@ -1405,7 +1393,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                             }
                           }}
                           className={`relative rounded-full transition-all duration-300 flex items-center justify-center overflow-hidden border-4 shadow-xl ${isCurrent
-                            ? 'w-24 h-24 ring-4 ring-blue-500/40 border-blue-500 scale-110'
+                            ? 'w-16 h-16 md:w-24 md:h-24 ring-4 ring-blue-500/40 border-blue-500 scale-110'
                             : isCompleted
                               ? 'w-12 h-12 border-blue-500/50 hover:border-blue-400 opacity-90'
                               : 'w-12 h-12 border-slate-700 bg-slate-800 opacity-50 grayscale'
@@ -1536,7 +1524,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                     </span>
                     Vendas & Lucro
                   </h3>
-                  <div className="px-4 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-slate-400">
+                  <div className="hidden md:block px-4 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-slate-400">
                     Dashboard Financeiro
                   </div>
                 </div>

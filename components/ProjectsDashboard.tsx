@@ -112,12 +112,12 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
           <p className="font-bold text-lg">Nenhuma obra encontrada. Vamos construir?</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           {projects.map(p => (
             <div
               key={p.id}
               onClick={() => onSelect(p.id)}
-              className="bg-white rounded-2xl p-5 md:p-10 cursor-pointer shadow-xl hover:shadow-2xl transition-all group border border-slate-100 hover:-translate-y-2 relative overflow-hidden flex flex-col h-full"
+              className="bg-white rounded-2xl p-5 md:p-6 cursor-pointer shadow-xl hover:shadow-2xl transition-all group border border-slate-100 hover:-translate-y-2 relative overflow-hidden flex flex-col h-full"
             >
               <div className="flex justify-between items-start mb-8">
                 {(() => {
@@ -130,15 +130,15 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
 
                   if (photo) {
                     return (
-                      <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg border-2 border-blue-500/30 group-hover:border-blue-500 transition-colors">
+                      <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-lg border-2 border-blue-500/30 group-hover:border-blue-500 transition-colors">
                         <StageThumbnail photoPath={photo} className="w-full h-full" />
                       </div>
                     );
                   }
 
                   return (
-                    <div className="bg-blue-50 text-blue-600 p-4 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm">
-                      <i className="fa-solid fa-building text-2xl"></i>
+                    <div className="bg-blue-50 text-blue-600 p-3 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm">
+                      <i className="fa-solid fa-building text-xl"></i>
                     </div>
                   );
                 })()}
