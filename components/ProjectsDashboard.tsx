@@ -112,12 +112,12 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
           <p className="font-bold text-lg">Nenhuma obra encontrada. Vamos construir?</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0 md:gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-10">
           {projects.map(p => (
             <div
               key={p.id}
               onClick={() => onSelect(p.id)}
-              className="bg-white rounded-[3rem] p-10 cursor-pointer shadow-xl hover:shadow-2xl transition-all group border border-slate-100 hover:-translate-y-2 relative overflow-hidden flex flex-col h-full"
+              className="bg-white rounded-2xl p-5 md:p-10 cursor-pointer shadow-xl hover:shadow-2xl transition-all group border border-slate-100 hover:-translate-y-2 relative overflow-hidden flex flex-col h-full"
             >
               <div className="flex justify-between items-start mb-8">
                 {(() => {

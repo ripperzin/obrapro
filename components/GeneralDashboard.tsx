@@ -221,11 +221,11 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    const modalRoot = document.getElementById('modal-root');
 
    return (
-      <div className="animate-fade-in min-h-full px-0 md:px-0">
+      <div className="animate-fade-in min-h-full">
          {/* ===== MOBILE LAYOUT ===== */}
          <div className="block md:hidden space-y-4">
-            <div className="space-y-4 px-1">
-               <div className="flex justify-between items-end mb-2 px-2">
+            <div className="space-y-4">
+               <div className="flex justify-between items-end mb-2">
                   <h2 className="text-white font-bold text-lg">Resumo Geral</h2>
                   <span className="text-slate-400 text-xs">{formattedDate}</span>
                </div>
@@ -311,7 +311,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
          </div>
 
          {isAdmin && onAddExpense && projects.length > 0 && (
-            <div className="p-4 block md:hidden">
+            <div className="mt-4 block md:hidden">
                <button
                   onClick={openExpenseModal}
                   className="w-full flex items-center justify-center gap-3 py-4 bg-green-600/20 border border-green-500/40 rounded-2xl text-green-400 hover:bg-green-600/30 transition-all active:scale-[0.98]"
@@ -322,8 +322,8 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
             </div>
          )}
 
-         <div className="space-y-4 px-4 block md:hidden">
-            <div className="flex justify-between items-center px-2">
+         <div className="space-y-4 block md:hidden">
+            <div className="flex justify-between items-center">
                <h3 className="text-slate-400 font-bold text-xs uppercase tracking-widest">Seus Projetos</h3>
                {isAdmin && onAddProject && (
                   <button
