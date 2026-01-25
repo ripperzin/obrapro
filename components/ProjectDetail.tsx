@@ -1128,7 +1128,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
             {/* 6. DIÁRIO */}
             <button
               onClick={() => setActiveTab('diary')}
-              className={`h-24 col-span-2 lg:col-span-1 flex flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'diary'
+              className={`h-24 lg:col-span-1 flex flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'diary'
                 ? 'bg-cyan-600/20 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]'
                 : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50'
                 }`}
