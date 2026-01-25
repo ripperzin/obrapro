@@ -10,6 +10,9 @@ if (!rootElement) {
 
 import ErrorBoundary from './components/ErrorBoundary';
 
+console.log("Iniciando render...");
+alert("App iniciado no navegador!");
+
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
