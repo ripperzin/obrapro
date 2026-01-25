@@ -1412,6 +1412,64 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               </div>
             </div>
 
+
+            {/* Card SAÚDE FINANCEIRA - Restored & Refined */}
+            <div className="glass rounded-2xl p-4 md:p-6 border border-slate-700 overflow-hidden relative group">
+              {/* Background Decoration */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
+
+              <div className="flex flex-col md:flex-row gap-6 items-center relative z-10">
+                {/* Left: Title & Progress */}
+                <div className="flex-1 w-full">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-black text-white text-xs md:text-sm uppercase tracking-widest flex items-center gap-2">
+                      <i className="fa-solid fa-chart-pie text-blue-400"></i>
+                      <span>Saúde Financeira</span>
+                    </h3>
+                    <div className={`px-3 py-1 rounded-full text-xs font-black flex items-center gap-2 ${budgetUsage > 100 ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
+                      {budgetUsage > 100 && <i className="fa-solid fa-triangle-exclamation"></i>}
+                      {budgetUsage.toFixed(1)}% <span className="opacity-70 text-[10px]">do Orçamento</span>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="h-4 bg-slate-800 rounded-full overflow-hidden border border-slate-700 p-0.5">
+                    <div
+                      className={`h-full rounded-full transition-all duration-1000 relative overflow-hidden ${budgetUsage > 100 ? 'bg-gradient-to-r from-red-500 to-orange-600' : 'bg-gradient-to-r from-blue-500 to-cyan-400'}`}
+                      style={{ width: `${Math.min(budgetUsage, 100)}%` }}
+                    >
+                      {/* Shine Effect */}
+                      <div className="absolute top-0 left-0 bottom-0 right-0 bg-gradient-to-b from-white/20 to-transparent"></div>
+                    </div>
+                  </div>
+
+                  {/* Labels for Progress Bar */}
+                  <div className="flex justify-between mt-2 text-[10px] uppercase font-bold text-slate-500">
+                    <span>0%</span>
+                    <span>50%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+
+                {/* Right: Key Metrics Grid */}
+                <div className="grid grid-cols-2 gap-4 w-full md:w-auto min-w-[300px]">
+                  {/* Realizado */}
+                  <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+                    <p className="text-[9px] text-blue-400 font-black uppercase mb-1">Custo Realizado</p>
+                    <p className="text-xl font-black text-white">{formatCurrency(totalActualExpenses)}</p>
+                  </div>
+
+                  {/* Vendas Estimadas (To match context, could trigger budget total instead) */}
+                  <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+                    <p className="text-[9px] text-slate-500 font-black uppercase mb-1">Custo Orçado</p>
+                    <p className="text-xl font-black text-slate-300">
+                      {totalUnitsCost > 0 ? formatCurrency(totalUnitsCost) : <span className="text-sm opacity-50">Não definido</span>}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* NEW VENDAS & LUCRO DASHBOARD (Bento Format) */}
             <div className="glass rounded-3xl p-6 border border-slate-700/50 relative overflow-hidden group">
               {/* Background Glow Effects - Reduced Blur for Performance */}
