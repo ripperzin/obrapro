@@ -288,17 +288,17 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Container Principal - Dark Theme (Mobile: Full Width / Desktop: Card) */}
-      <div className="!p-0 md:glass md:rounded-3xl md:!p-8 space-y-6">
+      {/* Container Principal - Dark Theme (Mobile: Flat / Desktop: Card) */}
+      <div className="md:glass md:rounded-3xl md:p-8 space-y-6">
         {/* Navegação de Abas - Dark Theme */}
         {/* Navegação BENTO GRID - Redesign Premium */}
         {/* Navegação BENTO GRID - Redesign Premium "Chunky" */}
         <div className="mb-8 w-full">
-          <div className="grid grid-cols-2 gap-2 md:gap-4">
+          <div className="grid grid-cols-2 gap-2 md:gap-4 md:glass-none px-4 md:px-0">
             {/* 1. GESTÃO - Card Largo (Highlight) */}
             <button
               onClick={() => setActiveTab('info')}
-              className={`col-span-2 h-28 md:h-32 p-4 md:p-5 rounded-2xl md:rounded-3xl relative overflow-hidden transition-all duration-300 group border-l-[6px] ${activeTab === 'info'
+              className={`col-span-2 h-24 md:h-32 p-4 md:p-5 rounded-xl md:rounded-3xl relative overflow-hidden transition-all duration-300 group ${activeTab === 'info'
                 ? 'glass border-blue-500 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.1)]'
                 : 'glass border-transparent hover:bg-slate-800/50'
                 }`}

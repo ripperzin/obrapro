@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Project, ProgressStage, Expense } from '../types';
 import { formatCurrency, calculateMonthsBetween, formatCurrencyAbbrev } from '../utils';
+import { useInflation } from '../hooks/useInflation';
 
 import ConfirmModal from './ConfirmModal';
 import MoneyInput from './MoneyInput';
@@ -111,8 +112,11 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
       });
    });
 
+   const { inflationRate } = useInflation();
+
    const avgRoi = soldUnitsCount > 0 ? totalRoi / soldUnitsCount : 0;
    const avgMonthlyRoi = soldUnitsCount > 0 ? totalMonthlyRoi / soldUnitsCount : 0;
+   const avgRealMonthlyRoi = avgMonthlyRoi - inflationRate;
 
    const totalUnits = unitsInventory.availableCount + unitsInventory.soldCount;
    const salesPerformance = totalUnits > 0 ? (unitsInventory.soldCount / totalUnits) * 100 : 0;
@@ -228,7 +232,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                </div>
 
                {/* Row 1: Sales & Stock (Square Grid) */}
-               <div className="grid grid-cols-2 gap-3">
+               <div className="grid grid-cols-2 gap-2">
                   {/* Sales - Green Theme */}
                   <div className="bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/20 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 relative overflow-hidden group">
                      <div className="absolute top-0 right-0 p-2 opacity-20">
@@ -294,8 +298,8 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
 
                   {/* Monthly Margin */}
                   <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
-                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Margem Mensal</p>
-                     <p className="text-blue-400 font-black text-2xl">{(avgMonthlyRoi * 100).toFixed(1)}%</p>
+                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Margem Real (a.m.)</p>
+                     <p className="text-blue-400 font-black text-2xl">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
                      <div className="w-12 h-1 bg-blue-500/30 rounded-full mt-1"></div>
                   </div>
                </div>
@@ -350,7 +354,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   <div
                      key={p.id}
                      onClick={() => onSelectProject?.(p.id)}
-                     className="glass md:glass rounded-xl md:rounded-2xl p-3 md:p-4 flex items-center gap-4 card-hover cursor-pointer active:scale-[0.98] transition-transform border-b border-white/5 md:border-none"
+                     className="w-full py-4 flex items-center gap-4 bg-transparent border-b border-slate-800 active:bg-slate-800/50 transition-colors"
                   >
                      {/* Project Thumbnail */}
                      {(() => {
@@ -560,8 +564,8 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                <i className="fa-solid fa-calendar-check text-blue-400"></i>
             </div>
             <div>
-               <p className="text-blue-400 font-black text-xl">{(avgMonthlyRoi * 100).toFixed(1)}%</p>
-               <p className="text-slate-400 text-xs font-medium">Margem Mensal</p>
+               <p className="text-blue-400 font-black text-xl">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
+               <p className="text-slate-400 text-xs font-medium">Margem Real (a.m.)</p>
             </div>
          </div>
       </div>
