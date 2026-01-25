@@ -33,7 +33,7 @@ const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  console.log("App Render Loop: currentUser =", currentUser);
+
   const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users' | 'audit'>('general');
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
