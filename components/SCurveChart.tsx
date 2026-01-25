@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area } from 'recharts';
 import { Project, STAGE_NAMES } from '../types';
-import { formatCurrency } from '../utils';
+import { formatCurrency, formatCurrencyAbbrev } from '../utils';
 
 interface SCurveChartProps {
     projects: Project[];
@@ -122,10 +122,10 @@ const SCurveChart: React.FC<SCurveChartProps> = ({ projects }) => {
                 <LineChart
                     data={data}
                     margin={{
-                        top: 20,
-                        right: 30,
-                        left: 20,
-                        bottom: 5,
+                        top: 10,
+                        right: 10,
+                        left: 0,
+                        bottom: 0,
                     }}
                 >
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
@@ -138,11 +138,11 @@ const SCurveChart: React.FC<SCurveChartProps> = ({ projects }) => {
                     <YAxis
                         stroke="#94a3b8"
                         tick={{ fill: '#94a3b8', fontSize: 10 }}
-                        tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                        tickFormatter={(value) => formatCurrencyAbbrev(value)}
                     />
                     <Tooltip
                         contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
-                        formatter={(value: number) => formatCurrency(value)}
+                        formatter={(value: number) => formatCurrencyAbbrev(value)}
                         labelStyle={{ color: '#94a3b8' }}
                     />
                     <Legend wrapperStyle={{ paddingTop: '10px' }} />

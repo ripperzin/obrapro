@@ -132,17 +132,20 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ project, onClose }) => {
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-6 space-y-8">
                 {/* S-Curve Overview */}
-                <div className="glass p-8 rounded-3xl border border-white/5">
+                <div className="glass p-4 md:p-8 rounded-3xl border border-white/5">
                     <div className="flex justify-between items-end mb-8">
                         <div>
-                            <h3 className="text-lg font-black text-white uppercase">Acompanhamento de Progresso</h3>
-                            <p className="text-slate-500 text-xs font-bold uppercase">Curva S (Planejado vs Realizado)</p>
+                            <h3 className="text-lg font-black text-white uppercase">
+                                <span className="md:hidden">Progresso</span>
+                                <span className="hidden md:inline">Acompanhamento de Progresso</span>
+                            </h3>
+                            <p className="text-slate-500 text-xs font-bold uppercase">
+                                <span className="md:hidden">Planejado x Realizado</span>
+                                <span className="hidden md:inline">Curva S (Planejado vs Realizado)</span>
+                            </p>
                         </div>
                         <div className="flex gap-6">
-                            <div className="text-right">
-                                <p className="text-[10px] text-slate-500 font-black uppercase">Investimento Total</p>
-                                <p className="text-xl font-black text-white">{formatCurrency(project.expectedTotalCost)}</p>
-                            </div>
+                            {/* Investimento Total removed */}
                         </div>
                     </div>
                     <SCurveChart projects={[project]} />
