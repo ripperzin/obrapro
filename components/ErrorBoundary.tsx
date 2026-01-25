@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
     children: ReactNode;
@@ -10,8 +10,7 @@ interface State {
     errorInfo: ErrorInfo | null;
 }
 
-// Usando any na herança para evitar que o tsc falhe se os tipos do React não estiverem 100% sincronizados
-class ErrorBoundary extends (React.Component as any) {
+class ErrorBoundary extends Component<Props, State> {
     constructor(props: Props) {
         super(props);
         this.state = {
@@ -45,11 +44,8 @@ class ErrorBoundary extends (React.Component as any) {
                             </div>
                         </div>
 
-                        <div className="bg-black/30 rounded-xl p-4 mb-6 overflow-auto max-h-60 border border-slate-700 font-mono text-sm">
-                            <p className="text-red-400 font-bold mb-2">{this.state.error?.toString()}</p>
-                            <pre className="text-slate-500 text-xs whitespace-pre-wrap">
-                                {this.state.errorInfo?.componentStack}
-                            </pre>
+                        <div className="bg-black/30 rounded-xl p-4 mb-6 overflow-auto max-h-60 border border-slate-700 font-mono text-sm text-red-400">
+                            {this.state.error?.toString()}
                         </div>
 
                         <button
