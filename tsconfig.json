@@ -11,7 +11,10 @@
     ],
     "skipLibCheck": true,
     "types": [
-      "node"
+      "node",
+      "vite/client",
+      "vite-plugin-pwa/react",
+      "vite-plugin-pwa/info"
     ],
     "moduleResolution": "bundler",
     "isolatedModules": true,
@@ -25,5 +28,23 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": [
+    "src",
+    "*.ts",
+    "*.tsx",
+    "components",
+    "utils",
+    "hooks",
+    "types.ts",
+    "supabaseClient.ts",
+    "App.tsx",
+    "index.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "landing",
+    ".gemini"
+  ]
 }
