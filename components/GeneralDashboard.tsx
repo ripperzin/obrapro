@@ -398,8 +398,8 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
          {/* ===== DESKTOP LAYOUT (Horizontal Ribbon - Opção 2) ===== */}
          <div className="hidden md:block">
             {/* Top Ribbon Container */}
-            <div className="p-8 pb-0">
-               <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-700/50 rounded-[2.5rem] p-6 flex items-center justify-between gap-6 shadow-2xl">
+            <div className="p-8 pb-4">
+               <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-700/50 rounded-[2.5rem] p-8 flex items-center justify-between gap-10 shadow-2xl">
                   {/* Greeting & Date */}
                   <div className="flex flex-col gap-1 min-w-[200px]">
                      <h1 className="text-3xl font-black text-white italic tracking-tight truncate">
@@ -414,7 +414,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   <div className="h-12 w-px bg-slate-700/50"></div>
 
                   {/* KPI Items Scrollable/Flex Area */}
-                  <div className="flex-1 flex items-center justify-start gap-4">
+                  <div className="flex-1 flex items-center justify-center gap-6">
                      {/* Vendidas */}
                      <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-blue-500/5 border border-blue-500/10 hover:bg-blue-500/10 transition-colors group">
                         <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
@@ -459,18 +459,28 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                         </div>
                      </div>
 
-                     {/* Margens */}
-                     <div className="flex items-center gap-4 px-6 py-3 rounded-2xl bg-slate-800/40 border border-slate-700/30">
-                        <div className="flex flex-col items-center border-r border-slate-700/50 pr-4">
-                           <p className="text-green-400 font-black text-lg">{(avgRoi * 100).toFixed(0)}%</p>
-                           <p className="text-slate-500 text-[8px] font-bold uppercase">Média</p>
+                     {/* Margens Section - Reimagined for Clarity */}
+                     <div className="flex items-center gap-4 bg-slate-800/40 border border-slate-700/30 p-2 rounded-[2rem]">
+                        {/* Margem Média - Circular Accent */}
+                        <div className="px-5 py-2 flex flex-col items-center justify-center">
+                           <p className="text-green-400 font-black text-2xl leading-tight">{(avgRoi * 100).toFixed(0)}<span className="text-xs ml-0.5">%</span></p>
+                           <p className="text-slate-500 text-[9px] font-black uppercase tracking-tighter">Média</p>
                         </div>
-                        <div className="flex flex-col items-start pl-2">
-                           <p className="text-blue-400 font-black text-lg">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
-                           <p className="text-slate-500 text-[8px] font-bold uppercase">Real (a.m.)</p>
-                           <div className="flex items-center gap-1 mt-0.5 text-[7px] font-bold">
-                              <span className="text-slate-600">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
-                              <span className="text-red-400/60">-{(inflationRate * 100).toFixed(1)}% IPCA</span>
+
+                        {/* Divider */}
+                        <div className="h-10 w-px bg-slate-700/50"></div>
+
+                        {/* Margem Real - Full Info */}
+                        <div className="pl-2 pr-6 py-2 flex flex-col gap-0.5 min-w-[120px]">
+                           <div className="flex items-baseline gap-1.5">
+                              <p className="text-blue-400 font-black text-2xl leading-tight">{(avgRealMonthlyRoi * 100).toFixed(1)}<span className="text-xs ml-0.5">%</span></p>
+                              <span className="text-slate-500 text-[9px] font-bold uppercase">Real (A.M.)</span>
+                           </div>
+                           <div className="flex items-center gap-2">
+                              <span className="text-slate-600 text-[10px] font-bold">{(avgMonthlyRoi * 100).toFixed(2)}%</span>
+                              <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/80 text-[8px] font-black rounded border border-red-500/20 leading-none">
+                                 -{(inflationRate * 100).toFixed(1)}% IPCA
+                              </span>
                            </div>
                         </div>
                      </div>
