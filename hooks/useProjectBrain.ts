@@ -46,13 +46,11 @@ export const useProjectBrain = (): ProjectBrainHook => {
                         content: d.content,
                         author: d.author
                     })),
-                    // 4. Documentação
-                    documents: p.documents.map(d => ({
-                        title: d.title,
-                        category: d.category
-                    }))
+                    // 4. Documentação (Apenas contagem)
+                    documentCount: p.documents.length
                 })),
-                activeTab: currentProjectId ? 'Detalhes da Obra' : 'Painel Geral'
+                activeTab: currentProjectId ? 'Detalhes da Obra' : 'Painel Geral',
+                instructions: "Responda de forma curta e objetiva. Use os dados financeiros reais acima."
             };
 
             return await chatWithData(message, history, context);
