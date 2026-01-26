@@ -4,7 +4,9 @@ import { ProjectMacro, ProjectSubMacro } from '../types';
 import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import AttachmentUpload from './AttachmentUpload';
-import { getSignedUrl } from '../utils/storage';
+import { ReceiptScanner } from './ReceiptScanner';
+import { ReceiptData } from '../lib/gemini';
+import { getSignedUrl, uploadFile } from '../utils/storage';
 
 interface AddExpenseModalProps {
     isOpen: boolean;
@@ -60,6 +62,32 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
         resolveParams();
     }, [formData.attachments]);
 
+    const handleScanComplete = async (data: ReceiptData, file: File) => {
+        // Upload file automatically
+        let attachmentPath = undefined;
+        if (file) {
+            const path = await uploadFile(file);
+            if (path) {
+                attachmentPath = path;
+            }
+        }
+
+        // Prepare description
+        let desc = data.description || '';
+        if (data.merchant) {
+            desc = desc ? `${data.merchant} - ${desc}` : data.merchant;
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            date: data.date || prev.date,
+            value: data.amount || prev.value,
+            description: desc || prev.description,
+            // Add new attachment specific to this scan
+            attachments: attachmentPath ? [...(prev.attachments || []), attachmentPath] : prev.attachments
+        }));
+    };
+
     if (!isOpen) return null;
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -100,6 +128,10 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
+
+                    <div className="mb-4">
+                        <ReceiptScanner onScanComplete={handleScanComplete} />
+                    </div>
                     <div className="space-y-2">
                         <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Descrição</label>
                         <input

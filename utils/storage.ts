@@ -1,4 +1,41 @@
 import { supabase } from '../supabaseClient';
+import { compressImage } from './imageCompression';
+
+/**
+ * Faz upload de um arquivo para o Storage
+ * @param file Arquivo para upload
+ * @param bucketName Nome do bucket
+ * @returns Path do arquivo salvo ou null se falhar
+ */
+export const uploadFile = async (file: File, bucketName: string = 'expense-attachments'): Promise<string | null> => {
+    try {
+        // Tentar comprimir se for imagem
+        let fileToUpload = file;
+        if (file.type.startsWith('image/')) {
+            try {
+                fileToUpload = await compressImage(file);
+            } catch (err) {
+                console.warn('Falha na compressão, usando arquivo original', err);
+            }
+        }
+
+        // Gerar nome único
+        const fileExt = fileToUpload.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = bucketName === 'expense-attachments' ? `expenses/${fileName}` : `docs/${fileName}`;
+
+        const { error } = await supabase.storage
+            .from(bucketName)
+            .upload(filePath, fileToUpload);
+
+        if (error) throw error;
+        return filePath;
+
+    } catch (err) {
+        console.error('Erro no upload:', err);
+        return null;
+    }
+};
 
 /**
  * Gera uma URL temporária (signed URL) para acessar um arquivo privado no Storage
