@@ -93,17 +93,15 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
 
   return (
     <div className="space-y-4 md:space-y-8 animate-fade-in">
-      {isAdmin && (
-        <div className="flex justify-end">
-          <button
-            onClick={openAddModal}
-            className="w-full md:w-auto px-8 py-4 bg-emerald-600 text-white rounded-2xl md:rounded-full hover:bg-emerald-700 transition shadow-lg md:shadow-xl shadow-emerald-900/20 font-black flex items-center justify-center gap-2 border border-emerald-500/50"
-          >
-            <i className="fa-solid fa-plus"></i>
-            ADICIONAR EMPREENDIMENTO
-          </button>
-        </div>
-      )}
+      <div className="flex justify-end">
+        <button
+          onClick={openAddModal}
+          className="w-full md:w-auto px-8 py-4 bg-emerald-600 text-white rounded-2xl md:rounded-full hover:bg-emerald-700 transition shadow-lg md:shadow-xl shadow-emerald-900/20 font-black flex items-center justify-center gap-2 border border-emerald-500/50"
+        >
+          <i className="fa-solid fa-plus"></i>
+          ADICIONAR EMPREENDIMENTO
+        </button>
+      </div>
 
       {/* Grid de Projetos - Full Width Mobile */}
       {projects.length === 0 ? (

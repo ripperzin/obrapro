@@ -507,7 +507,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                      <i className="fa-solid fa-building text-blue-400"></i>
                      EMPREENDIMENTOS
                   </h3>
-                  {isAdmin && onAddProject && (
+                  {onAddProject && (
                      <button
                         onClick={openAddModal}
                         className="px-8 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-600/30 font-black flex items-center gap-2 border border-blue-400/50"

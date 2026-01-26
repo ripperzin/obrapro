@@ -33,12 +33,11 @@ const parseInvestorRoute = (): string | null => {
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-
+  const [authLoading, setAuthLoading] = useState(true); // Nova flag de carregamento
+  const [debugError, setDebugError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users' | 'audit'>('general');
-
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-
   const [users, setUsers] = useState<User[]>([INITIAL_ADMIN]);
 
   const { data: projects = [], refetch: refreshProjects } = useProjects();
@@ -46,13 +45,9 @@ const App: React.FC = () => {
   const updateProjectMutation = useUpdateProject();
   const deleteProjectMutation = useDeleteProject();
 
-  // const [projects, setProjects] = useState<Project[]>([]); // Replaced by hook
-  const isLoaded = useRef(false); // Flag de blindagem
-
-  // Investor Mode Route State
+  const isLoaded = useRef(false);
   const [investorProjectId, setInvestorProjectId] = useState<string | null>(parseInvestorRoute());
 
-  // Listen for hash changes (investor mode)
   useEffect(() => {
     const handleHashChange = () => {
       setInvestorProjectId(parseInvestorRoute());
@@ -61,39 +56,84 @@ const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // 1. Monitoramento de Sessão (Supabase Auth)
+  // 1. Monitoramento de Sessão
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-    });
+      if (!session) setAuthLoading(false); // Se não tem sessão, para de carregar
+    }).catch(err => setDebugError(err.message));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (!session) setAuthLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // 2. Mapeamento de Usuário baseado na Sessão
+  // 2. Mapeamento de Usuário e Perfil
   useEffect(() => {
-    if (session?.user) {
-      const userEmail = session.user.email || '';
-      const isAdmin = userEmail.startsWith('victoravila') || userEmail === 'admin@obrapro.com';
+    let mounted = true;
 
-      setCurrentUser({
-        id: session.user.id,
-        login: userEmail.split('@')[0],
-        password: '',
-        role: isAdmin ? UserRole.ADMIN : UserRole.STANDARD,
-        allowedProjectIds: [], // Pode ser populado por uma tabela de permissões no futuro
-        canSeeUnits: true
-      });
-    } else {
-      setCurrentUser(null);
-    }
+    const fetchProfile = async () => {
+      if (session?.user) {
+        setAuthLoading(true);
+        try {
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (error) {
+            console.error('Erro Profile Supabase:', error);
+            // setDebugError(`Erro ao buscar perfil: ${error.message} (${error.code})`);
+            // Se der erro (ex: RLS bloqueando), tenta continuar como user padrão
+          }
+
+          if (mounted) {
+            if (profile) {
+              // Normalizar role para maiúsculo para bater com o Enum
+              const dbRole = (profile.role || '').toUpperCase();
+
+              setCurrentUser({
+                id: session.user.id,
+                login: profile.email ? profile.email.split('@')[0] : 'Usuário',
+                password: '',
+                role: dbRole === 'ADMIN' ? UserRole.ADMIN : UserRole.STANDARD,
+                allowedProjectIds: [],
+                canSeeUnits: true
+              });
+            } else {
+              // Fallback
+              const userEmail = session.user.email || '';
+              setCurrentUser({
+                id: session.user.id,
+                login: userEmail.split('@')[0],
+                password: '',
+                role: UserRole.STANDARD, // Downgrade seguro
+                allowedProjectIds: [],
+                canSeeUnits: true
+              });
+            }
+          }
+        } catch (error: any) {
+          console.error('Erro Fatal FetchProfile:', error);
+          setDebugError(`Erro Fatal: ${error.message}`);
+        } finally {
+          if (mounted) setAuthLoading(false);
+        }
+      }
+    };
+
+    fetchProfile();
+
+    return () => {
+      mounted = false;
+    };
   }, [session]);
 
-  // 2.1 Notificações
+  // 2.1 Notificações (Restored)
   const { requestPermission } = useNotifications(projects);
 
   // Solicitar permissão ao carregar se tiver usuário
@@ -102,12 +142,6 @@ const App: React.FC = () => {
       requestPermission();
     }
   }, [currentUser]);
-
-  // 3. Busca de Dados do Banco (Supabase) - REMOVED (Replaced by useProjects)
-
-  const refreshProject = async () => {
-    await refreshProjects();
-  };
 
   // Salvamento condicional apenas para usuários locais (opcional/legado)
   useEffect(() => {
@@ -321,9 +355,25 @@ const App: React.FC = () => {
 
   const filteredProjects = useMemo(() => {
     if (!currentUser) return [];
-    if (currentUser.role === UserRole.ADMIN) return projects;
-    return projects.filter(p => currentUser.allowedProjectIds.includes(p.id));
+    // RLS já filtra no backend. O frontend mostra tudo que chegou.
+    return projects;
   }, [projects, currentUser]);
+
+  // Se estiver carregando, mostra tela de loading (MOVED TO BOTTOM)
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+        <p className="font-bold text-lg">Carregando sistema...</p>
+        {debugError && (
+          <div className="mt-4 p-4 bg-red-900/50 border border-red-500 rounded text-red-200 text-sm max-w-md break-words">
+            <p className="font-bold">Erro detectado:</p>
+            {debugError}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // Investor Mode - Public route (no auth required)
   if (investorProjectId) {
@@ -404,7 +454,7 @@ const App: React.FC = () => {
               user={currentUser}
               onUpdate={updateProject}
               onDeleteUnit={deleteUnit}
-              onRefresh={refreshProject}
+              onRefresh={refreshProjects}
             />
           ) : (
             <ProjectsDashboard
@@ -442,7 +492,7 @@ const App: React.FC = () => {
             user={currentUser}
             onUpdate={updateProject}
             onDeleteUnit={deleteUnit}
-            onRefresh={refreshProject}
+            onRefresh={refreshProjects}
             onUpdateDiary={handleUpdateDiary}
             onDeleteDiary={handleDeleteDiary}
           />
@@ -450,8 +500,6 @@ const App: React.FC = () => {
 
         {activeTab === 'users' && currentUser.role === UserRole.ADMIN && (
           <UserManagement
-            users={users}
-            setUsers={setUsers}
             projects={projects}
             currentUser={currentUser}
           />

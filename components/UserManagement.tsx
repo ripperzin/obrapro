@@ -1,134 +1,196 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, UserRole, Project } from '../types';
+import { supabase } from '../supabaseClient';
 import { generateId } from '../utils';
 
 interface UserManagementProps {
-  users: User[];
-  setUsers: React.Dispatch<React.SetStateAction<User[]>>;
+  // Props simplificadas, o componente agora busca seus dados
   projects: Project[];
   currentUser: User;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, projects, currentUser }) => {
-  const [showAdd, setShowAdd] = useState(false);
-  const [formData, setFormData] = useState<Omit<User, 'id'>>({
-    login: '',
-    password: '',
-    role: UserRole.STANDARD,
-    allowedProjectIds: [],
-    canSeeUnits: true
-  });
+// Tipo estendido para incluir dados do banco
+interface UserProfile extends User {
+  email: string;
+}
 
-  const handleCreateUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newUser: User = { ...formData, id: generateId() };
-    setUsers([...users, newUser]);
-    setShowAdd(false);
-    setFormData({ login: '', password: '', role: UserRole.STANDARD, allowedProjectIds: [], canSeeUnits: true });
+const UserManagement: React.FC<UserManagementProps> = ({ projects, currentUser }) => {
+  const [profiles, setProfiles] = useState<UserProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Buscar perfis e permissões reais
+  const fetchUsersData = async () => {
+    try {
+      setLoading(true);
+
+      // 1. Buscar Perfis
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (profilesError) throw profilesError;
+
+      // 2. Buscar Membros de Projetos
+      const { data: membersData, error: membersError } = await supabase
+        .from('project_members')
+        .select('*');
+
+      if (membersError) throw membersError;
+
+      // 3. Montar objeto unificado
+      const fullProfiles: UserProfile[] = profilesData.map(p => {
+        // Encontrar projetos onde este usuário é membro
+        const userProjects = membersData
+          .filter(m => m.user_id === p.id)
+          .map(m => m.project_id);
+
+        return {
+          id: p.id,
+          login: p.email.split('@')[0], // Fallback visual
+          email: p.email,
+          role: (p.role || 'standard').toUpperCase() as UserRole,
+          allowedProjectIds: userProjects,
+          canSeeUnits: true // Por enquanto hardcoded ou criar coluna futura
+        };
+      });
+
+      setProfiles(fullProfiles);
+    } catch (err: any) {
+      console.error('Erro ao buscar usuários:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const toggleProjectAccess = (userId: string, projectId: string) => {
-    setUsers(users.map(u => {
-      if (u.id === userId) {
-        const allowed = u.allowedProjectIds.includes(projectId)
-          ? u.allowedProjectIds.filter(id => id !== projectId)
-          : [...u.allowedProjectIds, projectId];
-        return { ...u, allowedProjectIds: allowed };
+  useEffect(() => {
+    fetchUsersData();
+  }, [projects]); // Recarrega se projetos mudarem
+
+  const toggleProjectAccess = async (userId: string, projectId: string, hasAccess: boolean) => {
+    try {
+      if (hasAccess) {
+        // REMOVER ACESSO
+        const { error } = await supabase
+          .from('project_members')
+          .delete()
+          .match({ project_id: projectId, user_id: userId });
+
+        if (error) throw error;
+      } else {
+        // ADICIONAR ACESSO
+        const { error } = await supabase
+          .from('project_members')
+          .insert({
+            project_id: projectId,
+            user_id: userId,
+            role: 'editor' // Default role
+          });
+
+        if (error) throw error;
       }
-      return u;
-    }));
+
+      // Atualizar UI localmente para ser rápido
+      setProfiles(prev => prev.map(u => {
+        if (u.id === userId) {
+          const newAllowed = hasAccess
+            ? u.allowedProjectIds.filter(id => id !== projectId)
+            : [...u.allowedProjectIds, projectId];
+          return { ...u, allowedProjectIds: newAllowed };
+        }
+        return u;
+      }));
+
+    } catch (err: any) {
+      alert('Erro ao alterar permissão: ' + err.message);
+    }
   };
 
-  const toggleUnitsAccess = (userId: string) => {
-    setUsers(users.map(u => u.id === userId ? { ...u, canSeeUnits: !u.canSeeUnits } : u));
+  const handleCopyInviteLink = () => {
+    const url = window.location.origin;
+    navigator.clipboard.writeText(url);
+    alert('Link copiado! Envie para sua equipe se cadastrar.');
   };
+
+  if (loading) return <div className="p-8 text-white">Carregando usuários...</div>;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-300 pb-20">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-bold text-slate-800">Equipe e Permissões</h3>
+        <h3 className="text-lg font-bold text-slate-200">Gestão de Equipe (Real) 👥</h3>
         <button
-          onClick={() => setShowAdd(true)}
-          className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-bold text-sm"
+          onClick={handleCopyInviteLink}
+          className="px-6 py-2 bg-slate-800 border border-slate-700 text-blue-400 rounded-xl hover:bg-slate-700 transition font-bold text-sm flex items-center gap-2"
         >
-          Criar Novo Usuário
+          <i className="fa-solid fa-link"></i>
+          Copiar Link de Convite
         </button>
       </div>
 
-      {showAdd && (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-lg animate-in slide-in-from-top-4 duration-300">
-          <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-500 uppercase">Login</label>
-              <input required className="w-full p-2.5 bg-white border-2 border-slate-200 rounded-xl text-slate-800 outline-none focus:border-blue-500" value={formData.login} onChange={e => setFormData({ ...formData, login: e.target.value })} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-500 uppercase">Senha</label>
-              <input required type="password" className="w-full p-2.5 bg-white border-2 border-slate-200 rounded-xl text-slate-800 outline-none focus:border-blue-500" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-500 uppercase">Perfil</label>
-              <select className="w-full p-2.5 bg-white border-2 border-slate-200 rounded-xl text-slate-800 outline-none focus:border-blue-500" value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value as UserRole })}>
-                <option value={UserRole.STANDARD}>Usuário Padrão</option>
-                <option value={UserRole.ADMIN}>Administrador</option>
-              </select>
-            </div>
-            <div className="md:col-span-3 flex gap-4 pt-2">
-              <button type="submit" className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-bold">Salvar Usuário</button>
-              <button type="button" onClick={() => setShowAdd(false)} className="px-6 py-2.5 bg-slate-100 text-slate-600 rounded-lg font-bold">Cancelar</button>
-            </div>
-          </form>
+      {error && (
+        <div className="p-4 bg-red-900/20 border border-red-500/50 rounded-xl text-red-200 text-sm">
+          Erro: {error}
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-4">
-        {users.map(u => (
-          <div key={u.id} className="bg-white p-6 rounded-2xl border border-slate-200 flex flex-col md:flex-row gap-6 md:items-center">
-            <div className="w-48">
+        {profiles.map(u => (
+          <div key={u.id} className="bg-slate-800/40 backdrop-blur-sm p-6 rounded-3xl border border-slate-700/50 flex flex-col md:flex-row gap-6 md:items-center shadow-lg">
+            <div className="w-64">
               <div className="flex items-center space-x-3 mb-1">
-                <div className={`w-3 h-3 rounded-full ${u.role === UserRole.ADMIN ? 'bg-purple-500' : 'bg-blue-500'}`}></div>
-                <span className="font-bold text-slate-800">{u.login}</span>
+                <div className={`w-3 h-3 rounded-full ${u.role === UserRole.ADMIN ? 'bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]' : 'bg-blue-500'}`}></div>
+                <div>
+                  <span className="font-bold text-white block">{u.email}</span>
+                  <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">{u.role === UserRole.ADMIN ? 'Administrador' : 'Membro da Equipe'}</span>
+                </div>
               </div>
-              <p className="text-xs text-slate-400 uppercase font-bold tracking-tighter">{u.role === UserRole.ADMIN ? 'Administrador' : 'Usuário Padrão'}</p>
             </div>
 
             <div className="flex-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Obras Liberadas</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase mb-3 tracking-widest">Obras Liberadas</p>
               <div className="flex flex-wrap gap-2">
                 {u.role === UserRole.ADMIN ? (
-                  <span className="text-xs text-purple-600 font-bold bg-purple-50 px-2 py-1 rounded">Acesso Total</span>
+                  <span className="text-xs text-purple-300 font-bold bg-purple-500/10 border border-purple-500/20 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                    <i className="fa-solid fa-crown text-[10px]"></i> Acesso Total (Admin)
+                  </span>
                 ) : (
-                  projects.map(p => (
-                    <button
-                      key={p.id}
-                      onClick={() => toggleProjectAccess(u.id, p.id)}
-                      className={`text-[10px] font-bold px-2 py-1 rounded transition ${u.allowedProjectIds.includes(p.id)
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                        }`}
-                    >
-                      {p.name}
-                    </button>
-                  ))
+                  projects.map(p => {
+                    const hasAccess = u.allowedProjectIds.includes(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => toggleProjectAccess(u.id, p.id, hasAccess)}
+                        className={`text-[10px] font-bold px-3 py-1.5 rounded-lg transition border flex items-center gap-2 ${hasAccess
+                          ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/20'
+                          : 'bg-slate-900/50 border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300'
+                          }`}
+                      >
+                        <i className={`fa-solid ${hasAccess ? 'fa-check' : 'fa-lock'} text-[9px]`}></i>
+                        {p.name}
+                      </button>
+                    );
+                  })
                 )}
               </div>
             </div>
 
-            <div className="w-40 flex flex-col items-end">
-              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Visão Unidades</p>
-              <button
-                disabled={u.role === UserRole.ADMIN}
-                onClick={() => toggleUnitsAccess(u.id)}
-                className={`flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-bold ${u.canSeeUnits ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}
-              >
-                <i className={`fa-solid ${u.canSeeUnits ? 'fa-eye' : 'fa-eye-slash'}`}></i>
-                <span>{u.canSeeUnits ? 'Ativo' : 'Bloqueado'}</span>
-              </button>
-            </div>
+            {/* Removido controle de "Ver Unidades" pois agora é tudo via Project Members */}
           </div>
         ))}
+      </div>
+
+      <div className="bg-blue-900/20 border border-blue-500/30 p-6 rounded-2xl flex gap-4 items-start">
+        <i className="fa-solid fa-info-circle text-blue-400 text-xl mt-1"></i>
+        <div>
+          <h4 className="text-blue-200 font-bold mb-1">Como adicionar pessoas?</h4>
+          <p className="text-slate-400 text-sm leading-relaxed">
+            Por segurança, novos usuários devem criar suas próprias contas.
+            Envie o link do site para sua equipe. Assim que eles se cadastrarem,
+            aparecerão nesta lista automaticamente para você liberar as obras.
+          </p>
+        </div>
       </div>
     </div>
   );
