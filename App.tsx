@@ -16,12 +16,12 @@ import UserManagement from './components/UserManagement';
 import AuditPage from './components/AuditPage';
 import MobileNav from './components/MobileNav';
 import InvestorView from './components/InvestorView';
-import VoiceAssistant from './components/VoiceAssistant';
+import AICopilot from './components/AICopilot';
 import QuickExpenseModal from './components/QuickExpenseModal';
 import QuickDiaryModal from './components/QuickDiaryModal';
 import ReloadPrompt from './components/ReloadPrompt';
 import { useNotifications } from './hooks/useNotifications';
-import { SyncStatus } from './components/SyncStatus'; // Import Check
+import { SyncStatus } from './components/SyncStatus';
 
 // Helper to parse investor route from hash
 const parseInvestorRoute = (): string | null => {
@@ -262,6 +262,8 @@ const App: React.FC = () => {
   const [isQuickDiaryOpen, setIsQuickDiaryOpen] = useState(false);
   const [voiceInitialData, setVoiceInitialData] = useState<any>({});
 
+  const [voiceTrigger, setVoiceTrigger] = useState(0);
+
   const handleVoiceNavigate = (tab: string) => {
     if (tab === 'projects') {
       setActiveTab('projects');
@@ -278,22 +280,37 @@ const App: React.FC = () => {
   };
 
   const handleVoiceAction = (action: string, data?: any) => {
-    console.log('Voice Action:', action, data);
+    console.log('AI Action:', action, data);
 
     if (action === 'ADD_EXPENSE') {
-      // Data comes from VoiceAssistant containing estimatedValue and description
       setVoiceInitialData({
         description: data?.description || data?.text || '',
-        value: data?.estimatedValue || 0,
+        value: data?.value || data?.estimatedValue || 0,
         originalText: data?.text || ''
       });
       setIsQuickExpenseOpen(true);
     } else if (action === 'ADD_DIARY') {
-      const cleanText = data?.text?.replace(/^diário\s+/i, '') || '';
+      const cleanText = data?.content || data?.text?.replace(/^diário\s+/i, '') || '';
       setVoiceInitialData({
         content: cleanText
       });
       setIsQuickDiaryOpen(true);
+    } else if (action === 'NAVIGATE') {
+      if (data?.projectId) {
+        setSelectedProjectId(data.projectId);
+        setActiveTab('general'); // Ensure we go to the view that shows detail
+      } else if (data?.tab) {
+        handleVoiceNavigate(data.tab);
+      }
+    } else if (action === 'ADD_UNIT') {
+      // If we have a project, go to its detail where units are added
+      if (selectedProjectId || data?.projectId) {
+        if (data?.projectId) setSelectedProjectId(data.projectId);
+        setActiveTab('general');
+        // We could potentially open the unit modal here if we expose a ref or similar
+      } else {
+        setActiveTab('projects'); // Go to list to pick a project
+      }
     }
   };
 
@@ -395,6 +412,7 @@ const App: React.FC = () => {
         activeTab={activeTab}
         setActiveTab={(tab) => { setActiveTab(tab); setSelectedProjectId(null); }}
         onLogout={logout}
+        onTriggerAI={() => setVoiceTrigger(prev => prev + 1)}
       />
 
       <main className="flex-1 px-4 md:p-8 overflow-y-auto pb-24 md:pb-8">
@@ -511,14 +529,13 @@ const App: React.FC = () => {
         activeTab={activeTab}
         setActiveTab={(tab) => { setActiveTab(tab); setSelectedProjectId(null); }}
         onLogout={logout}
-        onNavigate={handleVoiceNavigate}
-        onAction={handleVoiceAction}
+        onTriggerAI={() => setVoiceTrigger(prev => prev + 1)}
       />
 
-      {/* Voice Assistant & Global Modals */}
-      <VoiceAssistant
-        onNavigate={handleVoiceNavigate}
+      <AICopilot
+        currentProjectId={selectedProjectId}
         onAction={handleVoiceAction}
+        triggerVoice={voiceTrigger}
       />
 
       <QuickExpenseModal

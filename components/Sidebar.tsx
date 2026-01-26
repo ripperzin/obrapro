@@ -7,9 +7,10 @@ interface SidebarProps {
   activeTab: 'projects' | 'general' | 'users' | 'audit';
   setActiveTab: (tab: 'projects' | 'general' | 'users' | 'audit') => void;
   onLogout: () => void;
+  onTriggerAI: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogout, onTriggerAI }) => {
   const NavItem = ({ id, icon, label }: { id: typeof activeTab; icon: string; label: string }) => (
     <button
       onClick={() => setActiveTab(id)}
@@ -43,6 +44,18 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
           <NavItem id="general" icon="fa-home" label="Início" />
           <NavItem id="audit" icon="fa-fingerprint" label="Auditoria" />
           {role === UserRole.ADMIN && <NavItem id="users" icon="fa-users" label="Usuários" />}
+
+          <button
+            onClick={onTriggerAI}
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all text-indigo-400 hover:bg-indigo-500/10 hover:text-indigo-300"
+          >
+            <svg viewBox="0 0 24 24" className="w-6 h-6 text-indigo-400" fill="currentColor">
+              <path d="M12 3L14.5 8.5L20 11L14.5 13.5L12 19L9.5 13.5L4 11L9.5 8.5L12 3Z" />
+              <path d="M19 3L20 5.5L22.5 6.5L20 7.5L19 10L18 7.5L15.5 6.5L18 5.5L19 3Z" />
+              <path d="M5 14L6 16.5L8.5 17.5L6 18.5L5 21L4 18.5L1.5 17.5L4 16.5L5 14Z" />
+            </svg>
+            <span className="font-bold text-lg">Copiloto IA</span>
+          </button>
         </nav>
 
         <div className="pt-4 border-t border-slate-800">
