@@ -49,8 +49,9 @@ export const useProjectBrain = (): ProjectBrainHook => {
                     // 4. Documentação (Apenas contagem)
                     documentCount: p.documents.length
                 })),
+                activeProjectId: currentProjectId,
                 activeTab: currentProjectId ? 'Detalhes da Obra' : 'Painel Geral',
-                instructions: "Responda de forma curta e objetiva. Use os dados financeiros reais acima."
+                instructions: "Responda de forma curta e objetiva. SEJA EXTREMAMENTE PRECISO com IDs de obras. Se o usuário mencionar uma obra específica (ex: 'obra 37'), verifique se o ID ou Nome corresponde exatamente antes de responder. Não confunda dados de obras diferentes."
             };
 
             return await chatWithData(message, history, context);

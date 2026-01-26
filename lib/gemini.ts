@@ -107,6 +107,9 @@ export const chatWithData = async (message: string, history: ChatMessage[], cont
         const systemPrompt = `
         You are an AI Assistant for "Obra Pro". Help manage construction projects.
         Respond in Portuguese (Brazil). Return ONLY JSON.
+        PRECISION: Never mix data between different projects. Check IDs carefully.
+        If a user mentions a project ID or name, only use data from that specific project.
+        Current selected project is identified by "activeProjectId" in the context.
         
         DATA CONTEXT:
         ${contextSummary}
