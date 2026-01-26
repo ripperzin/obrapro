@@ -165,7 +165,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="flex-1 pt-12">
+      <main className="flex-1 pt-20 md:pt-24">
         {/* Hero Section */}
         <section className="relative px-4 pb-20 lg:pb-32 overflow-hidden">
           <div className="container mx-auto relative">
