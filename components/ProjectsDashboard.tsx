@@ -4,6 +4,7 @@ import { Project, ProgressStage, STAGE_NAMES } from '../types';
 import StageThumbnail from './StageThumbnail';
 import DateInput from './DateInput';
 import ConfirmModal from './ConfirmModal';
+import SwipeableProjectItem from './SwipeableProjectItem';
 
 interface ProjectsDashboardProps {
   projects: Project[];
@@ -103,90 +104,113 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
         </button>
       </div>
 
-      {/* Grid de Projetos - Full Width Mobile */}
+      {/* Grid de Projetos - Desktop and Mobile distinction */}
       {projects.length === 0 ? (
         <div className="bg-white border-4 border-dashed border-slate-200 rounded-[3rem] p-16 text-center text-slate-400">
           <i className="fa-solid fa-helmet-safety text-6xl mb-6 text-slate-200"></i>
           <p className="font-bold text-lg">Nenhuma obra encontrada. Vamos construir?</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          {projects.map(p => (
-            <div
-              key={p.id}
-              onClick={() => onSelect(p.id)}
-              className="bg-white rounded-2xl p-5 md:p-6 cursor-pointer shadow-xl hover:shadow-2xl transition-all group border border-slate-100 hover:-translate-y-2 relative overflow-hidden flex flex-col h-full"
-            >
-              <div className="flex justify-between items-start mb-8">
-                {(() => {
-                  const evidencesWithPhotos = (p.stageEvidence || [])
-                    .filter(e => e.photos && e.photos.length > 0)
-                    .sort((a, b) => b.stage - a.stage);
+        <>
+          {/* MOBILE LIST WITH SWIPE */}
+          <div className="block md:hidden space-y-4">
+            {projects.map(p => {
+              const sold = p.units.filter(u => u.status === 'Sold').length;
+              const total = p.units.length;
+              return (
+                <SwipeableProjectItem
+                  key={p.id}
+                  project={p}
+                  sold={sold}
+                  total={total}
+                  onSelect={onSelect}
+                  onEdit={(p) => openEditModal({ stopPropagation: () => { } } as any, p)}
+                  onDelete={(id) => requestDelete({ stopPropagation: () => { } } as any, id)}
+                  isAdmin={isAdmin}
+                />
+              );
+            })}
+          </div>
 
-                  const latestEvidence = evidencesWithPhotos[0];
-                  const photo = latestEvidence?.photos?.[0];
+          {/* DESKTOP GRID CARDS */}
+          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            {projects.map(p => (
+              <div
+                key={p.id}
+                onClick={() => onSelect(p.id)}
+                className="bg-white rounded-2xl p-5 md:p-6 cursor-pointer shadow-xl hover:shadow-2xl transition-all group border border-slate-100 hover:-translate-y-2 relative overflow-hidden flex flex-col h-full"
+              >
+                <div className="flex justify-between items-start mb-8">
+                  {(() => {
+                    const evidencesWithPhotos = (p.stageEvidence || [])
+                      .filter(e => e.photos && e.photos.length > 0)
+                      .sort((a, b) => b.stage - a.stage);
 
-                  if (photo) {
+                    const latestEvidence = evidencesWithPhotos[0];
+                    const photo = latestEvidence?.photos?.[0];
+
+                    if (photo) {
+                      return (
+                        <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-lg border-2 border-blue-500/30 group-hover:border-blue-500 transition-colors">
+                          <StageThumbnail photoPath={photo} className="w-full h-full" />
+                        </div>
+                      );
+                    }
+
                     return (
-                      <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-lg border-2 border-blue-500/30 group-hover:border-blue-500 transition-colors">
-                        <StageThumbnail photoPath={photo} className="w-full h-full" />
+                      <div className="bg-blue-50 text-blue-600 p-3 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm">
+                        <i className="fa-solid fa-building text-xl"></i>
                       </div>
                     );
-                  }
-
-                  return (
-                    <div className="bg-blue-50 text-blue-600 p-3 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm">
-                      <i className="fa-solid fa-building text-xl"></i>
-                    </div>
-                  );
-                })()}
-                <div className="flex gap-2">
-                  <span className="px-4 py-2 bg-slate-50 rounded-full text-xs font-black text-slate-600 border border-slate-100">
-                    {p.progress}%
-                  </span>
-                  {isAdmin && (
-                    <>
-                      <button
-                        onClick={(e) => openEditModal(e, p)}
-                        className="w-8 h-8 flex items-center justify-center bg-blue-50 border border-blue-200 text-blue-600 rounded-full hover:bg-blue-100 transition"
-                        title="Editar Obra"
-                      >
-                        <i className="fa-solid fa-pen text-xs"></i>
-                      </button>
-                      <button
-                        onClick={(e) => requestDelete(e, p.id)}
-                        className="w-8 h-8 flex items-center justify-center bg-red-50 border border-red-200 text-red-600 rounded-full hover:bg-red-100 transition"
-                        title="Excluir Obra"
-                      >
-                        <i className="fa-solid fa-trash text-xs"></i>
-                      </button>
-                    </>
-                  )}
+                  })()}
+                  <div className="flex gap-2">
+                    <span className="px-4 py-2 bg-slate-50 rounded-full text-xs font-black text-slate-600 border border-slate-100">
+                      {p.progress}%
+                    </span>
+                    {isAdmin && (
+                      <>
+                        <button
+                          onClick={(e) => openEditModal(e, p)}
+                          className="w-8 h-8 flex items-center justify-center bg-blue-50 border border-blue-200 text-blue-600 rounded-full hover:bg-blue-100 transition"
+                          title="Editar Obra"
+                        >
+                          <i className="fa-solid fa-pen text-xs"></i>
+                        </button>
+                        <button
+                          onClick={(e) => requestDelete(e, p.id)}
+                          className="w-8 h-8 flex items-center justify-center bg-red-50 border border-red-200 text-red-600 rounded-full hover:bg-red-100 transition"
+                          title="Excluir Obra"
+                        >
+                          <i className="fa-solid fa-trash text-xs"></i>
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <h3 className="text-2xl font-black text-slate-800 mb-2 leading-tight group-hover:text-blue-700 transition-colors">{p.name}</h3>
-              <p className="text-sm text-slate-400 mb-8 font-bold uppercase tracking-widest">{STAGE_NAMES[p.progress]}</p>
+                <h3 className="text-2xl font-black text-slate-800 mb-2 leading-tight group-hover:text-blue-700 transition-colors">{p.name}</h3>
+                <p className="text-sm text-slate-400 mb-8 font-bold uppercase tracking-widest">{STAGE_NAMES[p.progress]}</p>
 
-              <div className="w-full bg-slate-100 rounded-full h-4 mb-3 overflow-hidden border border-slate-200">
-                <div
-                  className="bg-blue-600 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(37,99,235,0.3)]"
-                  style={{ width: `${p.progress}%` }}
-                ></div>
-              </div>
-              <div className="flex justify-between text-xs font-bold text-slate-500 px-1">
-                <span className="flex flex-col items-start">
-                  <span className="text-[10px] uppercase tracking-widest text-slate-400">Início</span>
-                  <span className="text-slate-600">{p.startDate ? new Date(p.startDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
-                </span>
-                <span className="flex flex-col items-end">
-                  <span className="text-[10px] uppercase tracking-widest text-slate-400">Entrega</span>
-                  <span className="text-slate-600">{p.deliveryDate ? new Date(p.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
-                </span>
-              </div>
-            </div >
-          ))}
-        </div >
+                <div className="w-full bg-slate-100 rounded-full h-4 mb-3 overflow-hidden border border-slate-200">
+                  <div
+                    className="bg-blue-600 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(37,99,235,0.3)]"
+                    style={{ width: `${p.progress}%` }}
+                  ></div>
+                </div>
+                <div className="flex justify-between text-xs font-bold text-slate-500 px-1">
+                  <span className="flex flex-col items-start">
+                    <span className="text-[10px] uppercase tracking-widest text-slate-400">Início</span>
+                    <span className="text-slate-600">{p.startDate ? new Date(p.startDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
+                  </span>
+                  <span className="flex flex-col items-end">
+                    <span className="text-[10px] uppercase tracking-widest text-slate-400">Entrega</span>
+                    <span className="text-slate-600">{p.deliveryDate ? new Date(p.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
+                  </span>
+                </div>
+              </div >
+            ))}
+          </div>
+        </>
       )}
 
       {

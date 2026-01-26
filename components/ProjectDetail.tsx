@@ -1131,7 +1131,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               onClick={() => setActiveTab('info')}
               className={`h-24 flex flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'info'
                 ? 'bg-blue-600/20 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
-                : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50'
+                : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:-translate-y-2'
                 }`}
             >
               <i className={`fa-solid fa-gauge-high text-2xl ${activeTab === 'info' ? 'text-blue-400' : 'text-slate-500 group-hover:text-blue-400'}`}></i>
@@ -1144,7 +1144,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
                 onClick={() => setActiveTab('units')}
                 className={`h-24 flex flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'units'
                   ? 'bg-emerald-600/20 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
-                  : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50'
+                  : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:-translate-y-2'
                   }`}
               >
                 <div className="relative">
@@ -1162,7 +1162,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               onClick={() => setActiveTab('expenses')}
               className={`h-24 flex flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'expenses'
                 ? 'bg-rose-600/20 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]'
-                : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50'
+                : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:-translate-y-2'
                 }`}
             >
               <i className={`fa-solid fa-wallet text-2xl ${activeTab === 'expenses' ? 'text-rose-400' : 'text-slate-500 group-hover:text-rose-400'}`}></i>
@@ -1174,7 +1174,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               onClick={() => setActiveTab('budget')}
               className={`h-24 flex flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'budget'
                 ? 'bg-purple-600/20 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]'
-                : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50'
+                : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:-translate-y-2'
                 }`}
             >
               <i className={`fa-solid fa-chart-pie text-2xl ${activeTab === 'budget' ? 'text-purple-400' : 'text-slate-500 group-hover:text-purple-400'}`}></i>
@@ -1186,7 +1186,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               onClick={() => setActiveTab('documents')}
               className={`h-24 flex flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'documents'
                 ? 'bg-amber-600/20 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
-                : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50'
+                : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:-translate-y-2'
                 }`}
             >
               <i className={`fa-solid fa-folder-open text-2xl ${activeTab === 'documents' ? 'text-amber-400' : 'text-slate-500 group-hover:text-amber-400'}`}></i>
@@ -1198,7 +1198,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
               onClick={() => setActiveTab('diary')}
               className={`h-24 lg:col-span-1 flex flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'diary'
                 ? 'bg-cyan-600/20 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]'
-                : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50'
+                : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:-translate-y-2'
                 }`}
             >
               <i className={`fa-solid fa-book-open text-2xl ${activeTab === 'diary' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-cyan-400'}`}></i>

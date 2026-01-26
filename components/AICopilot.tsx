@@ -104,7 +104,7 @@ const AICopilot: React.FC<AICopilotProps> = ({ currentProjectId, onAction, trigg
                     className="hidden md:flex fixed bottom-24 right-4 md:bottom-24 md:right-8 z-[90] w-14 h-14 rounded-full flex-col items-center justify-center transition-all duration-300 
                                bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-400
                                shadow-[0_10px_25px_-5px_rgba(79,70,229,0.5),inset_0_2px_4px_rgba(255,255,255,0.3),inset_0_-4px_6px_rgba(0,0,0,0.2)]
-                               hover:scale-110 active:scale-95 animate-fade-in
+                               hover:-translate-y-2 hover:shadow-indigo-500/40 active:scale-95 animate-fade-in
                                border border-indigo-400/30 group"
                 >
                     <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 to-transparent pointer-events-none"></div>

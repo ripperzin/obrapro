@@ -10,6 +10,7 @@ import DateInput from './DateInput';
 import AttachmentUpload from './AttachmentUpload';
 import StageThumbnail from './StageThumbnail';
 import QuickExpenseModal from './QuickExpenseModal';
+import SwipeableProjectItem from './SwipeableProjectItem';
 
 interface GeneralDashboardProps {
    projects: Project[];
@@ -264,32 +265,28 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                </div>
 
                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col gap-1">
-                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Margem</p>
-                     {soldUnitsCount > 0 ? (
-                        <>
-                           <p className="text-green-400 font-black text-2xl">{(avgRoi * 100).toFixed(0)}%</p>
-                        </>
-                     ) : (
-                        <p className="text-slate-600 font-black text-[10px] uppercase">Não há vendas ainda</p>
-                     )}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 text-center">
+                     <i className="fa-solid fa-chart-line text-green-400 text-xl"></i>
+                     <p className="text-white font-black text-2xl leading-none">
+                        {soldUnitsCount > 0 ? `${(avgRoi * 100).toFixed(0)}%` : '--'}
+                     </p>
+                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Margem</p>
                   </div>
 
-                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col gap-1">
-                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Margem Média</p>
-                     {soldUnitsCount > 0 ? (
-                        <>
-                           <p className="text-blue-400 font-black text-2xl">{(avgRealMonthlyRoi * 100).toFixed(1)}%</p>
-                           <div className="flex items-center gap-2 mt-1">
-                              <span className="text-slate-500 text-[10px] font-bold">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
-                              <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[8px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
-                                 -{(inflationRate * 100).toFixed(1)}% IPCA
-                              </span>
-                           </div>
-                        </>
-                     ) : (
-                        <p className="text-slate-600 font-black text-[10px] uppercase">Não há vendas ainda</p>
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 text-center">
+                     <i className="fa-solid fa-percent text-blue-400 text-xl"></i>
+                     <p className="text-white font-black text-2xl leading-none">
+                        {soldUnitsCount > 0 ? `${(avgRealMonthlyRoi * 100).toFixed(1)}%` : '--'}
+                     </p>
+                     {soldUnitsCount > 0 && (
+                        <div className="flex items-center gap-2">
+                           <span className="text-slate-600 text-[9px] font-bold">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
+                           <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[7px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
+                              -{(inflationRate * 100).toFixed(1)}% IPCA
+                           </span>
+                        </div>
                      )}
+                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Margem Média</p>
                   </div>
                </div>
 
@@ -337,53 +334,16 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                const sold = p.units.filter(u => u.status === 'Sold').length;
                const total = p.units.length;
                return (
-                  <div
+                  <SwipeableProjectItem
                      key={p.id}
-                     onClick={() => onSelectProject?.(p.id)}
-                     className="w-full py-4 flex items-center gap-4 bg-transparent border-b border-slate-800 active:bg-slate-800/50 transition-colors"
-                  >
-                     {(() => {
-                        const evidencesWithPhotos = (p.stageEvidence || [])
-                           .filter(e => e.photos && e.photos.length > 0)
-                           .sort((a, b) => b.stage - a.stage);
-                        const latestEvidence = evidencesWithPhotos[0];
-                        const photo = latestEvidence?.photos?.[0];
-
-                        if (photo) {
-                           return (
-                              <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 border-blue-500/30">
-                                 <StageThumbnail photoPath={photo} className="w-full h-full" />
-                              </div>
-                           );
-                        }
-                        return (
-                           <div className="w-16 h-16 bg-slate-700 rounded-xl flex items-center justify-center shrink-0">
-                              <i className="fa-solid fa-building text-2xl text-slate-400"></i>
-                           </div>
-                        );
-                     })()}
-                     <div className="flex-1 min-w-0">
-                        <p className="text-white font-bold truncate">{p.name}</p>
-                        <p className="text-slate-400 text-sm">{sold} de {total} vendidas</p>
-                     </div>
-                     <div className="relative w-14 h-14 shrink-0">
-                        <svg className="w-full h-full transform -rotate-90">
-                           <circle cx="28" cy="28" r="24" stroke="#334155" strokeWidth="4" fill="transparent" />
-                           <circle
-                              cx="28" cy="28" r="24"
-                              stroke="#22c55e" strokeWidth="4" fill="transparent"
-                              strokeDasharray={2 * Math.PI * 24}
-                              strokeDashoffset={2 * Math.PI * 24 - (2 * Math.PI * 24 * p.progress / 100)}
-                              strokeLinecap="round"
-                              className="progress-ring-circle"
-                           />
-                        </svg>
-                        <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-xs">
-                           {p.progress}%
-                        </span>
-                     </div>
-                     <i className="fa-solid fa-chevron-right text-slate-500"></i>
-                  </div>
+                     project={p}
+                     sold={sold}
+                     total={total}
+                     onSelect={(id) => onSelectProject?.(id)}
+                     onEdit={(p) => openEditModal({ stopPropagation: () => { } } as any, p)}
+                     onDelete={(id) => requestDelete({ stopPropagation: () => { } } as any, id)}
+                     isAdmin={isAdmin}
+                  />
                );
             })}
          </div>
@@ -396,81 +356,71 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   {/* KPI Items Scrollable/Flex Area */}
                   <div className="w-full flex items-center justify-between gap-4">
                      {/* Vendidas */}
-                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-blue-500/5 border border-blue-500/10 hover:bg-blue-500/10 transition-colors group flex-1 justify-center">
-                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                           <i className="fa-solid fa-house-circle-check text-blue-400"></i>
+                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-blue-500/5 border border-blue-500/10 hover:bg-blue-500/10 transition-colors group flex-1 h-36">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-1">
+                           <i className="fa-solid fa-house-circle-check text-blue-400 text-xl"></i>
                         </div>
-                        <div>
-                           <p className="text-white font-black text-xl leading-none">{unitsInventory.soldCount}</p>
-                           <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mt-1">Vendidas</p>
-                        </div>
+                        <p className="text-white font-black text-2xl leading-none">{unitsInventory.soldCount}</p>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Vendidas</p>
                      </div>
 
                      {/* Estoque */}
-                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-orange-500/5 border border-orange-500/10 hover:bg-orange-500/10 transition-colors group flex-1 justify-center">
-                        <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-                           <i className="fa-solid fa-key text-orange-400"></i>
+                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-orange-500/5 border border-orange-500/10 hover:bg-orange-500/10 transition-colors group flex-1 h-36">
+                        <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-1">
+                           <i className="fa-solid fa-key text-orange-400 text-xl"></i>
                         </div>
-                        <div>
-                           <p className="text-white font-black text-xl leading-none">{unitsInventory.availableCount}</p>
-                           <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mt-1">Estoque</p>
-                        </div>
+                        <p className="text-white font-black text-2xl leading-none">{unitsInventory.availableCount}</p>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Estoque</p>
                      </div>
 
                      {/* Faturado */}
-                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-green-500/5 border border-green-500/10 hover:bg-green-500/10 transition-colors group flex-1 justify-center">
-                        <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
-                           <i className="fa-solid fa-money-bill-trend-up text-green-400"></i>
+                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-green-500/5 border border-green-500/10 hover:bg-green-500/10 transition-colors group flex-1 h-36">
+                        <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center mb-1">
+                           <i className="fa-solid fa-money-bill-trend-up text-green-400 text-xl"></i>
                         </div>
-                        <div>
-                           <p className="text-white font-black text-xl leading-none">{formatCurrencyAbbrev(unitsInventory.realizedValue)}</p>
-                           <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mt-1">Faturado</p>
-                        </div>
+                        <p className="text-white font-black text-2xl leading-none">{formatCurrencyAbbrev(unitsInventory.realizedValue)}</p>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Faturado</p>
                      </div>
 
                      {/* Potencial */}
-                     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-purple-500/5 border border-purple-500/10 hover:bg-purple-500/10 transition-colors group flex-1 justify-center">
-                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                           <i className="fa-solid fa-chart-line text-purple-400"></i>
+                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-purple-500/5 border border-purple-500/10 hover:bg-purple-500/10 transition-colors group flex-1 h-36">
+                        <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-1">
+                           <i className="fa-solid fa-chart-line text-purple-400 text-xl"></i>
                         </div>
-                        <div>
-                           <p className="text-white font-black text-xl leading-none">{formatCurrencyAbbrev(unitsInventory.totalPotentialSale)}</p>
-                           <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mt-1">Potencial</p>
-                        </div>
+                        <p className="text-white font-black text-2xl leading-none">{formatCurrencyAbbrev(unitsInventory.totalPotentialSale)}</p>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Potencial</p>
                      </div>
 
-                     {/* Margens Section */}
-                     <div className="flex items-center gap-3 bg-slate-800/40 border border-slate-700/30 px-4 py-3 rounded-2xl flex-1 justify-center min-w-[180px]">
-                        {soldUnitsCount > 0 ? (
-                           <>
-                              {/* Margem */}
-                              <div className="flex flex-col items-center justify-center">
-                                 <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mb-1">Margem</p>
-                                 <p className="text-green-400 font-black text-xl leading-none">{(avgRoi * 100).toFixed(0)}<span className="text-[10px] ml-0.5">%</span></p>
-                              </div>
+                     {/* Margem */}
+                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-emerald-500/5 border border-emerald-500/10 hover:bg-emerald-500/10 transition-colors group flex-1 h-36">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-1">
+                           <i className="fa-solid fa-chart-line text-emerald-400 text-xl"></i>
+                        </div>
+                        <p className="text-white font-black text-2xl leading-none">
+                           {soldUnitsCount > 0 ? `${(avgRoi * 100).toFixed(0)}%` : '--'}
+                        </p>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Margem</p>
+                     </div>
 
-                              {/* Divider */}
-                              <div className="h-8 w-px bg-slate-700/50"></div>
-
-                              {/* Margem Média */}
-                              <div className="flex flex-col items-center justify-center">
-                                 <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mb-1">Margem Média</p>
-                                 <div className="flex items-baseline gap-1">
-                                    <p className="text-blue-400 font-black text-xl leading-none">{(avgRealMonthlyRoi * 100).toFixed(1)}<span className="text-[10px] ml-0.5">%</span></p>
-                                 </div>
-                                 <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-slate-600 text-[9px] font-bold">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
-                                    <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[7px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
-                                       -{(inflationRate * 100).toFixed(1)}% IPCA
-                                    </span>
-                                 </div>
+                     {/* Margem Média */}
+                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-blue-500/5 border border-blue-500/10 hover:bg-blue-500/10 transition-colors group flex-1 h-36">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-1">
+                           <i className="fa-solid fa-percent text-blue-400 text-xl"></i>
+                        </div>
+                        <div className="text-center flex flex-col items-center">
+                           <p className="text-white font-black text-2xl leading-none">
+                              {soldUnitsCount > 0 ? `${(avgRealMonthlyRoi * 100).toFixed(1)}%` : '--'}
+                           </p>
+                           {soldUnitsCount > 0 && (
+                              <div className="flex items-center gap-2 mt-1">
+                                 <span className="text-slate-600 text-[8px] font-bold">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
+                                 <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[7px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
+                                    -{(inflationRate * 100).toFixed(1)}% IPCA
+                                 </span>
                               </div>
-                           </>
-                        ) : (
-                           <div className="flex flex-col items-center justify-center">
-                              <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Não há vendas ainda</p>
-                           </div>
-                        )}
+                           )}
+                           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Margem Média</p>
+                        </div>
                      </div>
 
                      {/* Conversion Ring - Small & Embedded */}
@@ -510,7 +460,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   {onAddProject && (
                      <button
                         onClick={openAddModal}
-                        className="px-8 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-600/30 font-black flex items-center gap-2 border border-blue-400/50"
+                        className="px-8 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 hover:-translate-y-2 active:scale-95 transition-all shadow-lg shadow-blue-600/30 font-black flex items-center gap-2 border border-blue-400/50"
                      >
                         <i className="fa-solid fa-plus"></i>
                         NOVA OBRA
