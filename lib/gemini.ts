@@ -47,10 +47,20 @@ export const parseReceiptImage = async (imageBase64: string): Promise<ReceiptDat
         // If it does, we strip it.
 
         let inlineData = imageBase64;
-        const base64Prefix = "base64,";
-        const index = imageBase64.indexOf(base64Prefix);
-        if (index !== -1) {
-            inlineData = imageBase64.substring(index + base64Prefix.length);
+        let mimeType = "image/jpeg"; // default fallback
+
+        // Extract mimeType and raw base64 if data URI scheme is present
+        if (imageBase64.includes("data:") && imageBase64.includes(";base64,")) {
+            const parts = imageBase64.split(";base64,");
+            mimeType = parts[0].split(":")[1];
+            inlineData = parts[1];
+        } else {
+            // Legacy/Fallback handling
+            const base64Prefix = "base64,";
+            const index = imageBase64.indexOf(base64Prefix);
+            if (index !== -1) {
+                inlineData = imageBase64.substring(index + base64Prefix.length);
+            }
         }
 
         const result = await model.generateContent([
@@ -58,7 +68,7 @@ export const parseReceiptImage = async (imageBase64: string): Promise<ReceiptDat
             {
                 inlineData: {
                     data: inlineData,
-                    mimeType: "image/jpeg", // Providing a common default, usually works for png too with Gemini
+                    mimeType: mimeType,
                 },
             },
         ]);

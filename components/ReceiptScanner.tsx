@@ -59,7 +59,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onScanComplete }
             {/* Input para Galeria (sem capture) */}
             <input
                 type="file"
-                accept="image/*"
+                accept="image/*,application/pdf"
                 className="hidden"
                 ref={galleryInputRef}
                 onChange={handleFileChange}
