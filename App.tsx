@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { User, UserRole, Project, ProgressStage, LogEntry, Unit, Expense } from './types';
 import { INITIAL_ADMIN } from './constants';
 import { generateId } from './utils';
@@ -6,22 +6,25 @@ import { supabase } from './supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from './hooks/useProjects';
 
-// Pages
+// Pages (Sync - Critical for initial load)
 import LoginPage from './components/LoginPage';
 import Sidebar from './components/Sidebar';
-import ProjectsDashboard from './components/ProjectsDashboard';
-import ProjectDetail from './components/ProjectDetail';
-import GeneralDashboard from './components/GeneralDashboard';
-import UserManagement from './components/UserManagement';
-import AuditPage from './components/AuditPage';
 import MobileNav from './components/MobileNav';
-import InvestorView from './components/InvestorView';
-import AICopilot from './components/AICopilot';
-import QuickExpenseModal from './components/QuickExpenseModal';
-import QuickDiaryModal from './components/QuickDiaryModal';
 import ReloadPrompt from './components/ReloadPrompt';
-import { useNotifications } from './hooks/useNotifications';
 import { SyncStatus } from './components/SyncStatus';
+
+// Pages (Lazy - Deferred until after login)
+const ProjectsDashboard = lazy(() => import('./components/ProjectsDashboard'));
+const ProjectDetail = lazy(() => import('./components/ProjectDetail'));
+const GeneralDashboard = lazy(() => import('./components/GeneralDashboard'));
+const UserManagement = lazy(() => import('./components/UserManagement'));
+const AuditPage = lazy(() => import('./components/AuditPage'));
+const InvestorView = lazy(() => import('./components/InvestorView'));
+const AICopilot = lazy(() => import('./components/AICopilot'));
+const QuickExpenseModal = lazy(() => import('./components/QuickExpenseModal'));
+const QuickDiaryModal = lazy(() => import('./components/QuickDiaryModal'));
+
+import { useNotifications } from './hooks/useNotifications';
 
 // Helper to parse investor route from hash
 const parseInvestorRoute = (): string | null => {
@@ -406,160 +409,167 @@ const App: React.FC = () => {
 
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-slate-900 font-sans fixed inset-0">
-      <Sidebar
-        role={currentUser.role}
-        activeTab={activeTab}
-        setActiveTab={(tab) => { setActiveTab(tab); setSelectedProjectId(null); }}
-        onLogout={logout}
-        onTriggerAI={() => setVoiceTrigger(prev => prev + 1)}
-      />
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+        <p className="font-bold text-lg">Carregando módulos...</p>
+      </div>
+    }>
+      <div className="flex h-[100dvh] overflow-hidden bg-slate-900 font-sans fixed inset-0">
+        <Sidebar
+          role={currentUser.role}
+          activeTab={activeTab}
+          setActiveTab={(tab) => { setActiveTab(tab); setSelectedProjectId(null); }}
+          onLogout={logout}
+          onTriggerAI={() => setVoiceTrigger(prev => prev + 1)}
+        />
 
-      <main className="flex-1 px-4 md:p-8 overflow-y-auto pb-24 md:pb-8">
-        <header className="mb-0 md:mb-8 flex justify-between items-center p-4 md:p-0 bg-transparent sticky top-0 z-30 pointer-events-none">
-          <div className="pointer-events-auto flex flex-col md:flex-row md:items-center gap-4">
-            {/* Sync Status Indicator */}
-            <SyncStatus />
+        <main className="flex-1 px-4 md:p-8 overflow-y-auto pb-24 md:pb-8">
+          <header className="mb-0 md:mb-8 flex justify-between items-center p-4 md:p-0 bg-transparent sticky top-0 z-30 pointer-events-none">
+            <div className="pointer-events-auto flex flex-col md:flex-row md:items-center gap-4">
+              {/* Sync Status Indicator */}
+              <SyncStatus />
 
-            <div>
-              <h1 className="text-2xl font-bold text-white">
-                {activeTab === 'projects' && (selectedProjectId && selectedProject ? selectedProject.name : 'Obras')}
-                {activeTab === 'general' && selectedProjectId && selectedProject ? selectedProject.name : ''}
-                {activeTab === 'users' && 'Gestão de Usuários'}
-              </h1>
-              {selectedProject && selectedProjectId ? (
-                <div className="flex items-center gap-4 mt-1">
-                  <span className="text-green-400 font-semibold text-sm">
-                    <i className="fa-solid fa-check-circle mr-1"></i>
-                    {selectedProject.units.filter(u => u.status === 'Sold').length} vendidas
-                  </span>
-                  <span className="text-blue-400 font-semibold text-sm">
-                    <i className="fa-solid fa-tag mr-1"></i>
-                    {selectedProject.units.filter(u => u.status === 'Available').length} à venda
-                  </span>
-                </div>
-              ) : activeTab === 'users' ? (
-                <p className="text-slate-400">Bem-vindo, {currentUser.login}</p>
-              ) : null}
+              <div>
+                <h1 className="text-2xl font-bold text-white">
+                  {activeTab === 'projects' && (selectedProjectId && selectedProject ? selectedProject.name : 'Obras')}
+                  {activeTab === 'general' && selectedProjectId && selectedProject ? selectedProject.name : ''}
+                  {activeTab === 'users' && 'Gestão de Usuários'}
+                </h1>
+                {selectedProject && selectedProjectId ? (
+                  <div className="flex items-center gap-4 mt-1">
+                    <span className="text-green-400 font-semibold text-sm">
+                      <i className="fa-solid fa-check-circle mr-1"></i>
+                      {selectedProject.units.filter(u => u.status === 'Sold').length} vendidas
+                    </span>
+                    <span className="text-blue-400 font-semibold text-sm">
+                      <i className="fa-solid fa-tag mr-1"></i>
+                      {selectedProject.units.filter(u => u.status === 'Available').length} à venda
+                    </span>
+                  </div>
+                ) : activeTab === 'users' ? (
+                  <p className="text-slate-400">Bem-vindo, {currentUser.login}</p>
+                ) : null}
+              </div>
             </div>
-          </div>
+
+            {activeTab === 'general' && !selectedProjectId && (
+              <div className="flex flex-col gap-1 items-end text-right">
+                <h1 className="text-2xl font-black text-white italic tracking-tight truncate">
+                  Olá, {currentUser?.login || 'Usuário'}!
+                </h1>
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-none">
+                  {new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+            )}
+
+            {selectedProjectId && (
+              <button
+                onClick={() => setSelectedProjectId(null)}
+                className="px-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg hover:bg-slate-700 transition shadow-sm pointer-events-auto"
+              >
+                <i className="fa-solid fa-arrow-left mr-2"></i> Voltar
+              </button>
+            )}
+          </header>
+
+          {activeTab === 'projects' && (
+            selectedProjectId ? (
+              <ProjectDetail
+                project={selectedProject!}
+                user={currentUser}
+                onUpdate={updateProject}
+                onDeleteUnit={deleteUnit}
+                onRefresh={refreshProjects}
+              />
+            ) : (
+              <ProjectsDashboard
+                projects={filteredProjects}
+                onSelect={setSelectedProjectId}
+                onAdd={addProject}
+                onUpdate={updateProject}
+                onDelete={deleteProject}
+                isAdmin={currentUser.role === UserRole.ADMIN}
+              />
+            )
+          )}
 
           {activeTab === 'general' && !selectedProjectId && (
-            <div className="flex flex-col gap-1 items-end text-right">
-              <h1 className="text-2xl font-black text-white italic tracking-tight truncate">
-                Olá, {currentUser?.login || 'Usuário'}!
-              </h1>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-none">
-                {new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
-              </p>
-            </div>
+            <GeneralDashboard
+              projects={filteredProjects}
+              userName={currentUser.login}
+              userId={currentUser.id}
+              onSelectProject={setSelectedProjectId}
+              onAddProject={addProject}
+              onUpdate={updateProject}
+              onDelete={deleteProject}
+              onAddExpense={addExpenseToProject}
+              isAdmin={currentUser.role === UserRole.ADMIN}
+            />
           )}
 
-          {selectedProjectId && (
-            <button
-              onClick={() => setSelectedProjectId(null)}
-              className="px-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg hover:bg-slate-700 transition shadow-sm pointer-events-auto"
-            >
-              <i className="fa-solid fa-arrow-left mr-2"></i> Voltar
-            </button>
+          {activeTab === 'audit' && (
+            <AuditPage projects={projects} />
           )}
-        </header>
 
-        {activeTab === 'projects' && (
-          selectedProjectId ? (
+          {activeTab === 'general' && selectedProjectId && selectedProject && (
             <ProjectDetail
-              project={selectedProject!}
+              project={selectedProject}
               user={currentUser}
               onUpdate={updateProject}
               onDeleteUnit={deleteUnit}
               onRefresh={refreshProjects}
+              onUpdateDiary={handleUpdateDiary}
+              onDeleteDiary={handleDeleteDiary}
             />
-          ) : (
-            <ProjectsDashboard
-              projects={filteredProjects}
-              onSelect={setSelectedProjectId}
-              onAdd={addProject}
-              onUpdate={updateProject}
-              onDelete={deleteProject}
-              isAdmin={currentUser.role === UserRole.ADMIN}
+          )}
+
+          {activeTab === 'users' && currentUser.role === UserRole.ADMIN && (
+            <UserManagement
+              projects={projects}
+              currentUser={currentUser}
             />
-          )
-        )}
+          )}
+        </main>
 
-        {activeTab === 'general' && !selectedProjectId && (
-          <GeneralDashboard
-            projects={filteredProjects}
-            userName={currentUser.login}
-            userId={currentUser.id}
-            onSelectProject={setSelectedProjectId}
-            onAddProject={addProject}
-            onUpdate={updateProject}
-            onDelete={deleteProject}
-            onAddExpense={addExpenseToProject}
-            isAdmin={currentUser.role === UserRole.ADMIN}
-          />
-        )}
+        <MobileNav
+          role={currentUser.role}
+          activeTab={activeTab}
+          setActiveTab={(tab) => { setActiveTab(tab); setSelectedProjectId(null); }}
+          onLogout={logout}
+          onTriggerAI={() => setVoiceTrigger(prev => prev + 1)}
+        />
 
-        {activeTab === 'audit' && (
-          <AuditPage projects={projects} />
-        )}
+        <AICopilot
+          currentProjectId={selectedProjectId}
+          onAction={handleVoiceAction}
+          triggerVoice={voiceTrigger}
+        />
 
-        {activeTab === 'general' && selectedProjectId && selectedProject && (
-          <ProjectDetail
-            project={selectedProject}
-            user={currentUser}
-            onUpdate={updateProject}
-            onDeleteUnit={deleteUnit}
-            onRefresh={refreshProjects}
-            onUpdateDiary={handleUpdateDiary}
-            onDeleteDiary={handleDeleteDiary}
-          />
-        )}
+        <QuickExpenseModal
+          isOpen={isQuickExpenseOpen}
+          onClose={() => setIsQuickExpenseOpen(false)}
+          projects={filteredProjects}
+          preSelectedProjectId={selectedProjectId}
+          onSave={addExpenseToProject}
+          initialDescription={voiceInitialData?.description}
+          initialValue={voiceInitialData?.value}
+          initialOriginalText={voiceInitialData?.originalText}
+        />
 
-        {activeTab === 'users' && currentUser.role === UserRole.ADMIN && (
-          <UserManagement
-            projects={projects}
-            currentUser={currentUser}
-          />
-        )}
-      </main>
+        <QuickDiaryModal
+          isOpen={isQuickDiaryOpen}
+          onClose={() => setIsQuickDiaryOpen(false)}
+          projects={filteredProjects}
+          preSelectedProjectId={selectedProjectId}
+          onSave={handleSaveQuickDiary}
+          initialContent={voiceInitialData?.content}
+        />
 
-      <MobileNav
-        role={currentUser.role}
-        activeTab={activeTab}
-        setActiveTab={(tab) => { setActiveTab(tab); setSelectedProjectId(null); }}
-        onLogout={logout}
-        onTriggerAI={() => setVoiceTrigger(prev => prev + 1)}
-      />
-
-      <AICopilot
-        currentProjectId={selectedProjectId}
-        onAction={handleVoiceAction}
-        triggerVoice={voiceTrigger}
-      />
-
-      <QuickExpenseModal
-        isOpen={isQuickExpenseOpen}
-        onClose={() => setIsQuickExpenseOpen(false)}
-        projects={filteredProjects}
-        preSelectedProjectId={selectedProjectId}
-        onSave={addExpenseToProject}
-        initialDescription={voiceInitialData?.description}
-        initialValue={voiceInitialData?.value}
-        initialOriginalText={voiceInitialData?.originalText}
-      />
-
-      <QuickDiaryModal
-        isOpen={isQuickDiaryOpen}
-        onClose={() => setIsQuickDiaryOpen(false)}
-        projects={filteredProjects}
-        preSelectedProjectId={selectedProjectId}
-        onSave={handleSaveQuickDiary}
-        initialContent={voiceInitialData?.content}
-      />
-
-      <ReloadPrompt />
-    </div>
+        <ReloadPrompt />
+      </div>
+    </Suspense>
   );
 };
 

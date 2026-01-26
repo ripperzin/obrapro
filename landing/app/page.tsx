@@ -155,9 +155,9 @@ export default function Home() {
             <Link href="#pricing" className="hover:text-white transition-colors">Preços</Link>
           </nav>
           <div className="flex items-center gap-4">
-            <Link href="https://obrapro-app.vercel.app" target="_blank" className="text-sm font-medium hover:text-primary transition-colors">
+            <a href="https://obrapro-app.vercel.app" className="text-sm font-medium hover:text-primary transition-colors">
               Login
-            </Link>
+            </a>
             <Button className="bg-primary hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20" asChild>
               <Link href="#lead-form">Começar Grátis</Link>
             </Button>
