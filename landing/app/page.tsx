@@ -126,9 +126,10 @@ export default function Home() {
     <div className="min-h-screen bg-[#0f172a] text-foreground flex flex-col selection:bg-blue-500/30 overflow-x-hidden">
       {/* Global Background Effects */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-green-500/10 rounded-full blur-[120px]" />
-        <div className="absolute top-[20%] left-[50%] -translate-x-1/2 w-[60%] h-[60%] bg-indigo-500/5 rounded-full blur-[150px]" />
+        {/* Reduced blurs on mobile for better performance */}
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[60px] md:blur-[120px] opacity-70 md:opacity-100" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-green-500/10 rounded-full blur-[60px] md:blur-[120px] opacity-70 md:opacity-100" />
+        <div className="absolute top-[20%] left-[50%] -translate-x-1/2 w-[60%] h-[60%] bg-indigo-500/5 rounded-full blur-[80px] md:blur-[150px]" />
         {/* Grid Pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
       </div>
@@ -178,6 +179,8 @@ export default function Home() {
                   fill
                   className="object-cover"
                   priority
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 90vw, 1200px"
+                  quality={85}
                 />
                 {/* Dark Overlay for Readability */}
                 <div className="absolute inset-0 bg-[#0f172a]/70 backdrop-blur-[2px]" />
@@ -242,17 +245,24 @@ export default function Home() {
                           alt={feature.title}
                           fill
                           className="object-cover transform group-hover:scale-110 transition-transform duration-700"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                          quality={80}
                         />
                       ) : (
-                        <div
-                          className="w-full h-full transform group-hover:scale-110 transition-transform duration-700"
-                          style={{
-                            backgroundImage: `url(${feature.image})`,
-                            backgroundSize: '202% 202%',
-                            backgroundPosition: feature.position,
-                            backgroundRepeat: 'no-repeat'
-                          }}
-                        />
+                        <div className="relative w-full h-full transform group-hover:scale-110 transition-transform duration-700">
+                          <Image
+                            src={feature.image}
+                            alt={feature.title}
+                            fill
+                            className="object-cover"
+                            style={{
+                              objectPosition: feature.position || 'center',
+                              scale: '1.5' // Approximating the 202% background-size zoom
+                            }}
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                            quality={80}
+                          />
+                        </div>
                       )}
                       {/* Gradient Overlays for Polish and Readability */}
                       <div className={`absolute inset-0 bg-gradient-to-b ${feature.gradient} opacity-20 z-10`} />
