@@ -3,6 +3,15 @@ import Anthropic from '@anthropic-ai/sdk';
 const API_KEY = (import.meta as any).env?.VITE_ANTHROPIC_API_KEY || (process.env as any).VITE_ANTHROPIC_API_KEY;
 
 let anthropic: Anthropic | null = null;
+
+// DIAGNÓSTICO DE CHAVE API (Vercel)
+console.log('🔑 DIAGNÓSTICO CLAUDE:', {
+    VITE_ANTHROPIC_API_KEY_EXISTS: !!(import.meta as any).env?.VITE_ANTHROPIC_API_KEY,
+    PROCESS_ENV_EXISTS: !!(process.env as any).VITE_ANTHROPIC_API_KEY,
+    API_KEY_LENGTH: API_KEY ? API_KEY.length : 0,
+    API_KEY_PREFIX: API_KEY ? API_KEY.substring(0, 7) + '...' : 'N/A'
+});
+
 if (API_KEY) {
     anthropic = new Anthropic({
         apiKey: API_KEY,
