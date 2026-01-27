@@ -40,8 +40,36 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true); // Nova flag de carregamento
   const [debugError, setDebugError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users' | 'audit'>('general');
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  // 0. URL State Initialization
+  const initialParams = new URLSearchParams(window.location.search);
+  const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users' | 'audit'>((initialParams.get('view') as any) || 'general');
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialParams.get('project') || null);
+
+  // 0.1 Sync URL with State
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    // Sync View
+    if (activeTab) params.set('view', activeTab);
+
+    // Sync Project
+    if (selectedProjectId) {
+      params.set('project', selectedProjectId);
+    } else {
+      params.delete('project');
+      // Also clear project-specific params when closing project
+      params.delete('tab');
+    }
+
+    const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+    // Use replaceState to avoid "back" button hell, or pushState if we want history. 
+    // Let's use replaceState for tab switches to keep history clean for now, or pushState? 
+    // User asked for "back button" implicitly ("voltar pro inicio"). Stick to replace for now as simple sync.
+    // Actually, pushState enables sticking to history. Let's try to be smart: if initializing don't push.
+    // For simplicity sake in this "sync" effect, replaceState prevents infinite loops if not careful.
+    // But we want the user to be able to "bookmark".
+    window.history.replaceState(null, '', newUrl);
+  }, [activeTab, selectedProjectId]);
   const [users, setUsers] = useState<User[]>([INITIAL_ADMIN]);
 
   const { data: projects = [], refetch: refreshProjects } = useProjects();
@@ -67,9 +95,14 @@ const App: React.FC = () => {
       if (!session) setAuthLoading(false); // Se não tem sessão, para de carregar
     }).catch(err => setDebugError(err.message));
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (!session) setAuthLoading(false);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Only update state on significant events to prevent re-renders on token refresh
+      // TOKEN_REFRESHED happens on visibility change and shouldn't cause UI updates
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        console.log('[DEBUG] Auth event:', event);
+        setSession(session);
+        if (!session) setAuthLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();

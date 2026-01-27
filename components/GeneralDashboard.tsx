@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Project, ProgressStage, Expense } from '../types';
 import { formatCurrency, calculateMonthsBetween, formatCurrencyAbbrev } from '../utils';
@@ -39,7 +39,29 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    const [editingProject, setEditingProject] = useState<Project | null>(null);
    const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
-   // Estados para modal de despesa rápida
+   // Sync showModal (New Project) with URL
+   useEffect(() => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action') === 'new-project' && !showModal && !editingProject) {
+         openAddModal();
+      }
+   }, []);
+
+   const handleSetShowModal = (show: boolean) => {
+      const params = new URLSearchParams(window.location.search);
+      if (show && !editingProject) {
+         params.set('action', 'new-project');
+      } else {
+         params.delete('action');
+         // Se fechando, limpar draft se não estiver editando (ou seja, se for novo)
+         if (!editingProject) localStorage.removeItem('draft_new_project');
+      }
+      window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+      setShowModal(show);
+   };
+
+
+
    const [showExpenseModal, setShowExpenseModal] = useState(false);
    const [expenseFormData, setExpenseFormData] = useState({
       projectId: '',
@@ -59,6 +81,30 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
       startDate: '',
       deliveryDate: ''
    });
+
+   // DRAFT PERSISTENCE
+   const DRAFT_KEY = 'draft_new_project';
+
+   // Restore on open
+   useEffect(() => {
+      if (showModal && !editingProject) {
+         const saved = localStorage.getItem(DRAFT_KEY);
+         if (saved) {
+            try {
+               setFormData(JSON.parse(saved));
+            } catch (e) {
+               console.error('Error parsing draft', e);
+            }
+         }
+      }
+   }, [showModal, editingProject]);
+
+   // Save on change
+   useEffect(() => {
+      if (showModal && !editingProject) {
+         localStorage.setItem(DRAFT_KEY, JSON.stringify(formData));
+      }
+   }, [formData, showModal, editingProject]);
 
    const unitsInventory = projects.reduce((acc, p) => {
       p.units.forEach(u => {
@@ -158,7 +204,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
          startDate: project.startDate || '',
          deliveryDate: project.deliveryDate || ''
       });
-      setShowModal(true);
+      handleSetShowModal(true);
    };
 
    const openAddModal = () => {
@@ -173,7 +219,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
          startDate: '',
          deliveryDate: ''
       });
-      setShowModal(true);
+      handleSetShowModal(true);
    };
 
    const handleSubmit = (e: React.FormEvent) => {
@@ -322,7 +368,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                <h3 className="text-slate-400 font-bold text-xs uppercase tracking-widest">Seus Projetos</h3>
                {isAdmin && onAddProject && (
                   <button
-                     onClick={() => setShowModal(true)}
+                     onClick={() => openAddModal()}
                      className="px-4 py-2 bg-blue-600/20 border border-blue-500/40 rounded-xl text-blue-400 flex items-center gap-2 hover:bg-blue-600/30 transition-all active:scale-95"
                   >
                      <i className="fa-solid fa-plus text-xs"></i>
@@ -529,7 +575,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600"></div>
                   <div className="flex justify-between items-center mb-10">
                      <h2 className="text-2xl font-black text-white tracking-tight italic">{editingProject ? 'EDITAR OBRA' : 'NOVA OBRA'}</h2>
-                     <button onClick={() => setShowModal(false)} className="text-slate-500 hover:text-white transition"><i className="fa-solid fa-xmark text-xl"></i></button>
+                     <button onClick={() => handleSetShowModal(false)} className="text-slate-500 hover:text-white transition"><i className="fa-solid fa-xmark text-xl"></i></button>
                   </div>
                   <form onSubmit={handleSubmit} className="space-y-8">
                      <div className="space-y-2">

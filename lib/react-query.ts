@@ -9,6 +9,7 @@ const queryClient = new QueryClient({
             staleTime: 1000 * 60 * 5, // 5 minutes
             retry: 1,
             networkMode: 'offlineFirst',
+            refetchOnWindowFocus: false, // Prevent refetch when switching tabs
         },
         mutations: {
             networkMode: 'offlineFirst',

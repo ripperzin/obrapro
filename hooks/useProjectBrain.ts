@@ -217,9 +217,10 @@ function verificarAlertas(project: Project): string[] {
 
 function extractEntities(text: string, projects: Project[], history: ChatMessage[]): EntidadesExtraidas {
     const normalized = normalizar(text);
-    const fullContext = normalizar([...history.map(h => h.content), text].join(' '));
+    // REMOVIDO: const fullContext = normalizar([...history.map(h => h.content), text].join(' '));
+    // MULTI_OBRA e COMPARAÇÃO dependem ESTRITAMENTE da mensagem atual
 
-    // 0. DETECTAR COMPARAÇÃO PRIMEIRO (antes de tudo)
+    // 0. DETECTAR COMPARAÇÃO PRIMEIRO (apenas na mensagem atual)
     const comparacaoMatch = KEYWORDS.COMPARACAO.filter(k => normalized.includes(k));
     const temComparacao = comparacaoMatch.length > 0;
 
@@ -229,9 +230,7 @@ function extractEntities(text: string, projects: Project[], history: ChatMessage
         temComparacao
     });
 
-    // Se for comparação, retorna direto como MULTI_OBRA sem buscar obra
     if (temComparacao) {
-        console.log('🌐 MULTI_OBRA FORÇADO: Pergunta de COMPARAÇÃO detectada:', comparacaoMatch);
         return {
             obra: null,
             insumo: null,
@@ -243,55 +242,88 @@ function extractEntities(text: string, projects: Project[], history: ChatMessage
         };
     }
 
-    // 1. EXTRAIR OBRA (somente se não for comparação)
+    // LISTA NEGRA DE PALAVRAS COMUNS PARA NÃO CASAR COMO OBRA
+    const PALAVRAS_IGNORADAS = ['obra', 'projeto', 'residencial', 'edificio', 'condominio', 'loteamento', 'construcao', 'reforma'];
+
+    // 1. TENTAR IDENTIFICAR OBRA NA MENSAGEM ATUAL (Prioridade Máxima)
     let obra: EntidadesExtraidas['obra'] = null;
+
+    // 1a. Procura por números explícitos no texto atual (ex: "obra 34")
     const numbers = text.match(/\d+/g);
     if (numbers) {
         for (const num of numbers) {
+            // Tenta casar número exato no nome do projeto
             const found = projects.find(p => normalizar(p.name).includes(num));
-            if (found) { obra = { id: found.id, nome: found.name }; break; }
+            if (found) {
+                obra = { id: found.id, nome: found.name };
+                console.log(`🏠 Obra identificada por NÚMERO (${num}):`, found.name);
+                break;
+            }
         }
     }
+
+    // 1b. Se não achou por número, procura por partes do nome no texto atual
     if (!obra) {
         for (const project of projects) {
-            const nameParts = normalizar(project.name).split(/\s+/).filter(p => p.length > 2);
+            const nameParts = normalizar(project.name)
+                .split(/\s+/)
+                .filter(p => p.length > 2 && !PALAVRAS_IGNORADAS.includes(p)); // Ignora palavras comuns
+
             for (const part of nameParts) {
-                if (fullContext.includes(part)) { obra = { id: project.id, nome: project.name }; break; }
+                // Regex para garantir match de palavra inteira (evita que "obras" case com "obra")
+                const regex = new RegExp(`\\b${part}\\b`, 'i');
+                if (regex.test(normalized)) {
+                    obra = { id: project.id, nome: project.name };
+                    console.log(`🏠 Obra identificada por NOME PARCIAL (${part}):`, project.name);
+                    break;
+                }
             }
             if (obra) break;
         }
     }
 
-    // 2. DETECTAR ESCOPO (SINGULAR vs MULTI_OBRA)
+    // 2. DETECTAR ESCOPO (SINGULAR vs MULTI_OBRA) NA MENSAGEM ATUAL
+    // Só ativa multi-obra se NÃO tiver identificado uma obra específica AGORA
     let escopoConfirmado: EscopoTipo = 'SINGULAR';
-
-    // DEBUG: Mostrar texto normalizado e keywords encontradas
     const multiObraMatch = KEYWORDS.MULTI_OBRA.filter(k => normalized.includes(k));
     const panoramaMatch = KEYWORDS.PANORAMA.filter(k => normalized.includes(k));
 
-    console.log('🔎 DEBUG MULTI_OBRA:', {
-        textoNormalizado: normalized,
-        keywordsMultiObraEncontradas: multiObraMatch,
-        keywordsPanoramaEncontradas: panoramaMatch,
-        obraIdentificada: obra?.nome || null
-    });
-
-    const temPluralKeyword = multiObraMatch.length > 0 || panoramaMatch.length > 0;
-
-    if (temPluralKeyword && !obra) {
+    if (!obra && (multiObraMatch.length > 0 || panoramaMatch.length > 0)) {
         escopoConfirmado = 'MULTI_OBRA';
-        console.log('🌐 MULTI_OBRA ATIVADO: Plural detectado e nenhuma obra mencionada');
-    } else if (temPluralKeyword && obra) {
-        console.log('⚠️ MULTI_OBRA IGNORADO: Keyword plural encontrada MAS obra específica mencionada:', obra.nome);
+        console.log('🌐 MULTI_OBRA ATIVADO: Plural detectado na mensagem atual');
     }
 
-    // 3. EXTRAIR INSUMO
+    // 3. RECUPERAR CONTEXTO DO HISTÓRICO (Apenas se não achou nada novo)
+    // Se não achou obra, não é multi-obra, e parece ser uma continuação...
+    if (!obra && escopoConfirmado === 'SINGULAR') {
+        // Verifica se a última mensagem do ASSISTENTE mencionava uma obra específica
+        // Isso é um "contexto implícito"
+        const lastAssistantMsg = [...history].reverse().find(h => h.role === 'assistant');
+        if (lastAssistantMsg) {
+            // Tenta extrair ID ou nome de obra da resposta anterior da IA
+            // (Assumindo que a IA pode ter falado "Na obra X...")
+            // Como fallback simples, podemos ver se alguma obra estava "ativa" na intencao anterior
+            // Mas para ser seguro, vamos evitar "colar" demais.
+            // MELHOR: Se o usuário não foi específico, mantemos null para forçar ele a esclarecer
+            // OU, assumimos a obra "selecionada" na UI (que vem via currentProjectId externo)
+
+            // Vamos deixar 'obra' como null aqui. 
+            // O `useProjectBrain` vai tentar usar o `currentProjectId` (selecionado na tela) como prioridade 2.
+            console.log('🤷 Nenhuma obra citada diretamente. Dependerá da obra selecionada na tela.');
+        }
+    }
+
+    // 3. EXTRAIR INSUMO (Busca na mensagem atual e depois no histórico recente se for continuação)
     let insumo: string | null = null;
+    // Busca no texto atual
     for (const keyword of KEYWORDS.DESPESAS_INSUMO) {
-        if (fullContext.includes(keyword)) { insumo = keyword; break; }
+        if (normalized.includes(keyword)) { insumo = keyword; break; }
     }
+    // Se não achou e parece continuação (frase curta, pergunta), olha o último
+    // Ex: "e cimento?" -> acha cimento. "quanto gastou?" -> pode querer saber do cimento anterior?
+    // Por segurança, vamos focar no texto atual para evitar confusão.
 
-    // 4. EXTRAIR PERÍODO (estruturado)
+    // 4. PERÍODO
     let periodo: PeriodoEstruturado | null = null;
     for (const p of PERIODOS) {
         if (p.keywords.some(kw => normalized.includes(kw))) {
@@ -300,7 +332,7 @@ function extractEntities(text: string, projects: Project[], history: ChatMessage
         }
     }
 
-    // 5. IDENTIFICAR TIPO DE CONSULTA
+    // 5. TIPO DE CONSULTA
     let consulta: ConsultaTipo = 'GERAL';
     if (escopoConfirmado === 'MULTI_OBRA') consulta = 'MULTI_OBRA';
     else if (KEYWORDS.ALERTAS.some(k => normalized.includes(k))) consulta = 'ALERTAS';
@@ -316,7 +348,7 @@ function extractEntities(text: string, projects: Project[], history: ChatMessage
     else if (KEYWORDS.UNIDADES.some(k => normalized.includes(k))) consulta = 'UNIDADES';
     else if (KEYWORDS.DOCUMENTOS.some(k => normalized.includes(k))) consulta = 'DOCUMENTOS';
 
-    // 6. IDENTIFICAR AÇÃO
+    // 6. AÇÃO
     let acao: AcaoTipo = 'NONE';
     let dadosAcao: EntidadesExtraidas['dadosAcao'] = {};
 
@@ -338,7 +370,7 @@ function extractEntities(text: string, projects: Project[], history: ChatMessage
         if (idMatch) dadosAcao.identificador = idMatch[0].trim();
     }
 
-    console.log('🔍 Entidades:', { obra: obra?.nome, insumo, periodo: periodo?.label, consulta, escopoConfirmado, acao });
+    console.log('🔍 Entidades (v2.2):', { obra: obra?.nome, insumo, periodo: periodo?.label, consulta, escopoConfirmado, acao });
     return { obra, insumo, periodo, consulta, acao, escopoConfirmado, dadosAcao };
 }
 

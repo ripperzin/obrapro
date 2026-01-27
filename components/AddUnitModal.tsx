@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Unit } from '../types';
 import MoneyInput from './MoneyInput';
@@ -18,6 +18,32 @@ const AddUnitModal: React.FC<AddUnitModalProps> = ({ isOpen, onClose, onSave }) 
         valorEstimadoVenda: 0
     });
 
+    const DRAFT_KEY = 'draft_new_unit';
+
+    useEffect(() => {
+        if (isOpen) {
+            const saved = localStorage.getItem(DRAFT_KEY);
+            if (saved) {
+                try {
+                    setFormData(JSON.parse(saved));
+                } catch (e) {
+                    console.error('Error parsing draft', e);
+                }
+            }
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (isOpen) {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify(formData));
+        }
+    }, [formData, isOpen]);
+
+    const handleClose = () => {
+        localStorage.removeItem(DRAFT_KEY);
+        onClose();
+    };
+
     if (!isOpen) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -30,6 +56,7 @@ const AddUnitModal: React.FC<AddUnitModalProps> = ({ isOpen, onClose, onSave }) 
                 saleValue: undefined,
                 saleDate: undefined
             } as any);
+            localStorage.removeItem(DRAFT_KEY);
             onClose();
             setFormData({ identifier: '', area: 0, cost: 0, valorEstimadoVenda: 0 });
         } catch (error) {
@@ -52,7 +79,7 @@ const AddUnitModal: React.FC<AddUnitModalProps> = ({ isOpen, onClose, onSave }) 
                         </div>
                         <h2 className="text-xl font-black text-white">Nova Unidade</h2>
                     </div>
-                    <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:text-red-400 transition">
+                    <button onClick={handleClose} className="w-10 h-10 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:text-red-400 transition">
                         <i className="fa-solid fa-xmark"></i>
                     </button>
                 </div>

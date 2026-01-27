@@ -21,9 +21,8 @@ root.render(
       persistOptions={persistOptions}
       onSuccess={() => {
         // Resume mutations after initial restore from localStorage
-        queryClient.resumePausedMutations().then(() => {
-          queryClient.invalidateQueries();
-        });
+        // NOTE: Removed invalidateQueries() to prevent aggressive re-renders
+        queryClient.resumePausedMutations();
       }}
     >
       <ErrorBoundary>

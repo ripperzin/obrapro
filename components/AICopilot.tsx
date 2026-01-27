@@ -93,6 +93,34 @@ const AICopilot: React.FC<AICopilotProps> = ({ currentProjectId, onAction, trigg
         handleSendMessage(inputValue);
     };
 
+    // Carregar histórico salvo ao iniciar
+    useEffect(() => {
+        const saved = localStorage.getItem('copilot-history');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    setMessages(parsed);
+                }
+            } catch (e) {
+                console.error('Erro ao recuperar histórico:', e);
+            }
+        }
+    }, []);
+
+    // Salvar histórico sempre que mudar
+    useEffect(() => {
+        if (messages.length > 1) { // Só salva se tiver mais que a msg inicial
+            localStorage.setItem('copilot-history', JSON.stringify(messages));
+        }
+    }, [messages]);
+
+    const clearHistory = () => {
+        const initialMsg: ChatMessage[] = [{ role: 'assistant', content: 'Olá! Sou o Copiloto ObraPro. Como posso ajudar você hoje?' }];
+        setMessages(initialMsg);
+        localStorage.removeItem('copilot-history');
+    };
+
     const modalRoot = document.getElementById('modal-root');
     if (!modalRoot) return null;
 
@@ -134,18 +162,27 @@ const AICopilot: React.FC<AICopilotProps> = ({ currentProjectId, onAction, trigg
                                 </div>
                             </div>
                         </div>
-                        <button
-                            onClick={() => setIsOpen(false)}
-                            className="text-slate-400 hover:text-white transition"
-                        >
-                            <i className="fa-solid fa-xmark"></i>
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={clearHistory}
+                                title="Limpar histórico"
+                                className="text-slate-400 hover:text-red-400 transition text-xs"
+                            >
+                                <i className="fa-solid fa-trash"></i>
+                            </button>
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="text-slate-400 hover:text-white transition"
+                            >
+                                <i className="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-900/50">
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.role === 'user'
+                                <div className={`max-w-[80%] p-3 rounded-2xl text-sm whitespace-pre-wrap ${msg.role === 'user'
                                     ? 'bg-blue-600 text-white rounded-br-none'
                                     : 'bg-slate-700 text-slate-200 rounded-bl-none'
                                     }`}>

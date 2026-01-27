@@ -147,6 +147,8 @@ export const useProjects = () => {
     return useQuery({
         queryKey: ['projects'],
         queryFn: fetchProjects,
+        refetchOnWindowFocus: false,  // Explicitly prevent refetch on tab focus
+        refetchOnReconnect: false,    // Prevent refetch on reconnect
     });
 };
 

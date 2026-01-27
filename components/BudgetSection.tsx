@@ -90,6 +90,25 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
 
     const modalRoot = document.getElementById('modal-root');
 
+    // Sync isEditing with URL action
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('action') === 'edit-budget' && !isEditing) {
+            setIsEditing(true);
+        }
+    }, []);
+
+    const handleSetIsEditing = (value: boolean) => {
+        const params = new URLSearchParams(window.location.search);
+        if (value) {
+            params.set('action', 'edit-budget');
+        } else {
+            params.delete('action');
+        }
+        window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+        setIsEditing(value);
+    };
+
     // Carregar dados do orçamento - Watch units length/cost to trigger auto-create
     useEffect(() => {
         fetchBudgetData();
@@ -680,7 +699,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                     </h4>
                     {isAdmin && (
                         <button
-                            onClick={() => setIsEditing(!isEditing)}
+                            onClick={() => handleSetIsEditing(!isEditing)}
                             className={`text-xs font-bold px-3 py-1 rounded-full border transition ${isEditing
                                 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/50'
                                 : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'

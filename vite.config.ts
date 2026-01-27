@@ -10,10 +10,11 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: '0.0.0.0',
-      https: {},
+      // https: {},
+      hmr: false, // DISABLED for testing - prevents refresh on tab switch
     },
     plugins: [
-      basicSsl(),
+      // basicSsl(),
       react(),
       VitePWA({
         registerType: 'prompt',
@@ -110,7 +111,7 @@ export default defineConfig(({ mode }) => {
           ]
         },
         devOptions: {
-          enabled: true // Enable PWA in dev mode for testing
+          enabled: false // Disable PWA in dev mode to prevent refresh issues
         }
       })
     ],

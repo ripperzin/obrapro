@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { DiaryEntry } from '../types';
 import DateInput from './DateInput';
@@ -18,6 +18,33 @@ const AddDiaryEntryModal: React.FC<AddDiaryEntryModalProps> = ({ isOpen, onClose
 
     // Auxiliary state for upload
     const [currentPhoto, setCurrentPhoto] = useState<string | undefined>(undefined);
+
+    const DRAFT_KEY = 'draft_new_diary';
+
+    useEffect(() => {
+        if (isOpen) {
+            const saved = localStorage.getItem(DRAFT_KEY);
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    if (data.date) setDate(data.date);
+                    if (data.content) setContent(data.content);
+                    if (data.photos) setPhotos(data.photos);
+                } catch (e) { console.error(e); }
+            }
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (isOpen) {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify({ date, content, photos }));
+        }
+    }, [date, content, photos, isOpen]);
+
+    const handleClose = () => {
+        localStorage.removeItem(DRAFT_KEY);
+        onClose();
+    };
 
     if (!isOpen) return null;
 
@@ -44,6 +71,7 @@ const AddDiaryEntryModal: React.FC<AddDiaryEntryModalProps> = ({ isOpen, onClose
             photos,
             author: currentUserName
         });
+        localStorage.removeItem(DRAFT_KEY);
         onClose();
         // Reset form
         setDate(new Date().toISOString().split('T')[0]);
@@ -64,7 +92,7 @@ const AddDiaryEntryModal: React.FC<AddDiaryEntryModalProps> = ({ isOpen, onClose
                         </div>
                         <h2 className="text-xl font-black text-white">Novo Registro</h2>
                     </div>
-                    <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:text-red-400 transition">
+                    <button onClick={handleClose} className="w-10 h-10 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:text-red-400 transition">
                         <i className="fa-solid fa-xmark"></i>
                     </button>
                 </div>

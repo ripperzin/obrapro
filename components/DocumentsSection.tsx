@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ProjectDocument } from '../types';
 import { openAttachment } from '../utils/storage';
 import AddDocumentModal from './AddDocumentModal';
@@ -16,7 +16,26 @@ const DocumentsSection: React.FC<DocumentsSectionProps> = ({
     onDelete,
     isAdmin = false
 }) => {
+    // Sync with URL action
     const [isAdding, setIsAdding] = useState(false);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('action') === 'new-document' && !isAdding) {
+            setIsAdding(true);
+        }
+    }, []);
+
+    const handleSetIsAdding = (value: boolean) => {
+        const params = new URLSearchParams(window.location.search);
+        if (value) {
+            params.set('action', 'new-document');
+        } else {
+            params.delete('action');
+        }
+        window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+        setIsAdding(value);
+    };
 
     const categories = ['Projeto', 'Escritura', 'Contrato', 'Outros'];
 
@@ -33,7 +52,7 @@ const DocumentsSection: React.FC<DocumentsSectionProps> = ({
                 </h2>
                 {isAdmin && (
                     <button
-                        onClick={() => setIsAdding(true)}
+                        onClick={() => handleSetIsAdding(true)}
                         className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2"
                     >
                         <i className="fa-solid fa-plus"></i> Novo Documento
@@ -43,7 +62,7 @@ const DocumentsSection: React.FC<DocumentsSectionProps> = ({
 
             <AddDocumentModal
                 isOpen={isAdding}
-                onClose={() => setIsAdding(false)}
+                onClose={() => handleSetIsAdding(false)}
                 onSave={onAdd}
             />
 
