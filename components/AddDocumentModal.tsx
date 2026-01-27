@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ProjectDocument } from '../types';
 import AttachmentUpload from './AttachmentUpload';
@@ -14,6 +14,33 @@ const AddDocumentModal: React.FC<AddDocumentModalProps> = ({ isOpen, onClose, on
     const [category, setCategory] = useState<ProjectDocument['category']>('Projeto');
     const [url, setUrl] = useState('');
 
+    const DRAFT_KEY = 'draft_new_document';
+
+    useEffect(() => {
+        if (isOpen) {
+            const saved = localStorage.getItem(DRAFT_KEY);
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    if (data.title) setTitle(data.title);
+                    if (data.category) setCategory(data.category);
+                    if (data.url) setUrl(data.url);
+                } catch (e) { console.error(e); }
+            }
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (isOpen) {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, category, url }));
+        }
+    }, [title, category, url, isOpen]);
+
+    const handleClose = () => {
+        localStorage.removeItem(DRAFT_KEY);
+        onClose();
+    };
+
     if (!isOpen) return null;
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -23,6 +50,7 @@ const AddDocumentModal: React.FC<AddDocumentModalProps> = ({ isOpen, onClose, on
             return;
         }
         onSave({ title, category, url });
+        localStorage.removeItem(DRAFT_KEY);
         onClose();
         setTitle('');
         setCategory('Projeto');
@@ -44,7 +72,7 @@ const AddDocumentModal: React.FC<AddDocumentModalProps> = ({ isOpen, onClose, on
                         </div>
                         <h2 className="text-xl font-black text-white">Novo Documento</h2>
                     </div>
-                    <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:text-red-400 transition">
+                    <button onClick={handleClose} className="w-10 h-10 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:text-red-400 transition">
                         <i className="fa-solid fa-xmark"></i>
                     </button>
                 </div>

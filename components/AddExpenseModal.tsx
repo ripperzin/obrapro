@@ -27,21 +27,48 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
         subMacroId: '' as string
     });
     const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({});
+    const [isInitialized, setIsInitialized] = useState(false);
+
+    const DRAFT_KEY = 'draft_new_expense';
 
     useEffect(() => {
         if (isOpen) {
-            setFormData({
-                description: '',
-                value: 0,
-                date: new Date().toISOString().split('T')[0],
-                attachmentUrl: undefined,
-                attachments: [] as string[],
-                macroId: '',
-                subMacroId: ''
-            });
+            const saved = localStorage.getItem(DRAFT_KEY);
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    // Check if data actually has content (avoid restoring empty drafts)
+                    const hasData = data.description || data.value > 0 || (data.attachments && data.attachments.length > 0);
+
+                    if (hasData) {
+                        // Automatic restore
+                        setFormData(prev => ({
+                            ...prev,
+                            ...data,
+                            // Ensure arrays/objects are properly merged or replaced
+                            attachments: data.attachments || [],
+                            macros: undefined,
+                            subMacros: undefined
+                        }));
+                    }
+                } catch (e) {
+                    console.error('Error restoring draft', e);
+                }
+            } else {
+                // Reset handled by initialized state logic usually
+            }
             setResolvedUrls({});
+            setIsInitialized(true);
+        } else {
+            setIsInitialized(false);
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        if (isOpen && isInitialized) {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify(formData));
+        }
+    }, [formData, isOpen, isInitialized]);
 
     // Resolve URLs
     useEffect(() => {
@@ -88,6 +115,11 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
         }));
     };
 
+    const handleClose = () => {
+        localStorage.removeItem(DRAFT_KEY);
+        onClose();
+    };
+
     if (!isOpen) return null;
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -106,6 +138,7 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
             macroId: finalMacroId || undefined,
             subMacroId: formData.subMacroId || undefined
         });
+        localStorage.removeItem(DRAFT_KEY);
         onClose();
     };
 
@@ -122,7 +155,7 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                         </div>
                         <h2 className="text-xl font-black text-white">Nova Despesa</h2>
                     </div>
-                    <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:text-red-400 transition">
+                    <button onClick={handleClose} className="w-10 h-10 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:text-red-400 transition">
                         <i className="fa-solid fa-xmark"></i>
                     </button>
                 </div>

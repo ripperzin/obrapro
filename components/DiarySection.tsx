@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DiaryEntry } from '../types';
 import AttachmentUpload from './AttachmentUpload';
 import DateInput from './DateInput';
@@ -22,18 +22,64 @@ const DiarySection: React.FC<DiarySectionProps> = ({
     isAdmin = false,
     currentUserName
 }) => {
+    // Sync URL with action
     const [isAdding, setIsAdding] = useState(false);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('action') === 'new-diary' && !isAdding) {
+            setIsAdding(true);
+        }
+    }, []);
+
+    const handleSetIsAdding = (value: boolean) => {
+        const params = new URLSearchParams(window.location.search);
+        if (value) {
+            params.set('action', 'new-diary');
+        } else {
+            params.delete('action');
+        }
+        window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+        setIsAdding(value);
+    };
+
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editEntry, setEditEntry] = useState<DiaryEntry | null>(null);
 
     // --- Update Handlers ---
 
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('action') === 'edit-diary' && !editingId) {
+            const id = params.get('entryId');
+            if (id) {
+                const entry = diary.find(d => d.id === id);
+                if (entry) {
+                    setEditingId(entry.id);
+                    setEditEntry({ ...entry });
+                }
+            }
+        }
+    }, [diary]);
+
     const startEditing = (entry: DiaryEntry) => {
+        const params = new URLSearchParams(window.location.search);
+        params.set('action', 'edit-diary');
+        params.set('entryId', entry.id);
+        window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+
         setEditingId(entry.id);
         setEditEntry({ ...entry });
     };
 
     const cancelEditing = () => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('action') === 'edit-diary') {
+            params.delete('action');
+            params.delete('entryId');
+        }
+        window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+
         setEditingId(null);
         setEditEntry(null);
     };
@@ -76,7 +122,7 @@ const DiarySection: React.FC<DiarySectionProps> = ({
                 </h2>
                 {!isAdding && !editingId && (
                     <button
-                        onClick={() => setIsAdding(true)}
+                        onClick={() => handleSetIsAdding(true)}
                         className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider shadow-lg shadow-blue-600/20 flex items-center gap-2 transition-all"
                     >
                         <i className="fa-solid fa-pen"></i> Novo Registro
@@ -87,7 +133,7 @@ const DiarySection: React.FC<DiarySectionProps> = ({
 
             <AddDiaryEntryModal
                 isOpen={isAdding}
-                onClose={() => setIsAdding(false)}
+                onClose={() => handleSetIsAdding(false)}
                 onAdd={onAdd}
                 currentUserName={currentUserName}
             />

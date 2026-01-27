@@ -39,7 +39,26 @@ const UnitsSection: React.FC<{
   onDeleteUnit: (projectId: string, unitId: string) => void,
   logChange: (a: string, f: string, o: string, n: string) => void
 }> = ({ project, user, onAddUnit, onUpdateUnit, onDeleteUnit, logChange }) => {
+  // Sync showAdd with URL action parameter
   const [showAdd, setShowAdd] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('action') === 'new-unit' && !showAdd) {
+      setShowAdd(true);
+    }
+  }, []);
+
+  const handleSetShowAdd = (value: boolean) => {
+    const params = new URLSearchParams(window.location.search);
+    if (value) {
+      params.set('action', 'new-unit');
+    } else {
+      params.delete('action');
+    }
+    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+    setShowAdd(value);
+  };
   const [isSaving, setIsSaving] = useState(false);
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -50,7 +69,62 @@ const UnitsSection: React.FC<{
     status: 'Available' as 'Available' | 'Sold'
   });
   const [unitToDelete, setUnitToDelete] = useState<string | null>(null);
+
+  // Sync editingUnitId and unitToDelete with URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('action');
+    const unitId = params.get('unitId');
+
+    if (action === 'edit-unit' && unitId && unitId !== editingUnitId) {
+      setEditingUnitId(unitId);
+      // Expand the unit being edited automatically
+      setExpandedUnitIds(prev => new Set(prev).add(unitId));
+    }
+    if (action === 'delete-unit' && unitId && unitId !== unitToDelete) {
+      setUnitToDelete(unitId);
+    }
+  }, []);
+
+  const handleSetEditingUnitId = (id: string | null) => {
+    const params = new URLSearchParams(window.location.search);
+    if (id) {
+      params.set('action', 'edit-unit');
+      params.set('unitId', id);
+    } else {
+      if (params.get('action') === 'edit-unit') {
+        params.delete('action');
+        params.delete('unitId');
+      }
+    }
+    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+    setEditingUnitId(id);
+  };
+
+  const handleSetUnitToDelete = (id: string | null) => {
+    const params = new URLSearchParams(window.location.search);
+    if (id) {
+      params.set('action', 'delete-unit');
+      params.set('unitId', id);
+    } else {
+      if (params.get('action') === 'delete-unit') {
+        params.delete('action');
+        params.delete('unitId');
+      }
+    }
+    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+    setUnitToDelete(id);
+  };
   const [expandedUnitIds, setExpandedUnitIds] = useState<Set<string>>(new Set());
+
+  // Sync expanded units with URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const expanded = params.get('expandedUnits');
+    if (expanded) {
+      setExpandedUnitIds(new Set(expanded.split(',')));
+    }
+  }, []);
 
   const toggleExpansion = (id: string) => {
     const newSet = new Set(expandedUnitIds);
@@ -60,6 +134,14 @@ const UnitsSection: React.FC<{
       newSet.add(id);
     }
     setExpandedUnitIds(newSet);
+
+    const params = new URLSearchParams(window.location.search);
+    if (newSet.size > 0) {
+      params.set('expandedUnits', Array.from(newSet).join(','));
+    } else {
+      params.delete('expandedUnits');
+    }
+    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
   };
   const { inflationRate } = useInflation();
 
@@ -84,7 +166,7 @@ const UnitsSection: React.FC<{
     try {
       await onAddUnit(formData);
       console.log('=== DEBUG: Unidade adicionada com sucesso ===');
-      setShowAdd(false);
+      handleSetShowAdd(false);
       setFormData({
         identifier: '',
         area: 0,
@@ -107,7 +189,7 @@ const UnitsSection: React.FC<{
           Portfólio de Unidades
         </h3>
         {isAdmin && (
-          <button onClick={() => setShowAdd(true)} className="bg-blue-600 text-white px-6 py-3 rounded-full font-black text-sm hover:bg-blue-700 transition shadow-lg shadow-blue-600/30 flex items-center gap-2">
+          <button onClick={() => handleSetShowAdd(true)} className="bg-blue-600 text-white px-6 py-3 rounded-full font-black text-sm hover:bg-blue-700 transition shadow-lg shadow-blue-600/30 flex items-center gap-2">
             <i className="fa-solid fa-plus"></i> Nova Unidade
           </button>
         )}
@@ -115,11 +197,11 @@ const UnitsSection: React.FC<{
 
       <ConfirmModal
         isOpen={!!unitToDelete}
-        onClose={() => setUnitToDelete(null)}
+        onClose={() => handleSetUnitToDelete(null)}
         onConfirm={() => {
           if (unitToDelete) {
             onDeleteUnit(project.id, unitToDelete);
-            setUnitToDelete(null);
+            handleSetUnitToDelete(null);
           }
         }}
         title="Excluir Unidade?"
@@ -132,10 +214,10 @@ const UnitsSection: React.FC<{
       {/* Modal Nova Unidade */}
       <AddUnitModal
         isOpen={showAdd}
-        onClose={() => setShowAdd(false)}
+        onClose={() => handleSetShowAdd(false)}
         onSave={async (unit) => {
           await onAddUnit(unit);
-          setShowAdd(false);
+          handleSetShowAdd(false);
         }}
       />
 
@@ -205,7 +287,7 @@ const UnitsSection: React.FC<{
 
                       {isEditing ? (
                         <button
-                          onClick={() => setEditingUnitId(null)}
+                          onClick={() => handleSetEditingUnitId(null)}
                           className="w-9 h-9 flex items-center justify-center bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500 hover:text-white transition"
                           title="Confirmar"
                         >
@@ -214,14 +296,14 @@ const UnitsSection: React.FC<{
                       ) : (
                         <>
                           <button
-                            onClick={(e) => { e.stopPropagation(); setEditingUnitId(unit.id); }}
+                            onClick={(e) => { e.stopPropagation(); handleSetEditingUnitId(unit.id); }}
                             className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-400 rounded-lg hover:bg-blue-600 hover:text-white transition border border-slate-700"
                             title="Editar"
                           >
                             <i className="fa-solid fa-pen-to-square text-sm"></i>
                           </button>
                           <button
-                            onClick={(e) => { e.stopPropagation(); setUnitToDelete(unit.id); }}
+                            onClick={(e) => { e.stopPropagation(); handleSetUnitToDelete(unit.id); }}
                             className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-400 rounded-lg hover:bg-red-600 hover:text-white transition border border-slate-700"
                             title="Excluir"
                           >
@@ -363,9 +445,10 @@ const ExpensesSection: React.FC<{
   onAddExpense: (e: any) => void,
   onUpdate: (e: Expense[]) => void,
   logChange: (a: string, f: string, o: string, n: string) => void,
-  onDeleteExpense: (id: string) => void
-}> = ({ project, user, onAddExpense, onUpdate, logChange, onDeleteExpense }) => {
-  const [showAdd, setShowAdd] = useState(false);
+  onDeleteExpense: (id: string) => void,
+  initialAction?: string | null
+}> = ({ project, user, onAddExpense, onUpdate, logChange, onDeleteExpense, initialAction }) => {
+  const [showAdd, setShowAdd] = useState(initialAction === 'new-expense');
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     description: '',
@@ -380,6 +463,28 @@ const ExpensesSection: React.FC<{
   const [projectSubMacros, setProjectSubMacros] = useState<ProjectSubMacro[]>([]);
   const [attachmentManagerId, setAttachmentManagerId] = useState<string | null>(null);
   const [tempDescription, setTempDescription] = useState('');
+
+  // Sync showAdd with URL action parameter for persistence across re-renders
+  useEffect(() => {
+    // Check URL on every render to restore modal state
+    const params = new URLSearchParams(window.location.search);
+    const urlAction = params.get('action');
+    if (urlAction === 'new-expense' && !showAdd) {
+      setShowAdd(true);
+    }
+  }, [initialAction]); // Re-check when initialAction prop changes
+
+  // Custom setter that syncs to URL
+  const handleSetShowAdd = (value: boolean) => {
+    const params = new URLSearchParams(window.location.search);
+    if (value) {
+      params.set('action', 'new-expense');
+    } else {
+      params.delete('action');
+    }
+    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+    setShowAdd(value);
+  };
 
   // Ordenar despesas: Mais recentes primeiro (Ordem Cronológica Inversa)
   // O usuário pediu "cronológica", mas em finanças geralmente isso significa ver o mais recente no topo.
@@ -485,7 +590,7 @@ const ExpensesSection: React.FC<{
           Fluxo de Despesas
         </h3>
         {isAdmin && (
-          <button onClick={() => setShowAdd(true)} className="bg-green-600 text-white px-6 py-3 rounded-full font-black text-sm hover:bg-green-700 transition shadow-lg shadow-green-600/30 flex items-center gap-2">
+          <button onClick={() => handleSetShowAdd(true)} className="bg-green-600 text-white px-6 py-3 rounded-full font-black text-sm hover:bg-green-700 transition shadow-lg shadow-green-600/30 flex items-center gap-2">
             <i className="fa-solid fa-plus"></i> Nova Despesa
           </button>
         )}
@@ -524,10 +629,10 @@ const ExpensesSection: React.FC<{
       {/* Modal Nova Despesa */}
       <AddExpenseModal
         isOpen={showAdd}
-        onClose={() => setShowAdd(false)}
+        onClose={() => handleSetShowAdd(false)}
         onSave={(exp) => {
           onAddExpense(exp);
-          setShowAdd(false);
+          handleSetShowAdd(false);
         }}
         macros={projectMacros}
         subMacros={projectSubMacros}
@@ -833,7 +938,21 @@ const ExpensesSection: React.FC<{
   );
 };
 const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, onDeleteUnit, onRefresh, onUpdateDiary, onDeleteDiary }) => {
-  const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'budget' | 'documents' | 'diary'>('info');
+  // 1. URL State for Project Tabs
+  const initialParams = new URLSearchParams(window.location.search);
+  const initialTab = (initialParams.get('tab') as any) || 'info';
+
+  const [activeTab, setActiveTab] = useState<'info' | 'units' | 'expenses' | 'budget' | 'documents' | 'diary'>(initialTab);
+
+  // Sync internal tab to URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (activeTab) {
+      params.set('tab', activeTab);
+      const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+      window.history.replaceState(null, '', newUrl);
+    }
+  }, [activeTab]);
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [evidenceModal, setEvidenceModal] = useState<{ isOpen: boolean; stage: number; evidence?: any }>({ isOpen: false, stage: 0 });
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -852,6 +971,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
   /* Safe Calculation Helpers */
   const safeSum = (arr: any[], key: string) => arr.reduce((acc, curr) => acc + (Number(curr[key]) || 0), 0);
   const safeDiff = (a: number, b: number) => (Number(a) || 0) - (Number(b) || 0);
+
+  // URL Action Handling (Modal Deep Linking)
+  const initialAction = initialParams.get('action');
 
   const { inflationRate } = useInflation();
 
@@ -1689,16 +1811,15 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
 
         {/* ===== ABA DESPESAS ===== */}
         {activeTab === 'expenses' && (
-          <div className="animate-fade-in">
-            <ExpensesSection
-              project={project}
-              user={user}
-              onAddExpense={handleAddExpense}
-              onUpdate={(expenses) => onUpdate(project.id, { expenses })}
-              logChange={logChange}
-              onDeleteExpense={onDeleteExpense}
-            />
-          </div>
+          <ExpensesSection
+            project={project}
+            user={user}
+            onAddExpense={handleAddExpense}
+            onUpdate={(newExpenses) => onUpdate(project.id, { expenses: newExpenses })}
+            onDeleteExpense={onDeleteExpense}
+            logChange={logChange}
+            initialAction={initialAction} // Pass URL action
+          />
         )}
 
         {/* ===== ABA ORÇAMENTO (MACRO-DESPESAS) ===== */}
