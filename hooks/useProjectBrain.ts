@@ -57,7 +57,7 @@ const KEYWORDS = {
     PROGRESSO: ['progresso', 'andamento', 'status', 'como esta', 'situacao'],
     ETAPAS: ['etapa', 'fase', 'fundacao', 'estrutura', 'alvenaria', 'cobertura', 'revestimento'],
     DIARIO: ['diario', 'anotacoes', 'registros', 'aconteceu', 'anotado'],
-    CRONOGRAMA: ['prazo', 'entrega', 'atraso', 'quando', 'data', 'previsao', 'termino'],
+    CRONOGRAMA: ['prazo', 'entrega', 'atraso', 'quando', 'data', 'previsao', 'termino', 'tempo'],
     UNIDADES: ['unidades', 'casas', 'apartamentos', 'aptos', 'unidade'],
     VENDAS: ['vendidas', 'vendas', 'faturamento', 'receita'],
     DISPONIVEIS: ['disponiveis', 'a venda', 'estoque'],
@@ -68,7 +68,8 @@ const KEYWORDS = {
         'obras', 'todas', 'panorama', 'todas as obras', 'minhas obras', 'meus projetos',
         'resumo geral', 'visao geral', 'todas obras', 'projetos', 'tudo',
         'como estao', 'como estão', 'como estao as obras', 'status de todas',
-        'todas minhas', 'geral de todas', 'resumo de todas'
+        'todas minhas', 'geral de todas', 'resumo de todas', 'no total', 'no geral', 'soma', 'consolidado',
+        'concluidas', 'finalizadas', 'prontas', 'entregues', 'em construcao', 'em construção', 'andamento'
     ],
     PANORAMA: ['resumo', 'visao', 'status geral', 'geral', 'panorama geral'],
     // COMPARAÇÃO - SEMPRE MULTI_OBRA (mesmo com "obra" singular)
@@ -283,33 +284,30 @@ function extractEntities(text: string, projects: Project[], history: ChatMessage
     }
 
     // 2. DETECTAR ESCOPO (SINGULAR vs MULTI_OBRA) NA MENSAGEM ATUAL
-    // Só ativa multi-obra se NÃO tiver identificado uma obra específica AGORA
     let escopoConfirmado: EscopoTipo = 'SINGULAR';
     const multiObraMatch = KEYWORDS.MULTI_OBRA.filter(k => normalized.includes(k));
     const panoramaMatch = KEYWORDS.PANORAMA.filter(k => normalized.includes(k));
 
-    if (!obra && (multiObraMatch.length > 0 || panoramaMatch.length > 0)) {
+    if (multiObraMatch.length > 0 || panoramaMatch.length > 0) {
         escopoConfirmado = 'MULTI_OBRA';
-        console.log('🌐 MULTI_OBRA ATIVADO: Plural detectado na mensagem atual');
+        obra = null; // Se pediu panorama de todas, ignora obra específica mencionada
+        console.log('🌐 MULTI_OBRA ATIVADO: Plural/Panorama detectado');
     }
 
-    // 3. RECUPERAR CONTEXTO DO HISTÓRICO (Apenas se não achou nada novo)
-    // Se não achou obra, não é multi-obra, e parece ser uma continuação...
+    // 3. RECUPERAR CONTEXTO DO HISTÓRICO (Sticky Context)
+    // Se não achou obra, não é multi-obra, verifica se a IA estava falando de alguém
     if (!obra && escopoConfirmado === 'SINGULAR') {
-        // Verifica se a última mensagem do ASSISTENTE mencionava uma obra específica
-        // Isso é um "contexto implícito"
         const lastAssistantMsg = [...history].reverse().find(h => h.role === 'assistant');
         if (lastAssistantMsg) {
-            // Tenta extrair ID ou nome de obra da resposta anterior da IA
-            // (Assumindo que a IA pode ter falado "Na obra X...")
-            // Como fallback simples, podemos ver se alguma obra estava "ativa" na intencao anterior
-            // Mas para ser seguro, vamos evitar "colar" demais.
-            // MELHOR: Se o usuário não foi específico, mantemos null para forçar ele a esclarecer
-            // OU, assumimos a obra "selecionada" na UI (que vem via currentProjectId externo)
-
-            // Vamos deixar 'obra' como null aqui. 
-            // O `useProjectBrain` vai tentar usar o `currentProjectId` (selecionado na tela) como prioridade 2.
-            console.log('🤷 Nenhuma obra citada diretamente. Dependerá da obra selecionada na tela.');
+            // Procura nomes de projetos na última resposta da IA
+            for (const p of projects) {
+                // Verifica se o nome Exato ou partes significativas aparecem
+                if (normalizar(lastAssistantMsg.content).includes(normalizar(p.name))) {
+                    obra = { id: p.id, nome: p.name };
+                    console.log(`🧠 Contexto Adesivo: Continuando conversa sobre`, p.name);
+                    break;
+                }
+            }
         }
     }
 
@@ -396,7 +394,10 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
 
             // Verificar se precisa de obra
             if (entities.escopoConfirmado === 'SINGULAR' && entities.consulta !== 'GERAL' && !project && entities.acao === 'NONE') {
-                return { text: `Não identifiquei a obra. Disponíveis: ${projects.map(p => p.name).join(', ')}. Qual você quer?`, action: { type: 'NONE' } };
+                return {
+                    text: `Não identifiquei qual obra você se refere. Você quer ver os dados de uma obra específica ou o **total consolidado** de todas?\n\n**Obras disponíveis:** ${projects.map(p => p.name).join(', ')}.`,
+                    action: { type: 'NONE' }
+                };
             }
 
             let dadosFiltrados: any = null;
@@ -414,12 +415,17 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
                             const alertas = verificarAlertas(p);
                             const totalGasto = p.expenses.reduce((s, e) => s + e.value, 0);
                             const orcamento = p.budget?.totalEstimated || p.expectedTotalCost || 0;
+                            const duracao = calcularDuracao(p);
                             return {
                                 id: p.id,
                                 nome: p.name,
-                                progresso: `${p.progress}%`,
+                                // Dados de Contexto (Padronizado)
+                                progresso: `${p.progress}% (${duracao.diasCorridos} dias)`,
                                 etapa: STAGE_NAMES[p.progress] || 'Em andamento',
-                                unidades: `${vendidas}/${p.units.length} vendidas`,
+                                unidades: `${vendidas}/${p.units.length} unidades`,
+                                unidadesVendidas: vendidas,
+                                unidadesTotais: p.units.length,
+                                unidadesDisponiveis: p.units.filter(u => u.status === 'Available').length,
                                 totalGasto: totalGasto,
                                 totalGastoFormatado: `R$ ${totalGasto.toLocaleString('pt-BR')}`,
                                 orcamento: orcamento,
@@ -429,6 +435,27 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
                                 alertas
                             };
                         }),
+                        resumoGlobal: {
+                            totalObras: projects.length,
+                            unidadesTotais: projects.reduce((s, p) => s + p.units.length, 0),
+                            unidadesVendidas: projects.reduce((s, p) => s + p.units.filter(u => u.status === 'Sold').length, 0),
+                            unidadesDisponiveis: projects.reduce((s, p) => s + p.units.filter(u => u.status === 'Available').length, 0),
+
+                            // Segmentação: Concluídas (100%)
+                            unidadesConcluidas: projects.reduce((s, p) => s + (p.progress >= 100 ? p.units.length : 0), 0),
+                            valorUnidadesConcluidas: projects.reduce((s, p) => s + (p.progress >= 100 ? p.units.reduce((sum, u) => sum + (u.saleValue || u.valorEstimadoVenda || 0), 0) : 0), 0),
+
+                            // Segmentação: Em Construção (< 100%)
+                            unidadesEmConstrucao: projects.reduce((s, p) => s + (p.progress < 100 ? p.units.length : 0), 0),
+                            unidadesVendidasEmConstrucao: projects.reduce((s, p) => s + (p.progress < 100 ? p.units.filter(u => u.status === 'Sold').length : 0), 0),
+                            unidadesDisponiveisEmConstrucao: projects.reduce((s, p) => s + (p.progress < 100 ? p.units.filter(u => u.status === 'Available').length : 0), 0),
+                            valorVendasEmConstrucao: projects.reduce((s, p) => s + (p.progress < 100 ? p.units.filter(u => u.status === 'Sold').reduce((sum, u) => sum + (u.saleValue || 0), 0) : 0), 0),
+                            valorEstoqueEmConstrucao: projects.reduce((s, p) => s + (p.progress < 100 ? p.units.filter(u => u.status === 'Available').reduce((sum, u) => sum + (u.saleValue || u.valorEstimadoVenda || 0), 0) : 0), 0),
+
+                            valorTotalVendasRealizadas: projects.reduce((s, p) => s + p.units.filter(u => u.status === 'Sold').reduce((sum, unit) => sum + (unit.saleValue || 0), 0), 0),
+                            totalGastoGlobal: projects.reduce((s, p) => s + p.expenses.reduce((sum, e) => sum + e.value, 0), 0),
+                            orcamentoGlobal: projects.reduce((s, p) => s + (p.budget?.totalEstimated || p.expectedTotalCost || 0), 0),
+                        },
                         calculoPermitido: false
                     };
                     break;
@@ -444,6 +471,11 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
                             quantidade: despesas.length,
                             valorTotal: despesas.reduce((s, e) => s + e.value, 0),
                             itens: despesas.map(e => ({ data: e.date, desc: e.description, valor: e.value })),
+
+                            // Dados de Contexto (Padronizado)
+                            progresso: `${project.progress}% (${calcularDuracao(project).diasCorridos} dias)`,
+                            etapa: STAGE_NAMES[project.progress],
+
                             calculoPermitido: false
                         };
                     }
@@ -484,6 +516,11 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
                             percentualDoOrcamento: orcamento > 0 ? `${((totalGasto / orcamento) * 100).toFixed(1)}%` : null,
                             etapas: etapas,
                             ultimasDespesas: ultimasDespesas,
+
+                            // Dados de Contexto (Padronizado)
+                            progresso: `${project.progress}% (${calcularDuracao(project).diasCorridos} dias)`,
+                            etapa: STAGE_NAMES[project.progress],
+
                             calculoPermitido: false
                         };
                     }
@@ -498,6 +535,40 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
                             margemRoi: canonicos.roi !== null ? `${canonicos.roi.toFixed(1)}%` : 'Sem vendas para calcular',
                             roiMensal: canonicos.roiMensal !== null ? `${canonicos.roiMensal.toFixed(2)}%` : null,
                             unidadesBase: canonicos.unidadesVendidas,
+
+                            // Dados de Contexto (Padronizado)
+                            progresso: `${project.progress}% (${calcularDuracao(project).diasCorridos} dias)`,
+                            totalGasto: project.expenses.reduce((s, e) => s + e.value, 0),
+                            totalGastoFormatado: `R$ ${project.expenses.reduce((s, e) => s + e.value, 0).toLocaleString('pt-BR')}`,
+                            orcamentoTotal: project.budget?.totalEstimated || project.expectedTotalCost || 0,
+                            percentualOrcamento: (project.budget?.totalEstimated || project.expectedTotalCost || 0) > 0 ? `${((project.expenses.reduce((s, e) => s + e.value, 0) / (project.budget?.totalEstimated || project.expectedTotalCost || 0)) * 100).toFixed(0)}%` : null,
+
+                            calculoPermitido: false
+                        };
+                    }
+                    break;
+
+                case 'ETAPAS':
+                    if (project) {
+                        const completas = Object.keys(STAGE_NAMES).filter(k => Number(k) <= project.progress).map(k => STAGE_NAMES[Number(k)]);
+                        const proxima = STAGE_NAMES[Math.min(project.progress + 10, 100)];
+                        const totalGasto = project.expenses.reduce((s, e) => s + e.value, 0);
+                        const orcamento = project.budget?.totalEstimated || project.expectedTotalCost || 0;
+
+                        dadosFiltrados = {
+                            tipo: 'ETAPAS',
+                            origem: 'BACKEND',
+                            etapaAtual: STAGE_NAMES[project.progress],
+                            etapasConcluidas: completas,
+                            proximaEtapa: proxima,
+
+                            // Dados de Contexto (Padronizado)
+                            progresso: `${project.progress}% (${calcularDuracao(project).diasCorridos} dias de obra)`,
+                            totalGasto: totalGasto,
+                            totalGastoFormatado: `R$ ${totalGasto.toLocaleString('pt-BR')}`,
+                            orcamentoTotal: orcamento,
+                            percentualOrcamento: orcamento > 0 ? `${((totalGasto / orcamento) * 100).toFixed(0)}%` : null,
+
                             calculoPermitido: false
                         };
                     }
@@ -539,6 +610,11 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
                             percentualConsumido: orcamento > 0 ? `${((gasto / orcamento) * 100).toFixed(1)}%` : '0%',
                             etapas: etapas,
                             temEtapas: etapas.length > 0,
+
+                            // Dados de Contexto (Padronizado)
+                            progresso: `${project.progress}% (${calcularDuracao(project).diasCorridos} dias)`,
+                            etapa: STAGE_NAMES[project.progress],
+
                             calculoPermitido: false
                         };
                     }
@@ -549,10 +625,15 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
                         dadosFiltrados = {
                             tipo: 'PROGRESSO',
                             origem: 'BACKEND',
-                            percentual: `${project.progress}%`,
-                            etapaAtual: STAGE_NAMES[project.progress] || `Etapa ${project.progress}%`,
-                            dataInicio: project.startDate || 'Não definida',
-                            previsaoEntrega: project.deliveryDate || 'Não definida',
+                            percentual: `${project.progress}% (${calcularDuracao(project).diasCorridos} dias de obra)`,
+                            etapaAtual: STAGE_NAMES[project.progress],                            // Dados de Contexto (Padronizado)
+                            progresso: `${project.progress}% (${calcularDuracao(project).diasCorridos} dias)`,
+                            etapa: STAGE_NAMES[project.progress],
+                            totalGasto: project.expenses.reduce((s, e) => s + e.value, 0),
+                            totalGastoFormatado: `R$ ${project.expenses.reduce((s, e) => s + e.value, 0).toLocaleString('pt-BR')}`,
+                            orcamentoTotal: project.budget?.totalEstimated || project.expectedTotalCost || 0,
+                            percentualOrcamento: (project.budget?.totalEstimated || project.expectedTotalCost || 0) > 0 ? `${((project.expenses.reduce((s, e) => s + e.value, 0) / (project.budget?.totalEstimated || project.expectedTotalCost || 0)) * 100).toFixed(0)}%` : null,
+
                             calculoPermitido: false
                         };
                     }
@@ -561,12 +642,23 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
                 case 'ALERTAS':
                     if (project) {
                         const alertas = verificarAlertas(project);
+                        const totalGasto = project.expenses.reduce((s, e) => s + e.value, 0);
+                        const orcamento = project.budget?.totalEstimated || project.expectedTotalCost || 0;
+
                         dadosFiltrados = {
                             tipo: 'ALERTAS',
                             origem: 'BACKEND',
                             temAlertas: alertas.length > 0,
                             listaAlertas: alertas,
                             mensagemSeVazio: alertas.length === 0 ? 'Nenhum alerta. Tudo dentro do esperado.' : null,
+
+                            // Dados de Contexto (Padronizado)
+                            progresso: `${project.progress}% (${calcularDuracao(project).diasCorridos} dias)`,
+                            totalGasto: totalGasto,
+                            totalGastoFormatado: `R$ ${totalGasto.toLocaleString('pt-BR')}`,
+                            orcamentoTotal: orcamento,
+                            percentualOrcamento: orcamento > 0 ? `${((totalGasto / orcamento) * 100).toFixed(0)}%` : null,
+
                             calculoPermitido: false
                         };
                     }
@@ -578,14 +670,32 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
                     if (project) {
                         const vendidas = project.units.filter(u => u.status === 'Sold');
                         const disponiveis = project.units.filter(u => u.status === 'Available');
+
+                        // Lógica de "Concluídas" (Obras 100%)
+                        const unidadesConcluidas = project.progress >= 100 ? project.units : [];
+                        const valorConcluidas = unidadesConcluidas.reduce((s, u) => s + (u.saleValue || u.valorEstimadoVenda || 0), 0);
+
                         const lista = entities.consulta === 'VENDAS' ? vendidas : entities.consulta === 'DISPONIVEIS' ? disponiveis : project.units;
+
                         dadosFiltrados = {
                             tipo: entities.consulta,
                             origem: 'BACKEND',
                             totalUnidades: project.units.length,
                             quantidadeVendidas: vendidas.length,
                             quantidadeDisponiveis: disponiveis.length,
+                            quantidadeConcluidas: unidadesConcluidas.length,
+                            valorConcluidas: valorConcluidas,
+                            valorConcluidasFormatado: `R$ ${valorConcluidas.toLocaleString('pt-BR')}`,
+                            obraConcluida: project.progress >= 100,
                             lista: lista.map(u => ({ id: u.id, nome: u.identifier, area: `${u.area}m²`, status: u.status === 'Sold' ? 'Vendida' : 'Disponível', valor: u.saleValue || u.valorEstimadoVenda || 0 })),
+
+                            // Dados de Contexto (Padronizado)
+                            progresso: `${project.progress}% (${calcularDuracao(project).diasCorridos} dias)`,
+                            totalGasto: project.expenses.reduce((s, e) => s + e.value, 0),
+                            totalGastoFormatado: `R$ ${project.expenses.reduce((s, e) => s + e.value, 0).toLocaleString('pt-BR')}`,
+                            orcamentoTotal: project.budget?.totalEstimated || project.expectedTotalCost || 0,
+                            percentualOrcamento: (project.budget?.totalEstimated || project.expectedTotalCost || 0) > 0 ? `${((project.expenses.reduce((s, e) => s + e.value, 0) / (project.budget?.totalEstimated || project.expectedTotalCost || 0)) * 100).toFixed(0)}%` : null,
+
                             calculoPermitido: false
                         };
                     }
@@ -593,11 +703,22 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
 
                 case 'DIARIO':
                     if (project) {
+                        const totalGasto = project.expenses.reduce((s, e) => s + e.value, 0);
+                        const orcamento = project.budget?.totalEstimated || project.expectedTotalCost || 0;
+
                         dadosFiltrados = {
                             tipo: 'DIARIO',
                             origem: 'BACKEND',
                             totalEntradas: project.diary.length,
                             ultimasEntradas: project.diary.slice(-5).map(d => ({ data: d.date, texto: d.content, autor: d.author })),
+
+                            // Dados de Contexto (Padronizado)
+                            progresso: `${project.progress}% (${calcularDuracao(project).diasCorridos} dias)`,
+                            totalGasto: totalGasto,
+                            totalGastoFormatado: `R$ ${totalGasto.toLocaleString('pt-BR')}`,
+                            orcamentoTotal: orcamento,
+                            percentualOrcamento: orcamento > 0 ? `${((totalGasto / orcamento) * 100).toFixed(0)}%` : null,
+
                             calculoPermitido: false
                         };
                     }
@@ -606,13 +727,34 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
                 case 'CRONOGRAMA':
                     if (project) {
                         const diasRestantes = project.deliveryDate ? Math.ceil((new Date(project.deliveryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+
+                        // Nova lógica de duração
+                        const duracao = calcularDuracao(project);
+                        const totalGasto = project.expenses.reduce((s, e) => s + e.value, 0);
+                        const orcamento = project.budget?.totalEstimated || project.expectedTotalCost || 0;
+                        const alertas = verificarAlertas(project);
+
                         dadosFiltrados = {
                             tipo: 'CRONOGRAMA',
                             origem: 'BACKEND',
                             dataInicio: project.startDate || 'Não definida',
+                            dataInicioConsiderada: duracao.dataInicio || 'Não identificada',
+                            origemDataInicio: duracao.origem,
+                            tempoDecorrido: duracao.dataInicio ? `${duracao.diasCorridos} dias` : 'Não iniciado',
                             dataEntrega: project.deliveryDate || 'Não definida',
                             diasRestantes: diasRestantes !== null ? diasRestantes : 'Indefinido',
                             situacao: diasRestantes !== null ? (diasRestantes < 0 ? 'ATRASADO' : diasRestantes < 30 ? 'CRÍTICO' : 'NO PRAZO') : 'INDEFINIDO',
+
+                            // Dados Financeiros e de Status para Contexto Geral
+                            totalGasto: totalGasto,
+                            totalGastoFormatado: `R$ ${totalGasto.toLocaleString('pt-BR')}`,
+                            orcamentoTotal: orcamento,
+                            percentualOrcamento: orcamento > 0 ? `${((totalGasto / orcamento) * 100).toFixed(0)}%` : null,
+                            progresso: `${project.progress}%`,
+                            etapa: STAGE_NAMES[project.progress],
+                            temAlerta: alertas.length > 0,
+                            alertas: alertas,
+
                             calculoPermitido: false
                         };
                     }
@@ -621,12 +763,27 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
                 case 'GERAL':
                     if (project) {
                         const canonicos = calcularCamposCanonicos(project);
+                        const duracao = calcularDuracao(project);
+                        const totalGasto = project.expenses.reduce((s, e) => s + e.value, 0);
+                        const orcamento = project.budget?.totalEstimated || project.expectedTotalCost || 0;
+                        const alertas = verificarAlertas(project);
+
                         dadosFiltrados = {
                             tipo: 'GERAL',
                             origem: 'BACKEND',
                             nome: project.name,
-                            progresso: `${project.progress}%`,
+
+                            // Dados Padronizados (Financeiro + Tempo + Progresso)
+                            progresso: `${project.progress}% (${duracao.diasCorridos} dias de obra)`,
                             etapa: STAGE_NAMES[project.progress],
+                            tempoDecorrido: duracao.dataInicio ? `${duracao.diasCorridos} dias` : 'Indefinido',
+                            totalGasto: totalGasto,
+                            totalGastoFormatado: `R$ ${totalGasto.toLocaleString('pt-BR')}`,
+                            orcamentoTotal: orcamento,
+                            percentualOrcamento: orcamento > 0 ? `${((totalGasto / orcamento) * 100).toFixed(0)}%` : null,
+                            temAlerta: alertas.length > 0,
+                            alertas: alertas,
+
                             roi: canonicos.roi !== null ? `${canonicos.roi.toFixed(1)}%` : null,
                             unidadesVendidas: `${project.units.filter(u => u.status === 'Sold').length}/${project.units.length}`,
                             calculoPermitido: false
@@ -681,4 +838,38 @@ function verificarDadosCompletos(acao: AcaoTipo, dados: EntidadesExtraidas['dado
         case 'ADD_UNIT': return !!dados.identificador && !!dados.area;
         default: return true;
     }
+}
+
+function calcularDuracao(project: Project): { dataInicio: string | null, diasCorridos: number, origem: string } {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 1. Data de Início Oficial
+    if (project.startDate) {
+        const start = new Date(project.startDate);
+        const diff = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+            dataInicio: project.startDate,
+            diasCorridos: Math.max(0, diff),
+            origem: 'Data Oficial'
+        };
+    }
+
+    // 2. Primeira Despesa
+    if (project.expenses && project.expenses.length > 0) {
+        // Encontrar a menor data
+        const dates = project.expenses.map(e => new Date(e.date).getTime()).filter(d => !isNaN(d));
+        if (dates.length > 0) {
+            const minDate = Math.min(...dates);
+            const start = new Date(minDate);
+            const diff = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+            return {
+                dataInicio: new Date(minDate).toISOString().split('T')[0],
+                diasCorridos: Math.max(0, diff),
+                origem: 'Primeira Despesa'
+            };
+        }
+    }
+
+    return { dataInicio: null, diasCorridos: 0, origem: 'Não definida' };
 }

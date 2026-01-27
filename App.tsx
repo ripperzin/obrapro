@@ -486,9 +486,9 @@ const App: React.FC = () => {
           onTriggerAI={() => setVoiceTrigger(prev => prev + 1)}
         />
 
-        <main className="flex-1 px-4 md:p-8 overflow-y-auto pb-24 md:pb-8">
-          <header className="mb-0 md:mb-8 flex justify-between items-center p-4 md:p-0 bg-transparent sticky top-0 z-30 pointer-events-none">
-            <div className="pointer-events-auto flex flex-col md:flex-row md:items-center gap-4">
+        <main className="flex-1 overflow-y-auto flex flex-col relative">
+          <header className="flex justify-between items-center p-4 md:px-8 md:py-6 bg-slate-900/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-30 shadow-lg">
+            <div className="flex flex-col md:flex-row md:items-center gap-4">
               {/* Sync Status Indicator */}
               <SyncStatus />
 
@@ -529,70 +529,72 @@ const App: React.FC = () => {
             {selectedProjectId && (
               <button
                 onClick={() => setSelectedProjectId(null)}
-                className="px-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg hover:bg-slate-700 transition shadow-sm pointer-events-auto"
+                className="px-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg hover:bg-slate-700 transition shadow-sm"
               >
                 <i className="fa-solid fa-arrow-left mr-2"></i> Voltar
               </button>
             )}
           </header>
 
-          {activeTab === 'projects' && (
-            selectedProjectId ? (
+          <div className="flex-1 px-4 md:p-8 pb-24 md:pb-8">
+            {activeTab === 'projects' && (
+              selectedProjectId ? (
+                <ProjectDetail
+                  project={selectedProject!}
+                  user={currentUser}
+                  onUpdate={updateProject}
+                  onDeleteUnit={deleteUnit}
+                  onRefresh={refreshProjects}
+                />
+              ) : (
+                <ProjectsDashboard
+                  projects={filteredProjects}
+                  onSelect={setSelectedProjectId}
+                  onAdd={addProject}
+                  onUpdate={updateProject}
+                  onDelete={deleteProject}
+                  isAdmin={currentUser.role === UserRole.ADMIN}
+                />
+              )
+            )}
+
+            {activeTab === 'general' && !selectedProjectId && (
+              <GeneralDashboard
+                projects={filteredProjects}
+                userName={currentUser.login}
+                userId={currentUser.id}
+                onSelectProject={setSelectedProjectId}
+                onAddProject={addProject}
+                onUpdate={updateProject}
+                onDelete={deleteProject}
+                onAddExpense={addExpenseToProject}
+                isAdmin={currentUser.role === UserRole.ADMIN}
+              />
+            )}
+
+            {activeTab === 'audit' && (
+              <AuditPage projects={projects} />
+            )}
+
+            {activeTab === 'general' && selectedProjectId && selectedProject && (
               <ProjectDetail
-                project={selectedProject!}
+                project={selectedProject}
                 user={currentUser}
                 onUpdate={updateProject}
                 onDeleteUnit={deleteUnit}
                 onRefresh={refreshProjects}
+                onUpdateDiary={handleUpdateDiary}
+                onDeleteDiary={handleDeleteDiary}
               />
-            ) : (
-              <ProjectsDashboard
-                projects={filteredProjects}
-                onSelect={setSelectedProjectId}
-                onAdd={addProject}
-                onUpdate={updateProject}
-                onDelete={deleteProject}
-                isAdmin={currentUser.role === UserRole.ADMIN}
+            )}
+
+            {activeTab === 'users' && currentUser.role === UserRole.ADMIN && (
+              <UserManagement
+                projects={projects}
+                currentUser={currentUser}
               />
-            )
-          )}
-
-          {activeTab === 'general' && !selectedProjectId && (
-            <GeneralDashboard
-              projects={filteredProjects}
-              userName={currentUser.login}
-              userId={currentUser.id}
-              onSelectProject={setSelectedProjectId}
-              onAddProject={addProject}
-              onUpdate={updateProject}
-              onDelete={deleteProject}
-              onAddExpense={addExpenseToProject}
-              isAdmin={currentUser.role === UserRole.ADMIN}
-            />
-          )}
-
-          {activeTab === 'audit' && (
-            <AuditPage projects={projects} />
-          )}
-
-          {activeTab === 'general' && selectedProjectId && selectedProject && (
-            <ProjectDetail
-              project={selectedProject}
-              user={currentUser}
-              onUpdate={updateProject}
-              onDeleteUnit={deleteUnit}
-              onRefresh={refreshProjects}
-              onUpdateDiary={handleUpdateDiary}
-              onDeleteDiary={handleDeleteDiary}
-            />
-          )}
-
-          {activeTab === 'users' && currentUser.role === UserRole.ADMIN && (
-            <UserManagement
-              projects={projects}
-              currentUser={currentUser}
-            />
-          )}
+            )}
+          </div>
         </main>
 
         <MobileNav

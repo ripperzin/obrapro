@@ -9,9 +9,7 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       port: 3000,
-      host: '0.0.0.0',
-      // https: {},
-      hmr: false, // DISABLED for testing - prevents refresh on tab switch
+      host: true, // Listen on all addresses
     },
     plugins: [
       // basicSsl(),
