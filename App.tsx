@@ -44,6 +44,7 @@ const App: React.FC = () => {
   const initialParams = new URLSearchParams(window.location.search);
   const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users' | 'audit'>((initialParams.get('view') as any) || 'general');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialParams.get('project') || null);
+  const mainRef = useRef<HTMLElement | null>(null);
 
   // 0.1 Sync URL with State
   useEffect(() => {
@@ -69,6 +70,13 @@ const App: React.FC = () => {
     // For simplicity sake in this "sync" effect, replaceState prevents infinite loops if not careful.
     // But we want the user to be able to "bookmark".
     window.history.replaceState(null, '', newUrl);
+  }, [activeTab, selectedProjectId]);
+
+  // 0.2 Reset scroll on navigation
+  useEffect(() => {
+    if (mainRef.current) {
+      mainRef.current.scrollTo(0, 0);
+    }
   }, [activeTab, selectedProjectId]);
   const [users, setUsers] = useState<User[]>([INITIAL_ADMIN]);
 
@@ -486,7 +494,7 @@ const App: React.FC = () => {
           onTriggerAI={() => setVoiceTrigger(prev => prev + 1)}
         />
 
-        <main className="flex-1 overflow-y-auto flex flex-col relative">
+        <main ref={mainRef} className="flex-1 overflow-y-auto flex flex-col relative">
           <header className="flex justify-between items-center p-4 md:px-8 md:py-6 bg-slate-900/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-30 shadow-lg">
             <div className="flex flex-col md:flex-row md:items-center gap-4">
               {/* Sync Status Indicator */}
