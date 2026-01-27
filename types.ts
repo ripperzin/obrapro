@@ -123,6 +123,7 @@ export interface ProjectMacro {
   displayOrder: number;
   plannedStartDate?: string;
   plannedEndDate?: string;
+  subMacros?: ProjectSubMacro[];
 }
 
 export interface TemplateSubMacro {

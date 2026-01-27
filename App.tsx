@@ -23,6 +23,7 @@ const InvestorView = lazy(() => import('./components/InvestorView'));
 const AICopilot = lazy(() => import('./components/AICopilot'));
 const QuickExpenseModal = lazy(() => import('./components/QuickExpenseModal'));
 const QuickDiaryModal = lazy(() => import('./components/QuickDiaryModal'));
+const QuickUnitModal = lazy(() => import('./components/QuickUnitModal'));
 
 import { useNotifications } from './hooks/useNotifications';
 
@@ -182,6 +183,28 @@ const App: React.FC = () => {
     }
   };
 
+  const addUnitToProject = async (projectId: string, unit: Omit<Unit, 'id'>) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    const newUnit: Unit = {
+      id: generateId(),
+      ...unit
+    } as Unit;
+
+    const newUnits = [...project.units, newUnit];
+
+    // Recalcular totais
+    const expectedTotalCost = newUnits.reduce((a, b) => a + b.cost, 0);
+    const expectedTotalSales = newUnits.reduce((a, b) => a + (b.saleValue || b.valorEstimadoVenda || 0), 0);
+
+    await updateProject(projectId, {
+      units: newUnits,
+      expectedTotalCost,
+      expectedTotalSales
+    }, `Inclusão Unidade (Voz): ${newUnit.identifier}`);
+  };
+
   const updateProject = async (projectId: string, updates: Partial<Project>, logMsg?: string) => {
     try {
       await updateProjectMutation.mutateAsync({
@@ -263,6 +286,7 @@ const App: React.FC = () => {
   // --- Voice Assistant Integration ---
   const [isQuickExpenseOpen, setIsQuickExpenseOpen] = useState(false);
   const [isQuickDiaryOpen, setIsQuickDiaryOpen] = useState(false);
+  const [isQuickUnitOpen, setIsQuickUnitOpen] = useState(false);
   const [voiceInitialData, setVoiceInitialData] = useState<any>({});
 
   const [voiceTrigger, setVoiceTrigger] = useState(0);
@@ -285,6 +309,14 @@ const App: React.FC = () => {
   const handleVoiceAction = (action: string, data?: any) => {
     console.log('AI Action:', action, data);
 
+    // Se a IA identificou um projeto, vamos focar nele automaticamente
+    if (data?.projectId) {
+      const exists = projects.some(p => p.id === data.projectId);
+      if (exists) {
+        setSelectedProjectId(data.projectId);
+      }
+    }
+
     if (action === 'ADD_EXPENSE') {
       setVoiceInitialData({
         description: data?.description || data?.text || '',
@@ -293,27 +325,24 @@ const App: React.FC = () => {
       });
       setIsQuickExpenseOpen(true);
     } else if (action === 'ADD_DIARY') {
-      const cleanText = data?.content || data?.text?.replace(/^diário\s+/i, '') || '';
       setVoiceInitialData({
-        content: cleanText
+        content: data?.content || data?.text?.replace(/^diário\s+/i, '') || ''
       });
       setIsQuickDiaryOpen(true);
     } else if (action === 'NAVIGATE') {
-      if (data?.projectId) {
-        setSelectedProjectId(data.projectId);
-        setActiveTab('general'); // Ensure we go to the view that shows detail
-      } else if (data?.tab) {
+      if (data?.tab) {
         handleVoiceNavigate(data.tab);
+      } else if (data?.projectId) {
+        setActiveTab('general');
       }
     } else if (action === 'ADD_UNIT') {
-      // If we have a project, go to its detail where units are added
-      if (selectedProjectId || data?.projectId) {
-        if (data?.projectId) setSelectedProjectId(data.projectId);
-        setActiveTab('general');
-        // We could potentially open the unit modal here if we expose a ref or similar
-      } else {
-        setActiveTab('projects'); // Go to list to pick a project
-      }
+      setVoiceInitialData({
+        identifier: data?.identifier || data?.name || '',
+        area: data?.area || 0,
+        cost: data?.cost || 0,
+        salePrice: data?.salePrice || 0
+      });
+      setIsQuickUnitOpen(true);
     }
   };
 
@@ -565,6 +594,18 @@ const App: React.FC = () => {
           preSelectedProjectId={selectedProjectId}
           onSave={handleSaveQuickDiary}
           initialContent={voiceInitialData?.content}
+        />
+
+        <QuickUnitModal
+          isOpen={isQuickUnitOpen}
+          onClose={() => setIsQuickUnitOpen(false)}
+          projects={filteredProjects}
+          preSelectedProjectId={selectedProjectId}
+          onSave={addUnitToProject}
+          initialIdentifier={voiceInitialData?.identifier}
+          initialArea={voiceInitialData?.area}
+          initialCost={voiceInitialData?.cost}
+          initialSalePrice={voiceInitialData?.salePrice}
         />
 
         <ReloadPrompt />

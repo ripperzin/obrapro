@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useProjectBrain } from '../hooks/useProjectBrain';
 import ReactDOM from 'react-dom';
-import { ChatMessage } from '../lib/gemini';
+import { ChatMessage } from '../lib/claude';
 
 interface AICopilotProps {
     currentProjectId?: string | null;
@@ -12,7 +12,7 @@ interface AICopilotProps {
 const AICopilot: React.FC<AICopilotProps> = ({ currentProjectId, onAction, triggerVoice }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([
-        { role: 'ai', text: 'Olá! Sou seu assistente de obras. Como posso ajudar hoje?' }
+        { role: 'assistant', content: 'Olá! Sou o Copiloto ObraPro. Como posso ajudar você hoje?' }
     ]);
     const [inputValue, setInputValue] = useState('');
     const [isListening, setIsListening] = useState(false);
@@ -74,12 +74,12 @@ const AICopilot: React.FC<AICopilotProps> = ({ currentProjectId, onAction, trigg
     const handleSendMessage = async (text: string) => {
         if (!text.trim() || loading) return;
 
-        setMessages(prev => [...prev, { role: 'user', text }]);
+        setMessages(prev => [...prev, { role: 'user', content: text }]);
         const historyForAI = [...messages];
         setInputValue('');
 
         const response = await processMessage(text, historyForAI, currentProjectId);
-        setMessages(prev => [...prev, { role: 'ai', text: response.text }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: response.text }]);
 
         if (response.action && response.action.type !== 'NONE' && onAction) {
             setTimeout(() => {
@@ -149,7 +149,7 @@ const AICopilot: React.FC<AICopilotProps> = ({ currentProjectId, onAction, trigg
                                     ? 'bg-blue-600 text-white rounded-br-none'
                                     : 'bg-slate-700 text-slate-200 rounded-bl-none'
                                     }`}>
-                                    {msg.text}
+                                    {msg.content}
                                 </div>
                             </div>
                         ))}

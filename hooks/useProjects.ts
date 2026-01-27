@@ -51,7 +51,7 @@ export const fetchProjects = async (): Promise<Project[]> => {
 
         const { data: budgetsData } = await supabase
             .from('project_budgets')
-            .select('*, project_macros(*)')
+            .select('*, project_macros(*, project_sub_macros(*))')
             .in('project_id', projectIds);
 
         if (budgetsData) {
@@ -71,8 +71,17 @@ export const fetchProjects = async (): Promise<Project[]> => {
                         spentValue: m.spent_value,
                         displayOrder: m.display_order,
                         plannedStartDate: m.planned_start_date,
-                        plannedEndDate: m.planned_end_date
-                    }))
+                        plannedEndDate: m.planned_end_date,
+                        subMacros: (m.project_sub_macros || []).map((sm: any) => ({
+                            id: sm.id,
+                            projectMacroId: sm.project_macro_id,
+                            name: sm.name,
+                            percentage: sm.percentage,
+                            estimatedValue: sm.estimated_value,
+                            spentValue: sm.spent_value,
+                            displayOrder: sm.display_order
+                        })).sort((a: any, b: any) => a.displayOrder - b.displayOrder)
+                    })).sort((a: any, b: any) => a.displayOrder - b.displayOrder)
                 };
             });
         }

@@ -3,10 +3,6 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 // Initialize Gemini
 const API_KEY = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process.env as any).VITE_GEMINI_API_KEY || (process.env as any).GEMINI_API_KEY;
 
-if (API_KEY) {
-    console.log("Gemini API Key detected. Length:", API_KEY.length);
-}
-
 let genAI: GoogleGenerativeAI | null = null;
 if (API_KEY && API_KEY !== 'undefined') {
     genAI = new GoogleGenerativeAI(API_KEY);
@@ -93,43 +89,51 @@ export const parseReceiptImage = async (imageBase64: string): Promise<ReceiptDat
 export const chatWithData = async (message: string, history: ChatMessage[], context: any): Promise<ChatResponse> => {
     if (!genAI) {
         return {
-            text: "Erro: Chave de API não encontrada (VITE_GEMINI_API_KEY).",
+            text: "Erro: Chave de API não encontrada.",
             action: { type: 'NONE' }
         };
     }
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+        // Fallback para o modelo legacy mais estável devido a erro de versão na API Key
+        const model = genAI.getGenerativeModel({
+            model: "gemini-pro"
+        });
 
-        const contextSummary = JSON.stringify(context, null, 2);
-        const historyString = history.map(m => `${m.role === 'user' ? 'Usuário' : 'Assistente'}: ${m.text}`).join('\n');
+        const historyString = history.map(m => `${m.role === 'user' ? 'U' : 'A'}: ${m.text}`).join('\n');
 
-        const systemPrompt = `
-        You are an AI Assistant for "Obra Pro". Help manage construction projects.
-        Respond in Portuguese (Brazil). Return ONLY JSON.
-        PRECISION: Never mix data between different projects. Check IDs carefully.
-        If a user mentions a project ID or name, only use data from that specific project.
-        Current selected project is identified by "activeProjectId" in the context.
+        const prompt = `
+        Você é o cérebro do ObraPro. Responda APENAS em JSON.
         
-        DATA CONTEXT:
-        ${contextSummary}
-        HISTORY:
-        ${historyString}
-        USER QUERY: "${message}"
+        CONTEXTO:
+        ${JSON.stringify(context)}
 
-        Return JSON: { "text": string, "action": { "type": "ADD_EXPENSE" | "NAVIGATE" | "ADD_DIARY" | "ADD_UNIT" | "NONE", "data"?: any } }
+        HISTÓRICO:
+        ${historyString}
+
+        USUÁRIO: "${message}"
+
+        JSON SCHEMA:
+        { 
+          "text": "Sua resposta", 
+          "action": { 
+             "type": "ADD_EXPENSE" | "NAVIGATE" | "ADD_DIARY" | "ADD_UNIT" | "NONE", 
+             "data": { "projectId": "string", "value": number, "description": "string", "identifier": "string", "area": number, "cost": number, "salePrice": number, "tab": "string", "content": "string" }
+          } 
+        }
         `;
 
-        const result = await model.generateContent(systemPrompt);
+        const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
         const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
         return JSON.parse(cleanText) as ChatResponse;
     } catch (error: any) {
-        console.error("Gemini Chat Error:", error);
+        console.error("Gemini Error:", error);
+        // Retornar o erro real para o usuário ver
         return {
-            text: `Erro na IA: ${error.message || "404"}. Verifique sua chave de API ou se o modelo está liberado para você.`,
+            text: `ERRO TÉCNICO: ${error.message || JSON.stringify(error)}`,
             action: { type: 'NONE' }
         };
     }
