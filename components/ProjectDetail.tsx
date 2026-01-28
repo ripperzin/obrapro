@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useLayoutEffect } from 'react';
 import { Project, User, UserRole, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense, ProjectMacro, ProjectSubMacro } from '../types';
 import { useInflation } from '../hooks/useInflation';
 import { PROGRESS_STAGES } from '../constants';
@@ -991,6 +991,45 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
 
   const potentialSales = availableUnits.reduce((acc, curr) => acc + (curr.valorEstimadoVenda || 0), 0);
 
+  // Force Scroll to Top on Mount/Tab Change (Anchor Method)
+
+
+  useLayoutEffect(() => {
+    // 1. Disable browser's automatic scroll restoration
+    if (window.history.scrollRestoration) {
+      window.history.scrollRestoration = 'manual';
+    }
+
+    // 2. Function to nuke scroll position
+    const resetScroll = () => {
+      window.scrollTo(0, 0);
+      document.body.scrollTo(0, 0);
+      document.documentElement.scrollTo(0, 0);
+
+      const mainContainer = document.querySelector('main');
+      if (mainContainer) mainContainer.scrollTo(0, 0);
+
+      const root = document.getElementById('root');
+      if (root) root.scrollTo(0, 0);
+    };
+
+    // 3. Scheduling bombardement
+    resetScroll();
+
+    // Multiple attempts to align with React concurrent rendering and mobile browser painting
+    // Extended duration for slower devices
+    const timers = [
+      setTimeout(resetScroll, 0),
+      setTimeout(resetScroll, 20),
+      setTimeout(resetScroll, 50),
+      setTimeout(resetScroll, 100),
+      setTimeout(resetScroll, 300),
+      setTimeout(resetScroll, 600)
+    ];
+
+    return () => timers.forEach(clearTimeout);
+  }, [activeTab]);
+
   const realProfit = soldUnits.reduce((acc, unit) => {
     // Logic extracted from existing margin calc
     const isCompleted = project.progress === 100;
@@ -1239,7 +1278,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
   }, [activeTab, project.progress]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in relative">
       {/* Container Principal - Dark Theme (Mobile: Flat / Desktop: Card) */}
       <div className="md:glass md:rounded-3xl md:p-8 space-y-6">
         {/* Navegação de Abas - Dark Theme */}

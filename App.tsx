@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { User, UserRole, Project, ProgressStage, LogEntry, Unit, Expense } from './types';
 import { INITIAL_ADMIN } from './constants';
 import { generateId } from './utils';
@@ -33,6 +33,8 @@ const parseInvestorRoute = (): string | null => {
   const match = hash.match(/^#\/investor\/([a-zA-Z0-9-]+)$/);
   return match ? match[1] : null;
 };
+
+
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -72,12 +74,7 @@ const App: React.FC = () => {
     window.history.replaceState(null, '', newUrl);
   }, [activeTab, selectedProjectId]);
 
-  // 0.2 Reset scroll on navigation
-  useEffect(() => {
-    if (mainRef.current) {
-      mainRef.current.scrollTo(0, 0);
-    }
-  }, [activeTab, selectedProjectId]);
+
   const [users, setUsers] = useState<User[]>([INITIAL_ADMIN]);
 
   const { data: projects = [], refetch: refreshProjects } = useProjects();
