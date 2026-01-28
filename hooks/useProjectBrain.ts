@@ -311,15 +311,35 @@ function extractEntities(text: string, projects: Project[], history: ChatMessage
         }
     }
 
-    // 3. EXTRAIR INSUMO (Busca na mensagem atual e depois no histórico recente se for continuação)
+    // 3. EXTRAIR INSUMO (Dinâmico + Estático)
     let insumo: string | null = null;
-    // Busca no texto atual
-    for (const keyword of KEYWORDS.DESPESAS_INSUMO) {
-        if (normalized.includes(keyword)) { insumo = keyword; break; }
+
+    // 3a. Coletar nomes de Macros e Submacros de TODOS os projetos para ser dinâmico
+    const nomesDinamicos: string[] = [];
+    projects.forEach(p => {
+        if (p.budget?.macros) {
+            p.budget.macros.forEach(m => {
+                nomesDinamicos.push(m.name);
+                if (m.subMacros) {
+                    m.subMacros.forEach(sm => nomesDinamicos.push(sm.name));
+                }
+            });
+        }
+    });
+
+    // Ordenar por tamanho (maior primeiro) para evitar pegar partes de palavras
+    // Ex: Se tem "Madeira de Lei" e "Madeira", e o user fala "Madeira de Lei", pega o maior.
+    const uniqueKeywords = Array.from(new Set([
+        ...KEYWORDS.DESPESAS_INSUMO,
+        ...nomesDinamicos
+    ])).sort((a, b) => b.length - a.length);
+
+    for (const keyword of uniqueKeywords) {
+        if (normalized.includes(normalizar(keyword))) {
+            insumo = keyword;
+            break;
+        }
     }
-    // Se não achou e parece continuação (frase curta, pergunta), olha o último
-    // Ex: "e cimento?" -> acha cimento. "quanto gastou?" -> pode querer saber do cimento anterior?
-    // Por segurança, vamos focar no texto atual para evitar confusão.
 
     // 4. PERÍODO
     let periodo: PeriodoEstruturado | null = null;
@@ -802,6 +822,15 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
                     tipoConsulta: entities.consulta,
                 },
                 periodo: entities.periodo || { tipo: 'GERAL', label: 'Geral' },
+                resumoPadronizado: project ? {
+                    etapa: STAGE_NAMES[project.progress] || 'Em andamento',
+                    progresso: `${project.progress}%`,
+                    diasObra: calcularDuracao(project).diasCorridos,
+                    gastoTotal: project.expenses.reduce((s, e) => s + e.value, 0).toLocaleString('pt-BR'),
+                    percentualConsumido: (project.budget?.totalEstimated || project.expectedTotalCost || 0) > 0
+                        ? ((project.expenses.reduce((s, e) => s + e.value, 0) / (project.budget?.totalEstimated || project.expectedTotalCost || 0)) * 100).toFixed(0) + '%'
+                        : '0%'
+                } : null,
                 dadosFiltrados,
                 acaoPendente: entities.acao !== 'NONE' ? {
                     tipo: entities.acao,
