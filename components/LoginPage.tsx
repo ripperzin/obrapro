@@ -61,10 +61,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl w-full max-w-md shadow-2xl relative z-10 animate-in fade-in zoom-in duration-500">
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold mx-auto mb-4 shadow-lg shadow-blue-500/20">
-            G
-          </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Gestão Obra Pro</h1>
+          <img
+            src="/apple-touch-icon.png"
+            alt="Obra Pro Logo"
+            className="w-16 h-16 rounded-2xl mx-auto mb-4 shadow-lg shadow-blue-500/20 object-cover"
+          />
+          <h1 className="text-2xl font-bold text-white tracking-tight">Obra Pro</h1>
           <p className="text-slate-400 text-sm mt-2">Faça login para gerenciar seus empreendimentos</p>
         </div>
 
