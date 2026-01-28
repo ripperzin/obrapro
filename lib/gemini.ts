@@ -14,6 +14,7 @@ export interface ReceiptData {
     merchant: string | null;
     category: string | null;
     description: string | null;
+    originalText?: string;
 }
 
 export interface ChatMessage {

@@ -5,7 +5,9 @@ import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import AttachmentUpload from './AttachmentUpload';
 import { supabase } from '../supabaseClient';
-import { getSignedUrl } from '../utils/storage';
+import { ReceiptScanner } from './ReceiptScanner';
+import { ReceiptData } from '../lib/gemini';
+import { getSignedUrl, uploadFile } from '../utils/storage';
 
 interface QuickExpenseModalProps {
     isOpen: boolean;
@@ -44,6 +46,7 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     const [value, setValue] = useState(initialValue);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [attachments, setAttachments] = useState<string[]>([]);
+    const [originalText, setOriginalText] = useState(initialOriginalText);
 
     // Categories State
     const [macros, setMacros] = useState<MacroOption[]>([]);
@@ -60,11 +63,12 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             setValue(initialValue);
             setDate(new Date().toISOString().split('T')[0]);
             setAttachments([]);
+            setOriginalText(initialOriginalText);
             setSelectedMacroId('');
             setSelectedSubMacroId('');
             setResolvedUrls({});
         }
-    }, [isOpen, preSelectedProjectId, initialDescription, initialValue, projects]);
+    }, [isOpen, preSelectedProjectId, initialDescription, initialValue, initialOriginalText, projects]);
 
     // Resolve URLs
     useEffect(() => {
@@ -134,7 +138,7 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                             setSubMacros(formattedSubs);
 
                             // Trigger Intelligent Matching once data is loaded
-                            matchCategories(initialOriginalText, macroData, formattedSubs);
+                            matchCategories(originalText || initialOriginalText, macroData, formattedSubs);
                         }
                     }
                 }
@@ -144,6 +148,41 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
         }
         setLoadingCategories(false);
     };
+
+    const handleScanComplete = async (data: ReceiptData, file: File) => {
+        // Upload file automatically
+        let attachmentPath = undefined;
+        if (file) {
+            const path = await uploadFile(file);
+            if (path) {
+                attachmentPath = path;
+            }
+        }
+
+        // Prepare description
+        let desc = data.description || '';
+        if (data.merchant) {
+            desc = desc ? `${data.merchant} - ${desc}` : data.merchant;
+        }
+
+        if (desc) setDescription(desc);
+        if (data.amount) setValue(data.amount);
+        if (data.date) setDate(data.date);
+
+        if (attachmentPath) {
+            setAttachments(prev => [...prev, attachmentPath]);
+        }
+
+        if (data.originalText) {
+            setOriginalText(data.originalText);
+            // Re-run matching with new text
+            matchCategories(data.originalText, macros, subMacros);
+        } else if (data.description) {
+            // Fallback to matching with description if originalText isn't available
+            matchCategories(data.description, macros, subMacros);
+        }
+    };
+
 
     // INTELLIGENT MATCHING LOGIC
     const matchCategories = (text: string, loadedMacros: MacroOption[], loadedSubs: SubMacroOption[]) => {
@@ -251,10 +290,13 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 </div>
 
                 <div className="p-6 pb-0">
-                    {initialOriginalText && (
+                    <div className="mb-4">
+                        <ReceiptScanner onScanComplete={handleScanComplete} />
+                    </div>
+                    {originalText && (
                         <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl mb-4">
                             <p className="text-xs text-blue-300 font-bold uppercase mb-1">Texto Reconhecido:</p>
-                            <p className="text-sm text-blue-100 italic">"{initialOriginalText}"</p>
+                            <p className="text-sm text-blue-100 italic">"{originalText}"</p>
                             {(selectedMacroId || selectedSubMacroId) && (
                                 <div className="mt-2 flex gap-2">
                                     <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded-full border border-green-500/30">
