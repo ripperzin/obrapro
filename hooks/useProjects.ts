@@ -190,14 +190,14 @@ export const useCreateProject = () => {
             const optimisticId = newProject.id || generateId();
             const optimisticProject: Project = {
                 id: optimisticId,
-                ...newProject,
+                ...newProject as any,
                 units: [], expenses: [], logs: [], documents: [], diary: [], stageEvidence: [], budget: undefined
             };
             queryClient.setQueryData<Project[]>(['projects'], (old) => old ? [...old, optimisticProject] : [optimisticProject]);
-            return { previousProjects };
+            return { previousData: previousProjects || [] };
         },
         onError: (err, newProject, context) => {
-            if (context?.previousProjects) queryClient.setQueryData(['projects'], context.previousProjects);
+            if (context?.previousData) queryClient.setQueryData(['projects'], context.previousData);
         },
         onSettled: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
     });
@@ -228,7 +228,7 @@ export const useUpdateProject = () => {
                 if (error) throw error;
             }
 
-            // 2. Units
+            // 2. Units (Upsert only - deletion handled by useDeleteUnit)
             if (updates.units) {
                 const unitsToUpsert = updates.units.map(u => ({
                     id: u.id,
@@ -409,10 +409,50 @@ export const useDeleteProject = () => {
             await queryClient.cancelQueries({ queryKey: ['projects'] });
             const previousProjects = queryClient.getQueryData<Project[]>(['projects']);
             queryClient.setQueryData<Project[]>(['projects'], (old) => old?.filter(p => p.id !== projectId) || []);
-            return { previousProjects };
+            return { previousData: previousProjects || [] };
         },
         onError: (err, variables, context) => {
-            if (context?.previousProjects) queryClient.setQueryData(['projects'], context.previousProjects);
+            if (context?.previousData) queryClient.setQueryData(['projects'], context.previousData);
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+    });
+};
+
+export const useDeleteUnit = () => {
+    const queryClient = useQueryClient();
+
+    return useOfflineMutation({
+        mutationFn: async ({ projectId, unitId }: { projectId: string, unitId: string }) => {
+            const { error } = await supabase.from('units').delete().eq('id', unitId);
+            if (error) throw error;
+            return { projectId, unitId };
+        },
+        onMutate: async ({ projectId, unitId }) => {
+            console.log('=== DEBUG: Optimistic Delete Start ===', { projectId, unitId });
+            await queryClient.cancelQueries({ queryKey: ['projects'] });
+            const previousProjects = queryClient.getQueryData<Project[]>(['projects']);
+
+            queryClient.setQueryData<Project[]>(['projects'], (old) => {
+                if (!old) {
+                    console.warn('=== DEBUG: No cache found! ===');
+                    return [];
+                }
+                return old.map(project => {
+                    if (project.id !== projectId) return project;
+                    const updatedUnits = project.units.filter(u => u.id !== unitId);
+                    console.log(`=== DEBUG: Removed unit ${unitId}. Old count: ${project.units.length}, New count: ${updatedUnits.length}`);
+
+                    // Recalculate totals immediately for optimistic UI
+                    const expectedTotalCost = updatedUnits.reduce((sum, u) => sum + (u.cost || 0), 0);
+                    const expectedTotalSales = updatedUnits.reduce((sum, u) => sum + (u.saleValue || u.valorEstimadoVenda || 0), 0);
+                    return { ...project, units: updatedUnits, expectedTotalCost, expectedTotalSales };
+                });
+            });
+
+            return { previousData: previousProjects || [] };
+        },
+        onError: (err, variables, context) => {
+            if (context?.previousData) queryClient.setQueryData(['projects'], context.previousData);
         },
         onSettled: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
     });

@@ -4,7 +4,7 @@ import { INITIAL_ADMIN } from './constants';
 import { generateId } from './utils';
 import { supabase } from './supabaseClient';
 import { Session } from '@supabase/supabase-js';
-import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from './hooks/useProjects';
+import { useProjects, useCreateProject, useUpdateProject, useDeleteProject, useDeleteUnit } from './hooks/useProjects';
 
 // Pages (Sync - Critical for initial load)
 import LoginPage from './components/LoginPage';
@@ -81,6 +81,7 @@ const App: React.FC = () => {
   const createProjectMutation = useCreateProject();
   const updateProjectMutation = useUpdateProject();
   const deleteProjectMutation = useDeleteProject();
+  const { mutate: deleteUnitMutation } = useDeleteUnit();
 
   const isLoaded = useRef(false);
   const [investorProjectId, setInvestorProjectId] = useState<string | null>(parseInvestorRoute());
@@ -221,29 +222,35 @@ const App: React.FC = () => {
     }
   };
 
-  const addUnitToProject = async (projectId: string, unit: Omit<Unit, 'id'>) => {
+  const addUnitToProject = async (projectId: string, unitOrUnits: Omit<Unit, 'id'> | Omit<Unit, 'id'>[]) => {
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
 
-    const newUnit: Unit = {
+    const unitsToAdd = Array.isArray(unitOrUnits) ? unitOrUnits : [unitOrUnits];
+
+    const newUnitsFromServer: Unit[] = unitsToAdd.map(u => ({
       id: generateId(),
-      ...unit
-    } as Unit;
+      ...u
+    })) as Unit[];
 
-    const newUnits = [...project.units, newUnit];
+    const newUnits = [...project.units, ...newUnitsFromServer];
 
-    // Recalcular totais
-    const expectedTotalCost = newUnits.reduce((a, b) => a + b.cost, 0);
+    // Recalcular totais de forma atômica
+    const expectedTotalCost = newUnits.reduce((a, b) => a + (b.cost || 0), 0);
     const expectedTotalSales = newUnits.reduce((a, b) => a + (b.saleValue || b.valorEstimadoVenda || 0), 0);
 
-    await updateProject(projectId, {
+    const logMsg = unitsToAdd.length === 1
+      ? `Inclusão Unidade: ${newUnitsFromServer[0].identifier}`
+      : `Inclusão em Lote: ${unitsToAdd.length} Unidades`;
+
+    await updateProjectHandler(projectId, {
       units: newUnits,
       expectedTotalCost,
       expectedTotalSales
-    }, `Inclusão Unidade (Voz): ${newUnit.identifier}`);
+    }, logMsg);
   };
 
-  const updateProject = async (projectId: string, updates: Partial<Project>, logMsg?: string) => {
+  const updateProjectHandler = async (projectId: string, updates: Partial<Project>, logMsg?: string) => {
     try {
       await updateProjectMutation.mutateAsync({
         id: projectId,
@@ -264,21 +271,23 @@ const App: React.FC = () => {
   const deleteUnit = async (projectId: string, unitId: string) => {
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
+
     const unitToDelete = project.units.find(u => u.id === unitId);
     if (!unitToDelete) return;
 
-    if (!window.confirm(`Tem certeza que deseja excluir a unidade "${unitToDelete.identifier}"?`)) return;
+    // Call the dedicated deletion mutation
+    deleteUnitMutation({ projectId, unitId });
 
-    const newUnits = project.units.filter(u => u.id !== unitId);
-    // Recalculate totals
-    const expectedTotalCost = newUnits.reduce((a, b) => a + b.cost, 0);
-    const expectedTotalSales = newUnits.reduce((a, b) => a + (b.saleValue || b.valorEstimadoVenda || 0), 0);
-
-    await updateProject(projectId, {
-      units: newUnits,
-      expectedTotalCost,
-      expectedTotalSales
-    }, `Exclusão Unidade: ${unitToDelete.identifier}`);
+    // Log deletion separately
+    await supabase.from('logs').insert([{
+      project_id: projectId,
+      user_id: currentUser?.id,
+      user_name: currentUser?.name || 'Sistema',
+      action: 'Exclusão',
+      field: 'Unidade',
+      old_value: unitToDelete.identifier,
+      new_value: '-'
+    }]);
   };
 
   const deleteProject = async (projectId: string) => {
@@ -316,7 +325,7 @@ const App: React.FC = () => {
       userName: currentUser?.login || 'Sistema'
     };
 
-    await updateProject(projectId, {
+    await updateProjectHandler(projectId, {
       expenses: [...project.expenses, newExpense]
     }, `Inclusão Despesa: ${newExpense.description} - R$ ${newExpense.value}`);
   };
@@ -408,7 +417,7 @@ const App: React.FC = () => {
       createdAt: newEntry.created_at
     };
 
-    await updateProject(projectId, {
+    await updateProjectHandler(projectId, {
       diary: [...project.diary, localEntry]
     }, 'Inclusão Diário (Voz)');
 
@@ -421,7 +430,7 @@ const App: React.FC = () => {
 
     const newDiary = project.diary.map(d => d.id === entry.id ? { ...d, ...entry } : d);
 
-    await updateProject(projectId, {
+    await updateProjectHandler(projectId, {
       diary: newDiary
     }, 'Atualização Diário');
   };
@@ -434,7 +443,7 @@ const App: React.FC = () => {
 
     const newDiary = project.diary.filter(d => d.id !== entryId);
 
-    await updateProject(projectId, {
+    await updateProjectHandler(projectId, {
       diary: newDiary
     }, 'Exclusão Diário');
   };
@@ -547,7 +556,7 @@ const App: React.FC = () => {
                 <ProjectDetail
                   project={selectedProject!}
                   user={currentUser}
-                  onUpdate={updateProject}
+                  onUpdate={updateProjectHandler}
                   onDeleteUnit={deleteUnit}
                   onRefresh={refreshProjects}
                 />
@@ -556,7 +565,7 @@ const App: React.FC = () => {
                   projects={filteredProjects}
                   onSelect={setSelectedProjectId}
                   onAdd={addProject}
-                  onUpdate={updateProject}
+                  onUpdate={updateProjectHandler}
                   onDelete={deleteProject}
                   isAdmin={currentUser.role === UserRole.ADMIN}
                 />
@@ -570,7 +579,7 @@ const App: React.FC = () => {
                 userId={currentUser.id}
                 onSelectProject={setSelectedProjectId}
                 onAddProject={addProject}
-                onUpdate={updateProject}
+                onUpdate={updateProjectHandler}
                 onDelete={deleteProject}
                 onAddExpense={addExpenseToProject}
                 isAdmin={currentUser.role === UserRole.ADMIN}
@@ -585,7 +594,7 @@ const App: React.FC = () => {
               <ProjectDetail
                 project={selectedProject}
                 user={currentUser}
-                onUpdate={updateProject}
+                onUpdate={updateProjectHandler}
                 onDeleteUnit={deleteUnit}
                 onRefresh={refreshProjects}
                 onUpdateDiary={handleUpdateDiary}

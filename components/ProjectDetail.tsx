@@ -1146,31 +1146,32 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
     await onUpdate(project.id, { stageEvidence: updatedEvidences }, `Evidência de etapa: ${STAGE_NAMES[stage]}`);
   };
 
-  const handleAddUnit = async (unit: Omit<Unit, 'id'>): Promise<void> => {
+  const handleAddUnit = async (unitOrUnits: Omit<Unit, 'id'> | Omit<Unit, 'id'>[]): Promise<void> => {
     console.log('=== DEBUG: handleAddUnit chamado ===');
-    console.log('Input unit:', unit);
 
-    const newUnit: Unit = {
-      ...unit,
+    const unitsToAdd = Array.isArray(unitOrUnits) ? unitOrUnits : [unitOrUnits];
+
+    const newUnitsFromServer: Unit[] = unitsToAdd.map(u => ({
+      ...u,
       id: generateId(),
-      status: 'Available',
-      saleValue: undefined,
-      saleDate: undefined
-    };
-    console.log('New unit with ID:', newUnit);
+      status: u.status || 'Available'
+    })) as Unit[];
 
-    const newUnits = [...project.units, newUnit];
-    console.log('All units after add:', newUnits);
+    const newUnits = [...project.units, ...newUnitsFromServer];
 
     // Persistir no banco e aguardar
     await onUpdate(project.id, {
       units: newUnits,
-      expectedTotalCost: newUnits.reduce((a, b) => a + b.cost, 0),
-      expectedTotalSales: newUnits.reduce((a, b) => a + (b.saleValue || b.valorEstimadoVenda || 0), 0)
+      expectedTotalCost: newUnits.reduce((sum, u) => sum + (u.cost || 0), 0),
+      expectedTotalSales: newUnits.reduce((sum, u) => sum + (u.saleValue || u.valorEstimadoVenda || 0), 0)
     });
 
-    // Log após confirmação do salvamento
-    logChange('Inclusão', 'Unidade', '-', unit.identifier);
+    // Log individual ou em lote
+    if (newUnitsFromServer.length === 1) {
+      logChange('Inclusão', 'Unidade', '-', newUnitsFromServer[0].identifier);
+    } else {
+      logChange('Inclusão', 'Unidades (Lote)', '-', `${newUnitsFromServer.length} unidades adicionadas`);
+    }
     console.log('=== DEBUG: handleAddUnit concluído ===');
   };
 
