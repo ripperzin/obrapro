@@ -10,7 +10,7 @@ import { useProjects, useCreateProject, useUpdateProject, useDeleteProject, useD
 import LoginPage from './components/LoginPage';
 import Sidebar from './components/Sidebar';
 import MobileNav from './components/MobileNav';
-import ReloadPrompt from './components/ReloadPrompt';
+
 import { SyncStatus } from './components/SyncStatus';
 
 // Pages (Lazy - Deferred until after login)
@@ -717,7 +717,7 @@ const App: React.FC = () => {
           initialSalePrice={voiceInitialData?.salePrice}
         />
 
-        <ReloadPrompt />
+
       </div>
     </Suspense>
   );

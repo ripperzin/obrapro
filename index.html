@@ -37,16 +37,7 @@
   <div id="modal-root"></div>
 
   <!-- DEBUG: Unregister service workers and log visibility changes -->
-  <script>
-    // Unregister all service workers from previous PWA sessions
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function (registrations) {
-        for (let registration of registrations) {
-          registration.unregister();
-          console.log('[DEBUG] Unregistered service worker:', registration.scope);
-        }
-      });
-    }
+
 
     // Debug: Log visibility changes to catch what's happening
     document.addEventListener('visibilitychange', function () {

@@ -2,6 +2,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import ReloadPrompt from './components/ReloadPrompt';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -29,5 +30,6 @@ root.render(
         <App />
       </ErrorBoundary>
     </PersistQueryClientProvider>
+    <ReloadPrompt />
   </React.StrictMode>
 );
