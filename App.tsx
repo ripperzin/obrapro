@@ -4,7 +4,7 @@ import { INITIAL_ADMIN } from './constants';
 import { generateId } from './utils';
 import { supabase } from './supabaseClient';
 import { Session } from '@supabase/supabase-js';
-import { useProjects, useCreateProject, useUpdateProject, useDeleteProject, useDeleteUnit } from './hooks/useProjects';
+import { useProjects, useCreateProject, useUpdateProject, useDeleteProject, useDeleteUnit, useDeleteExpense, useDeleteDocument, useDeleteDiaryEntry } from './hooks/useProjects';
 
 // Pages (Sync - Critical for initial load)
 import LoginPage from './components/LoginPage';
@@ -82,6 +82,9 @@ const App: React.FC = () => {
   const updateProjectMutation = useUpdateProject();
   const deleteProjectMutation = useDeleteProject();
   const { mutate: deleteUnitMutation } = useDeleteUnit();
+  const { mutate: deleteExpenseMutation } = useDeleteExpense();
+  const { mutate: deleteDocumentMutation } = useDeleteDocument();
+  const { mutate: deleteDiaryEntryMutation } = useDeleteDiaryEntry();
 
   const isLoaded = useRef(false);
   const [investorProjectId, setInvestorProjectId] = useState<string | null>(parseInvestorRoute());
@@ -290,6 +293,69 @@ const App: React.FC = () => {
     }]);
   };
 
+  const deleteExpense = async (projectId: string, expenseId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    const expenseToDelete = project.expenses.find(e => e.id === expenseId);
+    if (!expenseToDelete) return;
+
+    // Call the dedicated deletion mutation
+    deleteExpenseMutation({ projectId, expenseId });
+
+    // Log deletion separately
+    await supabase.from('logs').insert([{
+      project_id: projectId,
+      user_id: currentUser?.id,
+      user_name: currentUser?.login || 'Sistema',
+      action: 'Exclusão',
+      field: 'Despesa',
+      old_value: expenseToDelete.description,
+      new_value: '-'
+    }]);
+  };
+
+  const deleteDocument = async (projectId: string, documentId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+    const doc = project.documents?.find(d => d.id === documentId);
+
+    // Call dedicated deletion mutation
+    deleteDocumentMutation({ projectId, documentId });
+
+    // Log deletion
+    await supabase.from('logs').insert([{
+      project_id: projectId,
+      user_id: currentUser?.id,
+      user_name: currentUser?.login || 'Sistema',
+      action: 'Exclusão',
+      field: 'Documento',
+      old_value: doc?.title || 'Documento',
+      new_value: '-'
+    }]);
+  };
+
+  const deleteDiary = async (projectId: string, entryId: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este registro do diário?')) return;
+
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    // Call dedicated deletion mutation
+    deleteDiaryEntryMutation({ projectId, entryId });
+
+    // Log deletion
+    await supabase.from('logs').insert([{
+      project_id: projectId,
+      user_id: currentUser?.id,
+      user_name: currentUser?.login || 'Sistema',
+      action: 'Exclusão',
+      field: 'Diário',
+      old_value: 'Registro de Diário',
+      new_value: '-'
+    }]);
+  };
+
   const deleteProject = async (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
@@ -435,18 +501,7 @@ const App: React.FC = () => {
     }, 'Atualização Diário');
   };
 
-  const handleDeleteDiary = async (projectId: string, entryId: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este registro do diário?')) return;
 
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return;
-
-    const newDiary = project.diary.filter(d => d.id !== entryId);
-
-    await updateProjectHandler(projectId, {
-      diary: newDiary
-    }, 'Exclusão Diário');
-  };
 
 
   const filteredProjects = useMemo(() => {
@@ -558,6 +613,9 @@ const App: React.FC = () => {
                   user={currentUser}
                   onUpdate={updateProjectHandler}
                   onDeleteUnit={deleteUnit}
+                  onDeleteExpense={deleteExpense}
+                  onDeleteDocument={deleteDocument}
+                  onDeleteDiary={deleteDiary}
                   onRefresh={refreshProjects}
                 />
               ) : (
@@ -596,9 +654,11 @@ const App: React.FC = () => {
                 user={currentUser}
                 onUpdate={updateProjectHandler}
                 onDeleteUnit={deleteUnit}
+                onDeleteExpense={deleteExpense}
+                onDeleteDocument={deleteDocument}
                 onRefresh={refreshProjects}
                 onUpdateDiary={handleUpdateDiary}
-                onDeleteDiary={handleDeleteDiary}
+                onDeleteDiary={deleteDiary}
               />
             )}
 

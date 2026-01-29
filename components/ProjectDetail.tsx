@@ -26,9 +26,11 @@ interface ProjectDetailProps {
   user: User;
   onUpdate: (id: string, updates: Partial<Project>, logMsg?: string) => Promise<void>;
   onDeleteUnit: (projectId: string, unitId: string) => void;
+  onDeleteExpense: (projectId: string, expenseId: string) => void;
   onRefresh?: () => Promise<void>;
   onUpdateDiary?: (projectId: string, entry: any) => Promise<void>;
   onDeleteDiary?: (projectId: string, entryId: string) => Promise<void>;
+  onDeleteDocument?: (projectId: string, documentId: string) => void;
 }
 
 const UnitsSection: React.FC<{
@@ -937,7 +939,17 @@ const ExpensesSection: React.FC<{
     </div >
   );
 };
-const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, onDeleteUnit, onRefresh, onUpdateDiary, onDeleteDiary }) => {
+const ProjectDetail: React.FC<ProjectDetailProps> = ({
+  project,
+  user,
+  onUpdate,
+  onDeleteUnit,
+  onDeleteExpense: onDeleteExpenseProp,
+  onDeleteDocument: onDeleteDocumentProp,
+  onRefresh,
+  onUpdateDiary,
+  onDeleteDiary
+}) => {
   // 1. URL State for Project Tabs
   const initialParams = new URLSearchParams(window.location.search);
   const initialTab = (initialParams.get('tab') as any) || 'info';
@@ -1216,10 +1228,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
   };
 
   const onDeleteExpense = (id: string) => {
-    const expense = project.expenses.find(e => e.id === id);
-    const newExpenses = project.expenses.filter(e => e.id !== id);
-    onUpdate(project.id, { expenses: newExpenses });
-    logChange('Exclusão', `Despesa - ${expense?.description || id}`, '-', '-');
+    onDeleteExpenseProp(project.id, id);
+    // logChange agora é responsabilidade do pai ou do hook se quisermos manter consistência, 
+    // mas o pai (App.tsx) vai lidar com o log.
   };
 
   const handleAddDocument = (doc: any) => {
@@ -1235,10 +1246,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, user, onUpdate, 
   };
 
   const handleDeleteDocument = (id: string) => {
-    const doc = (project.documents || []).find(d => d.id === id);
-    if (!doc) return;
-    const newDocuments = (project.documents || []).filter(d => d.id !== id);
-    onUpdate(project.id, { documents: newDocuments }, `Removido documento: ${doc.title}`);
+    if (onDeleteDocumentProp) {
+      onDeleteDocumentProp(project.id, id);
+    }
   };
 
   const handleAddDiaryEntry = (entry: any) => {
