@@ -160,7 +160,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             if (budgetData) {
                 // 3. Verificação de Sincronia: Unidades vs Orçamento
                 // Se houver diferença significativa (> 1 real), atualizar e recalcular
-                if (Math.abs(budgetData.total_estimated - totalUnitsValue) > 1 && totalUnitsValue > 0) {
+                if (Math.abs(budgetData.total_estimated - totalUnitsValue) > 1) {
                     console.log(`⚡ Sincronizando Orçamento: R$ ${budgetData.total_estimated} -> R$ ${totalUnitsValue}`);
 
                     // Atualizar Total do Orçamento
@@ -207,7 +207,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                     .order('display_order');
 
                 // RETROACTIVE FIX: Se existir orçamento mas SEM macros, popular agora
-                if ((!macrosData || macrosData.length === 0) && totalUnitsValue > 0) {
+                if ((!macrosData || macrosData.length === 0)) {
                     console.log('⚡ Reparando orçamento vazio...');
                     const success = await populateBudgetFromTemplate(budgetData.id, totalUnitsValue);
                     if (success) {

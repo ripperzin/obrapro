@@ -445,7 +445,14 @@ export const useDeleteUnit = () => {
                     // Recalculate totals immediately for optimistic UI
                     const expectedTotalCost = updatedUnits.reduce((sum, u) => sum + (u.cost || 0), 0);
                     const expectedTotalSales = updatedUnits.reduce((sum, u) => sum + (u.saleValue || u.valorEstimadoVenda || 0), 0);
-                    return { ...project, units: updatedUnits, expectedTotalCost, expectedTotalSales };
+
+                    // Also update budget in cache if it exists
+                    const updatedBudget = project.budget ? {
+                        ...project.budget,
+                        totalEstimated: expectedTotalCost
+                    } : undefined;
+
+                    return { ...project, units: updatedUnits, expectedTotalCost, expectedTotalSales, budget: updatedBudget };
                 });
             });
 
