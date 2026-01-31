@@ -24,7 +24,15 @@ export function useOfflineMutation<TData, TError, TVariables>(
                 !window.navigator.onLine; // Browser reports offline
 
             if (isNetworkError) {
-                return true; // Infinite retry for offline/network issues
+                // If network error, we let React Query handle the "Paused" state naturally.
+                // We do NOT want to infinite loop retry immediately if we are offline.
+                // However, if we are online and just flaky, maybe retry a bit more?
+                // Let's rely on default behavior + simple cap.
+                // Returning true means infinite retry which causes the "spinning" issue if offlineFirst is on.
+                // Since we removed offlineFirst, this retry callback will only trigger if we are ONLINE but request failed.
+                // If we are OFFLINE, React Query won't even call this (it pauses).
+                // So this is safe now, but let's be conservative.
+                return failureCount < 5;
             }
 
             // For logic errors (like validation), fail after 3 attempts
