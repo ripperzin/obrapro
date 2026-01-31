@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Dark Theme Variables */
 :root {
   --bg-dark: #0f172a;

@@ -24,6 +24,14 @@ const localStoragePersister = createSyncStoragePersister({
 export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
     persister: localStoragePersister,
     maxAge: 1000 * 60 * 60 * 24, // 24 hours
+    dehydrateOptions: {
+        shouldDehydrateMutation: () => true,
+        shouldDehydrateQuery: (query) => {
+            const queryState = query.state
+            if (queryState.data === undefined) return false
+            return true
+        },
+    },
 };
 
 export { queryClient };

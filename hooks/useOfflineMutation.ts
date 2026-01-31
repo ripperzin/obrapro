@@ -14,14 +14,20 @@ export function useOfflineMutation<TData, TError, TVariables>(
 
     return useMutation<TData, TError, TVariables, OfflineMutationContext>({
         retry: (failureCount, error: any) => {
-            // Retry if it's a network error (to keep it in 'paused' state if possible, or just keep trying)
-            // React Query v5+ with networkMode: 'offlineFirst' runs the mutation. 
-            // If it fails, we want it to retry. 
-            // In v5, 'offlineFirst' does NOT pause automatically on network error unless we are effectively online? 
-            // Actually, if we return true here, it will retry.
-            if (error.message.includes('Load failed') || error.message.includes('Failed to fetch') || error.message.includes('Network request failed')) {
-                return true; // Infinite retry for offline errors? Or maybe cap it? Let's try infinite for sync.
+            // Check for common network/offline errors
+            const isNetworkError =
+                error.message.includes('Load failed') ||
+                error.message.includes('Failed to fetch') ||
+                error.message.includes('Network request failed') ||
+                error.message.includes('network') ||
+                error.code === 'PGRST' || // Supabase connection errors often behave this way
+                !window.navigator.onLine; // Browser reports offline
+
+            if (isNetworkError) {
+                return true; // Infinite retry for offline/network issues
             }
+
+            // For logic errors (like validation), fail after 3 attempts
             return failureCount < 3;
         },
         retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff max 30s
@@ -35,12 +41,12 @@ export function useOfflineMutation<TData, TError, TVariables>(
             // Default error handling or toast could go here
             console.error('Mutation failed:', err);
             if (options.onError) {
-                options.onError(err, variables, context);
+                (options.onError as any)(err, variables, context);
             }
         },
         onSettled: (data, error, variables, context) => {
             if (options.onSettled) {
-                options.onSettled(data, error, variables, context);
+                (options.onSettled as any)(data, error, variables, context);
             }
         },
     });
