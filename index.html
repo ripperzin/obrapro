@@ -18,8 +18,8 @@
   <link rel="icon" type="image/png" href="/pwa-192x192.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
+  <!-- Font Awesome loaded via package -->
+
   <link rel="stylesheet" href="/index.css">
 </head>
 
@@ -30,20 +30,20 @@
   <!-- DEBUG: Unregister service workers and log visibility changes -->
 
 
-    // Debug: Log visibility changes to catch what's happening
-    document.addEventListener('visibilitychange', function () {
-      console.log('[DEBUG] Visibility changed:', document.visibilityState, 'at', new Date().toISOString());
-    });
+  // Debug: Log visibility changes to catch what's happening
+  document.addEventListener('visibilitychange', function () {
+  console.log('[DEBUG] Visibility changed:', document.visibilityState, 'at', new Date().toISOString());
+  });
 
-    // Debug: Log focus events
-    window.addEventListener('focus', function () {
-      console.log('[DEBUG] Window focused at', new Date().toISOString());
-    });
+  // Debug: Log focus events
+  window.addEventListener('focus', function () {
+  console.log('[DEBUG] Window focused at', new Date().toISOString());
+  });
 
-    // Debug: Log beforeunload to detect actual page navigation/reload
-    window.addEventListener('beforeunload', function (e) {
-      console.log('[DEBUG] Page is about to unload at', new Date().toISOString());
-    });
+  // Debug: Log beforeunload to detect actual page navigation/reload
+  window.addEventListener('beforeunload', function (e) {
+  console.log('[DEBUG] Page is about to unload at', new Date().toISOString());
+  });
   </script>
 
   <script type="module" src="/index.tsx"></script>

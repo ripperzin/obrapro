@@ -1,5 +1,6 @@
 
 import React from 'react';
+import '@fortawesome/fontawesome-free/css/all.min.css'; // Offline icons
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import ReloadPrompt from './components/ReloadPrompt';
