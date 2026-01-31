@@ -648,7 +648,7 @@ const App: React.FC = () => {
             )}
           </header>
 
-          <div className="flex-1 px-4 md:p-8 pb-40 md:pb-8">
+          <div className="flex-1 px-4 md:p-8 pb-24 md:pb-8">
             {activeTab === 'projects' && (
               selectedProjectId ? (
                 <ProjectDetail
@@ -711,6 +711,8 @@ const App: React.FC = () => {
                 currentUser={currentUser}
               />
             )}
+            {/* Mobile Bottom Spacer to clear fixed Nav */}
+            <div className="w-full h-32 md:hidden shrink-0 from-transparent to-transparent pointer-events-none"></div>
           </div>
         </main>
 
