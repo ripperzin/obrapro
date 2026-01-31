@@ -43,7 +43,7 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
             return true
         },
     },
-    buster: 'v2-indexeddb-migration', // Force clear old cache to remove stuck mutations
+    buster: 'v3-fixed-auth', // Clear stuck mutations from before the auth fix
 };
 
 export { queryClient };
