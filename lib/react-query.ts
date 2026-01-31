@@ -43,7 +43,7 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
             return true
         },
     },
-    buster: 'v3-fixed-auth', // Clear stuck mutations from before the auth fix
+    buster: 'v4-final-clean', // Force clear cache to remove old mutations stuck in infinite retry
 };
 
 export { queryClient };
