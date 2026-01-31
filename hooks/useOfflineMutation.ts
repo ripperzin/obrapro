@@ -14,31 +14,33 @@ export function useOfflineMutation<TData, TError, TVariables>(
 
     return useMutation<TData, TError, TVariables, OfflineMutationContext>({
         retry: (failureCount, error: any) => {
-            // Check for common network/offline errors
-            const isNetworkError =
-                error.message.includes('Load failed') ||
-                error.message.includes('Failed to fetch') ||
-                error.message.includes('Network request failed') ||
-                error.message.includes('network') ||
-                error.code === 'PGRST' || // Supabase connection errors often behave this way
-                !window.navigator.onLine; // Browser reports offline
+            // 1. Permanent Errors (Logic, Validation, 400 Bad Request) -> Fail immediately
+            // We assume 4xx are permanent, EXCEPT 401 (Unauthorized), 408 (Timeout), 429 (Too Many Requests)
+            // Supabase/Postgrest errors often come as objects with 'code' or 'status'
+            const status = error?.status || error?.code;
 
-            if (isNetworkError) {
-                // If network error, we let React Query handle the "Paused" state naturally.
-                // We do NOT want to infinite loop retry immediately if we are offline.
-                // However, if we are online and just flaky, maybe retry a bit more?
-                // Let's rely on default behavior + simple cap.
-                // Returning true means infinite retry which causes the "spinning" issue if offlineFirst is on.
-                // Since we removed offlineFirst, this retry callback will only trigger if we are ONLINE but request failed.
-                // If we are OFFLINE, React Query won't even call this (it pauses).
-                // So this is safe now, but let's be conservative.
-                return failureCount < 3;
+            // Check if it's a permanent 4xx error (logic/validation bug)
+            // Error 406 (Not Acceptable) is also often configuration
+            if (status && status >= 400 && status < 500) {
+                // Whitelist transient 4xx errors
+                const isTransient =
+                    status === 401 || // Unauthorized (Token expired/race condition) -> RETRY
+                    status === 408 || // Request Timeout -> RETRY
+                    status === 429 || // Too Many Requests -> RETRY
+                    status === 'PGRST116'; // JSON object returned null (sometimes happens)
+
+                if (!isTransient) {
+                    console.error(`Mutation failed permanently (Status ${status}):`, error);
+                    return false; // Stop retrying
+                }
             }
 
-            // For logic errors (like validation), fail after 2 attempts
-            return failureCount < 2;
+            // 2. Transient Errors (Network, Server 5xx, Auth 401) -> Retry "Infinitely"
+            // We cap at a high number (e.g., 50) to prevent literal freeze if something is truly broken for days
+            // but 50 * 30s = 25 minutes of retrying.
+            return failureCount < 50;
         },
-        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff max 5s (fail faster)
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Max 10s wait between retries
         ...options,
         onMutate: async (variables) => {
             // Allow custom onMutate to run first

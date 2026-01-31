@@ -4,14 +4,9 @@ import { Project } from '../types';
 import { useOfflineMutation } from './useOfflineMutation';
 import { generateId } from '../utils';
 
-// Helper to ensure we have a valid session before attempting mutations
-// This prevents race conditions when coming online where the token might be expired
-const ensureActiveSession = async () => {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (error) throw error;
-    if (!session) throw new Error('No active session');
-    return session;
-};
+// Helper removed to rely on Supabase internal queue and robust retry logic
+// const ensureActiveSession = async () => ...
+
 
 export const fetchProjects = async (): Promise<Project[]> => {
     // ... (fetchProjects implementation same as before)
@@ -169,7 +164,6 @@ export const useCreateProject = () => {
     return useOfflineMutation({
         mutationKey: ['createProject'],
         mutationFn: async (projectData: Omit<Project, 'id' | 'units' | 'expenses' | 'logs' | 'documents' | 'diary' | 'stageEvidence' | 'budget'> & { id?: string, userId: string, userName: string }) => {
-            await ensureActiveSession();
             // ... implementation
             const id = projectData.id || generateId();
             const { data, error } = await supabase.from('projects').insert([{
@@ -223,7 +217,6 @@ export const useUpdateProject = () => {
     return useOfflineMutation({
         mutationKey: ['updateProject'],
         mutationFn: async ({ id, updates, logMsg, user }: { id: string, updates: Partial<Project>, logMsg?: string, user?: { id: string, name: string } }) => {
-            await ensureActiveSession();
             // ... implementation starts
             // Get current cache to diff
             const currentProjects = queryClient.getQueryData<Project[]>(['projects']) || [];
@@ -416,7 +409,6 @@ export const useDeleteProject = () => {
     return useOfflineMutation({
         mutationKey: ['deleteProject'],
         mutationFn: async (projectId: string) => {
-            await ensureActiveSession();
             const { error } = await supabase
                 .from('projects')
                 .delete()
@@ -443,7 +435,6 @@ export const useDeleteUnit = () => {
     return useOfflineMutation({
         mutationKey: ['deleteUnit'],
         mutationFn: async ({ projectId, unitId }: { projectId: string, unitId: string }) => {
-            await ensureActiveSession();
             const { error } = await supabase.from('units').delete().eq('id', unitId);
             if (error) throw error;
             return { projectId, unitId };
@@ -492,7 +483,6 @@ export const useDeleteExpense = () => {
     return useOfflineMutation({
         mutationKey: ['deleteExpense'],
         mutationFn: async ({ projectId, expenseId }: { projectId: string, expenseId: string }) => {
-            await ensureActiveSession();
             const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
             if (error) throw error;
             return { projectId, expenseId };
@@ -525,7 +515,6 @@ export const useDeleteDocument = () => {
     return useOfflineMutation({
         mutationKey: ['deleteDocument'],
         mutationFn: async ({ projectId, documentId }: { projectId: string, documentId: string }) => {
-            await ensureActiveSession();
             const { error } = await supabase.from('documents').delete().eq('id', documentId);
             if (error) throw error;
             return { projectId, documentId };
@@ -558,7 +547,6 @@ export const useDeleteDiaryEntry = () => {
     return useOfflineMutation({
         mutationKey: ['deleteDiaryEntry'],
         mutationFn: async ({ projectId, entryId }: { projectId: string, entryId: string }) => {
-            await ensureActiveSession();
             const { error } = await supabase.from('diary_entries').delete().eq('id', entryId);
             if (error) throw error;
             return { projectId, entryId };
