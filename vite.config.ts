@@ -50,20 +50,7 @@ export default defineConfig(({ mode }) => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
           runtimeCaching: [
-            {
-              urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'supabase-api-cache',
-                expiration: {
-                  maxEntries: 100,
-                  maxAgeSeconds: 60 * 60 * 24 // 24 hours
-                },
-                cacheableResponse: {
-                  statuses: [0, 200]
-                }
-              }
-            },
+            // Removed supabase.co caching to prevent conflict with React Query persistence
             {
               urlPattern: /^https:\/\/cdnjs\.cloudflare\.com\/.*/i,
               handler: 'CacheFirst',
