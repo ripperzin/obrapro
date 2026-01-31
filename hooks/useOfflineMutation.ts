@@ -32,18 +32,19 @@ export function useOfflineMutation<TData, TError, TVariables>(
                 // Since we removed offlineFirst, this retry callback will only trigger if we are ONLINE but request failed.
                 // If we are OFFLINE, React Query won't even call this (it pauses).
                 // So this is safe now, but let's be conservative.
-                return failureCount < 5;
+                return failureCount < 3;
             }
 
-            // For logic errors (like validation), fail after 3 attempts
-            return failureCount < 3;
+            // For logic errors (like validation), fail after 2 attempts
+            return failureCount < 2;
         },
-        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff max 30s
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff max 5s (fail faster)
         ...options,
         onMutate: async (variables) => {
             // Allow custom onMutate to run first
-            const context = await options.onMutate?.(variables);
-            return context;
+            // Fix: React Query onMutate only takes variables
+            const context = options.onMutate ? await options.onMutate(variables) : undefined;
+            return context as OfflineMutationContext;
         },
         onError: (err, variables, context) => {
             // Default error handling or toast could go here

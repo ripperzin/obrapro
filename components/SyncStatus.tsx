@@ -26,7 +26,7 @@ export const SyncStatus: React.FC = () => {
         return (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full backdrop-blur-md pointer-events-auto transition-all">
                 <i className="fa-solid fa-arrows-rotate fa-spin text-yellow-500 text-xs"></i>
-                <span className="text-yellow-500 text-xs font-semibold">Salvando...</span>
+                <span className="text-yellow-500 text-xs font-semibold">Salvando ({activeMutations})...</span>
             </div>
         );
     }
