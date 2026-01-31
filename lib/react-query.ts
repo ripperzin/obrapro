@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
-import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { PersistQueryClientOptions } from '@tanstack/react-query-persist-client';
+import { get, set, del } from 'idb-keyval';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -17,12 +18,23 @@ const queryClient = new QueryClient({
     },
 });
 
-const localStoragePersister = createSyncStoragePersister({
-    storage: window.localStorage,
+const asyncPersister = createAsyncStoragePersister({
+    storage: {
+        getItem: async (key) => {
+            const val = await get(key);
+            return val || null;
+        },
+        setItem: async (key, value) => {
+            await set(key, value);
+        },
+        removeItem: async (key) => {
+            await del(key);
+        },
+    },
 });
 
 export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
-    persister: localStoragePersister,
+    persister: asyncPersister,
     maxAge: 1000 * 60 * 60 * 24, // 24 hours
     dehydrateOptions: {
         shouldDehydrateMutation: () => true,
