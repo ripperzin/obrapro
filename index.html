@@ -27,24 +27,7 @@
   <div id="root"></div>
   <div id="modal-root"></div>
 
-  <!-- DEBUG: Unregister service workers and log visibility changes -->
 
-
-  // Debug: Log visibility changes to catch what's happening
-  document.addEventListener('visibilitychange', function () {
-  console.log('[DEBUG] Visibility changed:', document.visibilityState, 'at', new Date().toISOString());
-  });
-
-  // Debug: Log focus events
-  window.addEventListener('focus', function () {
-  console.log('[DEBUG] Window focused at', new Date().toISOString());
-  });
-
-  // Debug: Log beforeunload to detect actual page navigation/reload
-  window.addEventListener('beforeunload', function (e) {
-  console.log('[DEBUG] Page is about to unload at', new Date().toISOString());
-  });
-  </script>
 
   <script type="module" src="/index.tsx"></script>
 
