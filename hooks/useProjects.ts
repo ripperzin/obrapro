@@ -152,11 +152,15 @@ export const useProjects = () => {
     });
 };
 
+// ... imports
+
 export const useCreateProject = () => {
     const queryClient = useQueryClient();
 
     return useOfflineMutation({
+        mutationKey: ['createProject'],
         mutationFn: async (projectData: Omit<Project, 'id' | 'units' | 'expenses' | 'logs' | 'documents' | 'diary' | 'stageEvidence' | 'budget'> & { id?: string, userId: string, userName: string }) => {
+            // ... implementation
             const id = projectData.id || generateId();
             const { data, error } = await supabase.from('projects').insert([{
                 id: id,
@@ -207,7 +211,9 @@ export const useUpdateProject = () => {
     const queryClient = useQueryClient();
 
     return useOfflineMutation({
+        mutationKey: ['updateProject'],
         mutationFn: async ({ id, updates, logMsg, user }: { id: string, updates: Partial<Project>, logMsg?: string, user?: { id: string, name: string } }) => {
+            // ... implementation starts
             // Get current cache to diff
             const currentProjects = queryClient.getQueryData<Project[]>(['projects']) || [];
             const currentProject = currentProjects.find(p => p.id === id);
@@ -397,6 +403,7 @@ export const useDeleteProject = () => {
     const queryClient = useQueryClient();
 
     return useOfflineMutation({
+        mutationKey: ['deleteProject'],
         mutationFn: async (projectId: string) => {
             const { error } = await supabase
                 .from('projects')
@@ -422,6 +429,7 @@ export const useDeleteUnit = () => {
     const queryClient = useQueryClient();
 
     return useOfflineMutation({
+        mutationKey: ['deleteUnit'],
         mutationFn: async ({ projectId, unitId }: { projectId: string, unitId: string }) => {
             const { error } = await supabase.from('units').delete().eq('id', unitId);
             if (error) throw error;
@@ -469,6 +477,7 @@ export const useDeleteExpense = () => {
     const queryClient = useQueryClient();
 
     return useOfflineMutation({
+        mutationKey: ['deleteExpense'],
         mutationFn: async ({ projectId, expenseId }: { projectId: string, expenseId: string }) => {
             const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
             if (error) throw error;
@@ -500,6 +509,7 @@ export const useDeleteDocument = () => {
     const queryClient = useQueryClient();
 
     return useOfflineMutation({
+        mutationKey: ['deleteDocument'],
         mutationFn: async ({ projectId, documentId }: { projectId: string, documentId: string }) => {
             const { error } = await supabase.from('documents').delete().eq('id', documentId);
             if (error) throw error;
@@ -531,6 +541,7 @@ export const useDeleteDiaryEntry = () => {
     const queryClient = useQueryClient();
 
     return useOfflineMutation({
+        mutationKey: ['deleteDiaryEntry'],
         mutationFn: async ({ projectId, entryId }: { projectId: string, entryId: string }) => {
             const { error } = await supabase.from('diary_entries').delete().eq('id', entryId);
             if (error) throw error;
