@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
       // basicSsl(),
       react(),
       VitePWA({
-        registerType: 'prompt',
+        registerType: 'autoUpdate', // FORCE update to ensure users get the new SW and cache fixes instanty
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
         manifest: {
           name: 'Obra Pro - Gestão de Obras',

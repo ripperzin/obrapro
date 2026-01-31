@@ -133,12 +133,33 @@ const App: React.FC = () => {
 
           if (error) {
             console.error('Erro Profile Supabase:', error);
-            // setDebugError(`Erro ao buscar perfil: ${error.message} (${error.code})`);
-            // Se der erro (ex: RLS bloqueando), tenta continuar como user padrão
+            // OFFLINE FALLBACK: Try to load from cache
+            const cachedProfileStr = localStorage.getItem(`profile_cache_${session.user.id}`);
+            if (cachedProfileStr) {
+              console.log('[Offline] Using cached profile');
+              const cachedProfile = JSON.parse(cachedProfileStr);
+
+              if (mounted) {
+                const dbRole = (cachedProfile.role || '').toUpperCase();
+                setCurrentUser({
+                  id: session.user.id,
+                  login: cachedProfile.email ? cachedProfile.email.split('@')[0] : 'Usuário',
+                  password: '',
+                  role: dbRole === 'ADMIN' ? UserRole.ADMIN : UserRole.STANDARD,
+                  allowedProjectIds: [],
+                  canSeeUnits: true
+                });
+                setAuthLoading(false);
+                return;
+              }
+            }
           }
 
           if (mounted) {
             if (profile) {
+              // SAVE TO CACHE
+              localStorage.setItem(`profile_cache_${session.user.id}`, JSON.stringify(profile));
+
               // Normalizar role para maiúsculo para bater com o Enum
               const dbRole = (profile.role || '').toUpperCase();
 
@@ -165,6 +186,28 @@ const App: React.FC = () => {
           }
         } catch (error: any) {
           console.error('Erro Fatal FetchProfile:', error);
+
+          // OFFLINE FALLBACK (CATCH BLOCK): Try to load from cache
+          const cachedProfileStr = localStorage.getItem(`profile_cache_${session?.user?.id}`);
+          if (cachedProfileStr) {
+            console.log('[Offline] Using cached profile (catch)');
+            const cachedProfile = JSON.parse(cachedProfileStr);
+
+            if (mounted) {
+              const dbRole = (cachedProfile.role || '').toUpperCase();
+              setCurrentUser({
+                id: session.user.id,
+                login: cachedProfile.email ? cachedProfile.email.split('@')[0] : 'Usuário',
+                password: '',
+                role: dbRole === 'ADMIN' ? UserRole.ADMIN : UserRole.STANDARD,
+                allowedProjectIds: [],
+                canSeeUnits: true
+              });
+              setAuthLoading(false);
+              return;
+            }
+          }
+
           setDebugError(`Erro Fatal: ${error.message}`);
         } finally {
           if (mounted) setAuthLoading(false);
