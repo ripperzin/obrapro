@@ -35,7 +35,6 @@ const asyncPersister = createAsyncStoragePersister({
 
 export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
     persister: asyncPersister,
-    maxAge: 1000 * 60 * 60 * 24, // 24 hours
     dehydrateOptions: {
         shouldDehydrateMutation: () => true,
         shouldDehydrateQuery: (query) => {
@@ -44,6 +43,7 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
             return true
         },
     },
+    buster: 'v2-indexeddb-migration', // Force clear old cache to remove stuck mutations
 };
 
 export { queryClient };
