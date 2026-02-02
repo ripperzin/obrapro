@@ -25,6 +25,8 @@ export function useOfflineMutation<TData, TError, TVariables>(
                 // Whitelist transient 4xx errors
                 const isTransient =
                     status === 401 || // Unauthorized (Token expired/race condition) -> RETRY
+                    status === 403 || // Forbidden (RLS/WAF potentially flaky) -> RETRY
+                    status === 406 || // Not Acceptable (sometimes happens with format) -> RETRY
                     status === 408 || // Request Timeout -> RETRY
                     status === 429 || // Too Many Requests -> RETRY
                     status === 'PGRST116'; // JSON object returned null (sometimes happens)

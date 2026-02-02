@@ -13,7 +13,7 @@ const queryClient = new QueryClient({
             refetchOnWindowFocus: false, // Prevent refetch when switching tabs
         },
         mutations: {
-            // networkMode: 'offlineFirst', // REMOVED: Mutations should pause when offline, not fail/retry loop
+            networkMode: 'offlineFirst', // Restore: Ensure mutations are attempted even if browser thinks it's offline
         },
     },
 });
