@@ -23,11 +23,23 @@ export const SyncStatus: React.FC = () => {
     const handleDebugClick = () => {
         const mutations = client.getMutationCache().getAll();
         const pending = mutations.filter(m => m.state.status === 'pending');
+
         if (pending.length > 0) {
             const first = pending[0];
             const failureCount = first.state.failureCount;
             const error = first.state.failureReason || 'No specific error yet (retrying...)';
-            alert(`DEBUG INFO:\nMutation Status: ${first.state.status}\nFailures: ${failureCount}\nError: ${JSON.stringify(error)}`);
+
+            // Allow user to clear queue if stuck
+            const shouldClear = window.confirm(
+                `DEBUG INFO:\nStatus: ${first.state.status}\nFailures: ${failureCount}\nError: ${JSON.stringify(error)}\n\nATENÇÃO: Deseja LIMPAR a fila de sincronização? (Dados não salvos serão perdidos)`
+            );
+
+            if (shouldClear) {
+                client.getMutationCache().clear();
+                alert('Fila de sincronização limpa com sucesso. Tente novamente.');
+                // Force reload to reset UI state
+                window.location.reload();
+            }
         } else {
             alert('Nenhuma mutação pendente encontrada.');
         }
