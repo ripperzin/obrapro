@@ -18,6 +18,13 @@ export function useOfflineMutation<TData, TError, TVariables>(
             // We assume 4xx are permanent, EXCEPT 401 (Unauthorized), 408 (Timeout), 429 (Too Many Requests)
             // Supabase/Postgrest errors often come as objects with 'code' or 'status'
             const status = error?.status || error?.code;
+            const message = error?.message || '';
+
+            // 0. Explicit Logic Abort (Custom Error) -> Fail Immediately
+            if (message.includes('ABORT_')) {
+                console.error('Mutation aborted permanently due to logic error:', message);
+                return false;
+            }
 
             // Check if it's a permanent 4xx error (logic/validation bug)
             // Error 406 (Not Acceptable) is also often configuration
@@ -54,7 +61,7 @@ export function useOfflineMutation<TData, TError, TVariables>(
             // Default error handling or toast could go here
             console.error('Mutation failed:', err);
             if (options.onError) {
-                (options.onError as any)(err, variables, context);
+                (options.onError as Function)(err, variables, context);
             }
         },
         onSettled: (data, error, variables, context) => {

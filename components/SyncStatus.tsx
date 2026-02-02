@@ -1,5 +1,5 @@
 import React from 'react';
-import { useIsMutating } from '@tanstack/react-query';
+import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 export const SyncStatus: React.FC = () => {
@@ -13,6 +13,26 @@ export const SyncStatus: React.FC = () => {
         predicate: (mutation) => mutation.state.status === 'pending' && !mutation.state.isPaused
     });
 
+    // Debug: Find the first failing mutation to show its error
+    const queryClient = React.useContext(React.createContext(null)) as any || window['queryClient'];
+
+    // We need access to the QueryCache/MutationCache
+    // properly implemented: useQueryClient hook
+    const client = useQueryClient();
+
+    const handleDebugClick = () => {
+        const mutations = client.getMutationCache().getAll();
+        const pending = mutations.filter(m => m.state.status === 'pending');
+        if (pending.length > 0) {
+            const first = pending[0];
+            const failureCount = first.state.failureCount;
+            const error = first.state.failureReason || 'No specific error yet (retrying...)';
+            alert(`DEBUG INFO:\nMutation Status: ${first.state.status}\nFailures: ${failureCount}\nError: ${JSON.stringify(error)}`);
+        } else {
+            alert('Nenhuma mutação pendente encontrada.');
+        }
+    };
+
     if (!isOnline) {
         return (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-full backdrop-blur-md pointer-events-auto transition-all">
@@ -24,14 +44,17 @@ export const SyncStatus: React.FC = () => {
 
     if (activeMutations > 0) {
         return (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full backdrop-blur-md pointer-events-auto transition-all">
+            <div
+                onClick={handleDebugClick}
+                className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full backdrop-blur-md pointer-events-auto transition-all hover:bg-yellow-500/20"
+                title="Clique para ver detalhes do erro"
+            >
                 <i className="fa-solid fa-arrows-rotate fa-spin text-yellow-500 text-xs"></i>
                 <span className="text-yellow-500 text-xs font-semibold">Salvando ({activeMutations})...</span>
             </div>
         );
     }
 
-    // Optional: fleeting "Saved" state or just static
     return (
         <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full backdrop-blur-md pointer-events-auto transition-all opacity-70 hover:opacity-100">
             <i className="fa-solid fa-cloud-check text-green-500 text-xs"></i>

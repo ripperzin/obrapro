@@ -164,18 +164,29 @@ export const useCreateProject = () => {
     return useOfflineMutation({
         mutationKey: ['createProject'],
         mutationFn: async (projectData: Omit<Project, 'id' | 'units' | 'expenses' | 'logs' | 'documents' | 'diary' | 'stageEvidence' | 'budget'> & { id?: string, userId: string, userName: string }) => {
-            // ... implementation
+            // Validation: Ensure UserID is missing
+            if (!projectData.userId) {
+                throw new Error('ABORT_MISSING_USER: Cannot create project without User ID.');
+            }
+
             const id = projectData.id || generateId();
             const { data, error } = await supabase.from('projects').insert([{
                 id: id,
                 name: projectData.name,
+                user_id: projectData.userId,
+                user_name: projectData.userName,
                 start_date: projectData.startDate || null,
                 delivery_date: projectData.deliveryDate || null,
                 unit_count: projectData.unitCount,
                 total_area: projectData.totalArea,
                 expected_total_cost: projectData.expectedTotalCost,
                 expected_total_sales: projectData.expectedTotalSales,
-                progress: projectData.progress
+                progress: projectData.progress || 0,
+                // Initialize JSONB arrays
+                units: [],
+                expenses: [],
+                logs: [],
+                documents: []
             }]).select().single();
 
             if (error) throw error;
