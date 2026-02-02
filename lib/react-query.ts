@@ -31,6 +31,7 @@ const asyncPersister = createAsyncStoragePersister({
             await del(key);
         },
     },
+    throttleTime: 100, // FAST SAVE: Reduce throttle from 1000ms to 100ms to prevent data loss if app closes
 });
 
 export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
