@@ -44,6 +44,9 @@ export function useOfflineMutation<TData, TError, TVariables>(
                 }
             }
 
+            console.warn(`[OfflineMutation] Retry #${failureCount + 1} for transient error:`, error?.message || error);
+
+
             // 2. Transient Errors (Network, Server 5xx, Auth 401) -> Retry "Infinitely"
             // We cap at a high number (e.g., 50) to prevent literal freeze if something is truly broken for days
             // but 50 * 30s = 25 minutes of retrying.

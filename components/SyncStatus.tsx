@@ -43,6 +43,23 @@ export const SyncStatus: React.FC = () => {
     }
 
     if (activeMutations > 0) {
+        // Check if any mutation is failing repeatedly
+        const mutations = client.getMutationCache().getAll();
+        const failingMutation = mutations.find(m => m.state.status === 'pending' && m.state.failureCount > 2);
+
+        if (failingMutation) {
+            return (
+                <div
+                    onClick={handleDebugClick}
+                    className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-orange-500/10 border border-orange-500/20 rounded-full backdrop-blur-md pointer-events-auto transition-all hover:bg-orange-500/20"
+                    title="Clique para ver detalhes do erro"
+                >
+                    <i className="fa-solid fa-wifi text-orange-500 text-xs animate-pulse"></i>
+                    <span className="text-orange-500 text-xs font-semibold">Conexão Instável (Tentando...)</span>
+                </div>
+            );
+        }
+
         return (
             <div
                 onClick={handleDebugClick}
