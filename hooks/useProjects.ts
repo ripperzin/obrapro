@@ -3,13 +3,16 @@ import { supabase } from '../supabaseClient';
 import { Project } from '../types';
 import { useOfflineMutation } from './useOfflineMutation';
 import { generateId } from '../utils';
-
-// Helper removed to rely on Supabase internal queue and robust retry logic
-// const ensureActiveSession = async () => ...
-
+import {
+    CreateProjectInput,
+    UpdateProjectInput,
+    DeleteUnitInput,
+    DeleteExpenseInput,
+    DeleteDocumentInput,
+    DeleteDiaryEntryInput
+} from '../lib/mutationFunctions';
 
 export const fetchProjects = async (): Promise<Project[]> => {
-    // ... (fetchProjects implementation same as before)
     const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
         .select(`
@@ -151,58 +154,22 @@ export const useProjects = () => {
     return useQuery({
         queryKey: ['projects'],
         queryFn: fetchProjects,
-        refetchOnWindowFocus: false,  // Explicitly prevent refetch on tab focus
-        refetchOnReconnect: false,    // Prevent refetch on reconnect
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
     });
 };
 
-// ... imports
+// ============================================================================
+// PROJECT MUTATIONS
+// Note: mutationFn is inherited from setMutationDefaults in react-query.ts
+// ============================================================================
 
 export const useCreateProject = () => {
     const queryClient = useQueryClient();
 
-    return useOfflineMutation({
+    return useOfflineMutation<any, Error, CreateProjectInput>({
         mutationKey: ['createProject'],
-        mutationFn: async (projectData: Omit<Project, 'id' | 'units' | 'expenses' | 'logs' | 'documents' | 'diary' | 'stageEvidence' | 'budget'> & { id?: string, userId: string, userName: string }) => {
-            // Validation: Ensure UserID is missing
-            if (!projectData.userId) {
-                throw new Error('ABORT_MISSING_USER: Cannot create project without User ID.');
-            }
-
-            const id = projectData.id || generateId();
-            const { data, error } = await supabase.from('projects').insert([{
-                id: id,
-                name: projectData.name,
-                user_id: projectData.userId,
-                user_name: projectData.userName,
-                start_date: projectData.startDate || null,
-                delivery_date: projectData.deliveryDate || null,
-                unit_count: projectData.unitCount,
-                total_area: projectData.totalArea,
-                expected_total_cost: projectData.expectedTotalCost,
-                expected_total_sales: projectData.expectedTotalSales,
-                progress: projectData.progress || 0,
-                // Initialize JSONB arrays
-                units: [],
-                expenses: [],
-                logs: [],
-                documents: []
-            }]).select().single();
-
-            if (error) throw error;
-
-            await supabase.from('logs').insert([{
-                project_id: id,
-                user_id: projectData.userId,
-                user_name: projectData.userName,
-                action: 'Criação',
-                field: 'Projeto',
-                old_value: '-',
-                new_value: projectData.name
-            }]);
-
-            return data;
-        },
+        // mutationFn is inherited from setMutationDefaults
         onMutate: async (newProject) => {
             await queryClient.cancelQueries({ queryKey: ['projects'] });
             const previousProjects = queryClient.getQueryData<Project[]>(['projects']);
@@ -216,186 +183,34 @@ export const useCreateProject = () => {
             return { previousData: previousProjects || [] };
         },
         onError: (err, newProject, context) => {
+            console.error('[useCreateProject] Error:', err);
             if (context?.previousData) queryClient.setQueryData(['projects'], context.previousData);
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+        onSuccess: () => {
+            // Only invalidate on SUCCESS - this is key for offline-first!
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+        },
     });
 };
 
 export const useUpdateProject = () => {
     const queryClient = useQueryClient();
 
-    return useOfflineMutation({
+    return useOfflineMutation<any, Error, UpdateProjectInput>({
         mutationKey: ['updateProject'],
-        mutationFn: async ({ id, updates, logMsg, user }: { id: string, updates: Partial<Project>, logMsg?: string, user?: { id: string, name: string } }) => {
-            // ... implementation starts
-            // Get current cache to diff
-            const currentProjects = queryClient.getQueryData<Project[]>(['projects']) || [];
-            const currentProject = currentProjects.find(p => p.id === id);
-
-            // 1. Basic Fields Update
-            const supabaseUpdates: any = {};
-            if (updates.name !== undefined) supabaseUpdates.name = updates.name;
-            if (updates.startDate !== undefined) supabaseUpdates.start_date = updates.startDate;
-            if (updates.deliveryDate !== undefined) supabaseUpdates.delivery_date = updates.deliveryDate;
-            if (updates.progress !== undefined) supabaseUpdates.progress = updates.progress;
-            if (updates.unitCount !== undefined) supabaseUpdates.unit_count = updates.unitCount;
-            if (updates.totalArea !== undefined) supabaseUpdates.total_area = updates.totalArea;
-            if (updates.expectedTotalCost !== undefined) supabaseUpdates.expected_total_cost = updates.expectedTotalCost;
-            if (updates.expectedTotalSales !== undefined) supabaseUpdates.expected_total_sales = updates.expectedTotalSales;
-
-            if (Object.keys(supabaseUpdates).length > 0) {
-                const { error } = await supabase.from('projects').update(supabaseUpdates).eq('id', id);
-                if (error) throw error;
-            }
-
-            // 2. Units (Upsert only - deletion handled by useDeleteUnit)
-            if (updates.units) {
-                const unitsToUpsert = updates.units.map(u => ({
-                    id: u.id,
-                    project_id: id,
-                    identifier: u.identifier,
-                    area: u.area,
-                    cost: u.cost,
-                    status: u.status,
-                    valor_estimado_venda: u.valorEstimadoVenda,
-                    sale_value: u.saleValue,
-                    sale_date: u.saleDate
-                }));
-                const { error } = await supabase.from('units').upsert(unitsToUpsert, { onConflict: 'id' });
-                if (error) throw error;
-            }
-
-            // 3. Expenses (Diffing)
-            if (updates.expenses !== undefined) {
-                const currentExpenseIds = currentProject?.expenses.map(e => e.id) || [];
-                const newExpenseIds = updates.expenses.map(e => e.id);
-                const deletedExpenseIds = currentExpenseIds.filter(eid => !newExpenseIds.includes(eid));
-
-                if (deletedExpenseIds.length > 0) {
-                    await supabase.from('expenses').delete().in('id', deletedExpenseIds);
-                }
-
-                if (updates.expenses.length > 0) {
-                    const expensesToUpsert = updates.expenses.map(e => ({
-                        id: e.id,
-                        project_id: id,
-                        description: e.description,
-                        value: e.value,
-                        date: e.date,
-                        user_id: e.userId,
-                        user_name: e.userName,
-                        attachment_url: e.attachmentUrl,
-                        attachments: e.attachments,
-                        macro_id: e.macroId || null,
-                        sub_macro_id: e.subMacroId || null
-                    }));
-                    const { error } = await supabase.from('expenses').upsert(expensesToUpsert, { onConflict: 'id' });
-                    if (error) throw error;
-                }
-            }
-
-            // 4. Logs
-            if (updates.logs) {
-                const projectLogs = currentProject?.logs || [];
-                const logsToInsert = updates.logs
-                    .filter(l => !projectLogs.find(existing => existing.id === l.id))
-                    .map(l => ({
-                        id: l.id,
-                        project_id: id,
-                        user_id: l.userId,
-                        user_name: l.userName,
-                        action: l.action,
-                        field: l.field,
-                        old_value: l.oldValue,
-                        new_value: l.newValue,
-                        timestamp: l.timestamp
-                    }));
-                if (logsToInsert.length > 0) {
-                    await supabase.from('logs').insert(logsToInsert);
-                }
-            }
-
-            // 5. Documents (Diffing)
-            if (updates.documents !== undefined) {
-                const currentDocIds = currentProject?.documents.map(d => d.id) || [];
-                const newDocIds = updates.documents.map(d => d.id);
-                const deletedDocIds = currentDocIds.filter(did => !newDocIds.includes(did));
-
-                if (deletedDocIds.length > 0) {
-                    await supabase.from('documents').delete().in('id', deletedDocIds);
-                }
-
-                if (updates.documents.length > 0) {
-                    const docsToUpsert = updates.documents.map(d => ({
-                        id: d.id,
-                        project_id: id,
-                        title: d.title,
-                        category: d.category,
-                        url: d.url,
-                        created_at: d.createdAt
-                    }));
-                    await supabase.from('documents').upsert(docsToUpsert, { onConflict: 'id' });
-                }
-            }
-
-            // 6. Diary (Diffing)
-            if (updates.diary !== undefined) {
-                const currentEntryIds = currentProject?.diary.map(d => d.id) || [];
-                const newEntryIds = updates.diary.map(d => d.id);
-                const deletedEntryIds = currentEntryIds.filter(did => !newEntryIds.includes(did));
-
-                if (deletedEntryIds.length > 0) {
-                    await supabase.from('diary_entries').delete().in('id', deletedEntryIds);
-                }
-
-                if (updates.diary.length > 0) {
-                    const entriesToUpsert = updates.diary.map(d => ({
-                        id: d.id,
-                        project_id: id,
-                        date: d.date,
-                        content: d.content,
-                        photos: d.photos,
-                        author: d.author,
-                        created_at: d.createdAt,
-                        // Note: userId is generally not in Diary entry type locally but is in DB?
-                        // Assuming author is enough or we rely on backend trigger/default
-                    }));
-                    await supabase.from('diary_entries').upsert(entriesToUpsert, { onConflict: 'id' });
-                }
-            }
-
-            // 7. Stage Evidence
-            if (updates.stageEvidence && updates.stageEvidence.length > 0) {
-                const evidencesToUpsert = updates.stageEvidence.map(e => ({
-                    project_id: id,
-                    stage: e.stage,
-                    photos: e.photos,
-                    notes: e.notes,
-                    user_name: e.user,
-                    date: e.date
-                }));
-                await supabase.from('stage_evidences').upsert(evidencesToUpsert, { onConflict: 'project_id, stage' });
-            }
-
-            if (logMsg && user) {
-                await supabase.from('logs').insert([{
-                    id: generateId(),
-                    project_id: id,
-                    user_id: user.id,
-                    user_name: user.name,
-                    action: 'Alteração',
-                    field: 'Geral',
-                    old_value: 'vários',
-                    new_value: logMsg
-                }]);
-            }
-
-            return { id, updates };
-        },
-        onMutate: async ({ id, updates }) => {
+        // mutationFn is inherited from setMutationDefaults
+        onMutate: async (input) => {
+            const { id, updates } = input;
             await queryClient.cancelQueries({ queryKey: ['projects'] });
             const previousProjects = queryClient.getQueryData<Project[]>(['projects']);
+
+            // Find current project for diffing (needed by mutationFn)
+            const currentProject = previousProjects?.find(p => p.id === id);
+
+            // Attach currentProject to input for the mutationFn to use
+            if (currentProject) {
+                input.currentProject = currentProject;
+            }
 
             queryClient.setQueryData<Project[]>(['projects'], (old) => {
                 return old?.map(p => p.id === id ? { ...p, ...updates } : p) || [];
@@ -404,11 +219,13 @@ export const useUpdateProject = () => {
             return { previousData: previousProjects };
         },
         onError: (err, variables, context) => {
+            console.error('[useUpdateProject] Error:', err);
             if (context?.previousData) {
                 queryClient.setQueryData(['projects'], context.previousData);
             }
         },
-        onSettled: () => {
+        onSuccess: () => {
+            // Only invalidate on SUCCESS
             queryClient.invalidateQueries({ queryKey: ['projects'] });
         },
     });
@@ -417,16 +234,9 @@ export const useUpdateProject = () => {
 export const useDeleteProject = () => {
     const queryClient = useQueryClient();
 
-    return useOfflineMutation({
+    return useOfflineMutation<string, Error, string>({
         mutationKey: ['deleteProject'],
-        mutationFn: async (projectId: string) => {
-            const { error } = await supabase
-                .from('projects')
-                .delete()
-                .eq('id', projectId);
-            if (error) throw error;
-            return projectId;
-        },
+        // mutationFn is inherited from setMutationDefaults
         onMutate: async (projectId) => {
             await queryClient.cancelQueries({ queryKey: ['projects'] });
             const previousProjects = queryClient.getQueryData<Project[]>(['projects']);
@@ -434,42 +244,36 @@ export const useDeleteProject = () => {
             return { previousData: previousProjects || [] };
         },
         onError: (err, variables, context) => {
+            console.error('[useDeleteProject] Error:', err);
             if (context?.previousData) queryClient.setQueryData(['projects'], context.previousData);
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+        },
     });
 };
 
 export const useDeleteUnit = () => {
     const queryClient = useQueryClient();
 
-    return useOfflineMutation({
+    return useOfflineMutation<DeleteUnitInput, Error, DeleteUnitInput>({
         mutationKey: ['deleteUnit'],
-        mutationFn: async ({ projectId, unitId }: { projectId: string, unitId: string }) => {
-            const { error } = await supabase.from('units').delete().eq('id', unitId);
-            if (error) throw error;
-            return { projectId, unitId };
-        },
+        // mutationFn is inherited from setMutationDefaults
         onMutate: async ({ projectId, unitId }) => {
-            console.log('=== DEBUG: Optimistic Delete Start ===', { projectId, unitId });
+            console.log('[useDeleteUnit] Optimistic delete:', { projectId, unitId });
             await queryClient.cancelQueries({ queryKey: ['projects'] });
             const previousProjects = queryClient.getQueryData<Project[]>(['projects']);
 
             queryClient.setQueryData<Project[]>(['projects'], (old) => {
-                if (!old) {
-                    console.warn('=== DEBUG: No cache found! ===');
-                    return [];
-                }
+                if (!old) return [];
                 return old.map(project => {
                     if (project.id !== projectId) return project;
                     const updatedUnits = project.units.filter(u => u.id !== unitId);
-                    console.log(`=== DEBUG: Removed unit ${unitId}. Old count: ${project.units.length}, New count: ${updatedUnits.length}`);
 
                     // Recalculate totals immediately for optimistic UI
                     const expectedTotalCost = updatedUnits.reduce((sum, u) => sum + (u.cost || 0), 0);
                     const expectedTotalSales = updatedUnits.reduce((sum, u) => sum + (u.saleValue || u.valorEstimadoVenda || 0), 0);
 
-                    // Also update budget in cache if it exists
                     const updatedBudget = project.budget ? {
                         ...project.budget,
                         totalEstimated: expectedTotalCost
@@ -482,22 +286,21 @@ export const useDeleteUnit = () => {
             return { previousData: previousProjects || [] };
         },
         onError: (err, variables, context) => {
+            console.error('[useDeleteUnit] Error:', err);
             if (context?.previousData) queryClient.setQueryData(['projects'], context.previousData);
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+        },
     });
 };
 
 export const useDeleteExpense = () => {
     const queryClient = useQueryClient();
 
-    return useOfflineMutation({
+    return useOfflineMutation<DeleteExpenseInput, Error, DeleteExpenseInput>({
         mutationKey: ['deleteExpense'],
-        mutationFn: async ({ projectId, expenseId }: { projectId: string, expenseId: string }) => {
-            const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
-            if (error) throw error;
-            return { projectId, expenseId };
-        },
+        // mutationFn is inherited from setMutationDefaults
         onMutate: async ({ projectId, expenseId }) => {
             await queryClient.cancelQueries({ queryKey: ['projects'] });
             const previousProjects = queryClient.getQueryData<Project[]>(['projects']);
@@ -514,22 +317,21 @@ export const useDeleteExpense = () => {
             return { previousData: previousProjects || [] };
         },
         onError: (err, variables, context) => {
+            console.error('[useDeleteExpense] Error:', err);
             if (context?.previousData) queryClient.setQueryData(['projects'], context.previousData);
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+        },
     });
 };
 
 export const useDeleteDocument = () => {
     const queryClient = useQueryClient();
 
-    return useOfflineMutation({
+    return useOfflineMutation<DeleteDocumentInput, Error, DeleteDocumentInput>({
         mutationKey: ['deleteDocument'],
-        mutationFn: async ({ projectId, documentId }: { projectId: string, documentId: string }) => {
-            const { error } = await supabase.from('documents').delete().eq('id', documentId);
-            if (error) throw error;
-            return { projectId, documentId };
-        },
+        // mutationFn is inherited from setMutationDefaults
         onMutate: async ({ projectId, documentId }) => {
             await queryClient.cancelQueries({ queryKey: ['projects'] });
             const previousProjects = queryClient.getQueryData<Project[]>(['projects']);
@@ -546,22 +348,21 @@ export const useDeleteDocument = () => {
             return { previousData: previousProjects || [] };
         },
         onError: (err, variables, context) => {
+            console.error('[useDeleteDocument] Error:', err);
             if (context?.previousData) queryClient.setQueryData(['projects'], context.previousData);
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+        },
     });
 };
 
 export const useDeleteDiaryEntry = () => {
     const queryClient = useQueryClient();
 
-    return useOfflineMutation({
+    return useOfflineMutation<DeleteDiaryEntryInput, Error, DeleteDiaryEntryInput>({
         mutationKey: ['deleteDiaryEntry'],
-        mutationFn: async ({ projectId, entryId }: { projectId: string, entryId: string }) => {
-            const { error } = await supabase.from('diary_entries').delete().eq('id', entryId);
-            if (error) throw error;
-            return { projectId, entryId };
-        },
+        // mutationFn is inherited from setMutationDefaults
         onMutate: async ({ projectId, entryId }) => {
             await queryClient.cancelQueries({ queryKey: ['projects'] });
             const previousProjects = queryClient.getQueryData<Project[]>(['projects']);
@@ -578,8 +379,11 @@ export const useDeleteDiaryEntry = () => {
             return { previousData: previousProjects || [] };
         },
         onError: (err, variables, context) => {
+            console.error('[useDeleteDiaryEntry] Error:', err);
             if (context?.previousData) queryClient.setQueryData(['projects'], context.previousData);
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+        },
     });
 };
