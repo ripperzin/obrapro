@@ -39,12 +39,27 @@ const queryClient = new QueryClient({
 // Retry configuration shared by all mutations
 const retryConfig = {
     retry: (failureCount: number, error: any) => {
-        const status = error?.status || error?.code;
+        // Extract HTTP status from Supabase error (can be in different properties)
+        const status = typeof error?.code === 'number' ? error.code
+            : typeof error?.status === 'number' ? error.status
+            : typeof error?.statusCode === 'number' ? error.statusCode
+            : null;
         const message = error?.message || '';
+        const hint = error?.hint || '';
+        const details = error?.details || '';
+        const code = typeof error?.code === 'string' ? error.code : '';
 
         // Abort on permanent logic errors
         if (message.includes('ABORT_')) {
             console.error('[MutationDefaults] Mutation aborted permanently:', message);
+            return false;
+        }
+
+        // Abort on column/schema errors from PostgREST (e.g. invalid column names)
+        if (message.includes('Could not find') || message.includes('column') ||
+            hint.includes('column') || details.includes('column') ||
+            code === 'PGRST204' || code === 'PGRST301') {
+            console.error('[MutationDefaults] Schema/column error (aborting):', message, hint);
             return false;
         }
 
@@ -55,8 +70,7 @@ const retryConfig = {
                 status === 403 || // Forbidden
                 status === 406 || // Not Acceptable
                 status === 408 || // Request Timeout
-                status === 429 || // Too Many Requests
-                status === 'PGRST116';
+                status === 429;   // Too Many Requests
 
             if (!isTransient) {
                 console.error(`[MutationDefaults] Permanent error (${status}):`, error);
@@ -152,7 +166,7 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
         },
     },
     // IMPORTANT: Increment buster to force clear old stuck mutations
-    buster: 'v5-offline-first-robust',
+    buster: 'v6-fix-create-project',
 };
 
 export { queryClient };

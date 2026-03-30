@@ -37,8 +37,6 @@ export async function createProjectMutationFn(projectData: CreateProjectInput) {
     const { data, error } = await supabase.from('projects').insert([{
         id: id,
         name: projectData.name,
-        user_id: projectData.userId,
-        user_name: projectData.userName,
         start_date: projectData.startDate || null,
         delivery_date: projectData.deliveryDate || null,
         unit_count: projectData.unitCount,
@@ -46,10 +44,6 @@ export async function createProjectMutationFn(projectData: CreateProjectInput) {
         expected_total_cost: projectData.expectedTotalCost,
         expected_total_sales: projectData.expectedTotalSales,
         progress: projectData.progress || 0,
-        units: [],
-        expenses: [],
-        logs: [],
-        documents: []
     }]).select().single();
 
     if (error) throw error;
