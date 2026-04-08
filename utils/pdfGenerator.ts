@@ -251,7 +251,7 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         const latestEv = (project.stageEvidence || []).filter(e => e.photos?.length > 0).sort((a, b) => b.stage - a.stage)[0];
         if (latestEv?.photos?.[0]) {
             try {
-                const imgH = 50;
+                const imgH = 100;
                 const targetRatio = (W - 1) / (imgH - 1);
                 const url = await getPhotoUrl(latestEv.photos[0]);
                 if (url) {
