@@ -13,6 +13,19 @@ import {
 
 console.log("🚀 WhatsApp Webhook Online")
 
+const escapeXml = (unsafe: string) => {
+    return unsafe.replace(/[<>&'"]/g, (c) => {
+        switch (c) {
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '&': return '&amp;';
+            case '\'': return '&apos;';
+            case '"': return '&quot;';
+            default: return c;
+        }
+    });
+};
+
 Deno.serve(async (req) => {
     try {
         if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 })
@@ -162,7 +175,7 @@ MENSAGEM: "${incomingMsg}"
         // 6. Resposta TwiML
         const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Message>${finalMessage}</Message>
+    <Message>${escapeXml(finalMessage)}</Message>
 </Response>`
 
         return new Response(twiml, {

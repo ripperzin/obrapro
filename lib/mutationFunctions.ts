@@ -7,7 +7,7 @@
  */
 
 import { supabase } from '../supabaseClient';
-import { Project, Unit, Expense, Document, DiaryEntry } from '../types';
+import { Project, Unit, Expense, ProjectDocument, DiaryEntry } from '../types';
 import { generateId } from '../utils';
 
 // ============================================================================
@@ -48,7 +48,7 @@ export async function createProjectMutationFn(projectData: CreateProjectInput) {
 
     if (error) throw error;
 
-    await supabase.from('logs').insert([{
+    const { error: logError } = await supabase.from('logs').insert([{
         project_id: id,
         user_id: projectData.userId,
         user_name: projectData.userName,
@@ -57,6 +57,7 @@ export async function createProjectMutationFn(projectData: CreateProjectInput) {
         old_value: '-',
         new_value: projectData.name
     }]);
+    if (logError) console.warn('[createProject] Log insert failed:', logError);
 
     return data;
 }

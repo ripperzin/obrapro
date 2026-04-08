@@ -111,6 +111,8 @@ export const fetchProjects = async (): Promise<Project[]> => {
         })),
         expenses: (p.expenses || []).map((e: any) => ({
             ...e,
+            userId: e.user_id,
+            userName: e.user_name,
             attachmentUrl: e.attachment_url,
             attachments: e.attachments || [],
             macroId: e.macro_id,

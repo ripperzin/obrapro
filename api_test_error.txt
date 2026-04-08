@@ -1,0 +1,15 @@
+﻿Invoke-RestMethod : O servidor remoto 
+retornou um erro: (404) Não Localizado.
+No linha:1 caractere:1
++ Invoke-RestMethod -Uri $url -Method Post 
+-Body $body -ContentType "ap ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperat 
+   ion: (System.Net.HttpWebRequest:HttpWeb  
+  Request) [Invoke-RestMethod], WebExcept   
+ ion
+    + FullyQualifiedErrorId : WebCmdletWebR 
+   esponseException,Microsoft.PowerShell.C  
+  ommands.InvokeRestMethodCommand
+ 

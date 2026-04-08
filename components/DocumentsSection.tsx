@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ProjectDocument } from '../types';
+import { ProjectDocument, DOCUMENT_CATEGORIES } from '../types';
 import { openAttachment } from '../utils/storage';
 import AddDocumentModal from './AddDocumentModal';
 
@@ -37,7 +37,7 @@ const DocumentsSection: React.FC<DocumentsSectionProps> = ({
         setIsAdding(value);
     };
 
-    const categories = ['Projeto', 'Escritura', 'Contrato', 'Outros'];
+    const categories = DOCUMENT_CATEGORIES;
 
     // Ordenar documentos: mais recentes primeiro
     const sortedDocs = [...documents].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -88,10 +88,12 @@ const DocumentsSection: React.FC<DocumentsSectionProps> = ({
                                             onClick={() => openAttachment(doc.url, 'project-documents')}
                                             className="w-12 h-12 rounded-xl bg-slate-700/50 flex items-center justify-center text-2xl cursor-pointer group-hover:scale-110 transition-transform shrink-0"
                                         >
-                                            {category === 'Projeto' ? (
+                                            {category === 'Técnico' ? (
                                                 <i className="fa-regular fa-map text-blue-400"></i>
-                                            ) : category === 'Contrato' || category === 'Escritura' ? (
+                                            ) : category === 'Legal' ? (
                                                 <i className="fa-solid fa-file-signature text-purple-400"></i>
+                                            ) : category === 'Financeiro' ? (
+                                                <i className="fa-solid fa-file-invoice-dollar text-green-400"></i>
                                             ) : (
                                                 <i className="fa-regular fa-file text-slate-400"></i>
                                             )}

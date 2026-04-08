@@ -66,9 +66,6 @@ const retryConfig = {
         // Check if it's a permanent 4xx error (logic/validation bug)
         if (status && status >= 400 && status < 500) {
             const isTransient =
-                status === 401 || // Unauthorized
-                status === 403 || // Forbidden
-                status === 406 || // Not Acceptable
                 status === 408 || // Request Timeout
                 status === 429;   // Too Many Requests
 

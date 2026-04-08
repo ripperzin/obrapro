@@ -198,6 +198,8 @@ export interface ProjectDocument {
   createdAt: string;
 }
 
+export const DOCUMENT_CATEGORIES: ProjectDocument['category'][] = ['Técnico', 'Legal', 'Financeiro', 'Outros'];
+
 export interface Project {
   id: string;
   name: string;

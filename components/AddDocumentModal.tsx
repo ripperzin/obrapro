@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ProjectDocument } from '../types';
+import { ProjectDocument, DOCUMENT_CATEGORIES } from '../types';
 import AttachmentUpload from './AttachmentUpload';
 
 interface AddDocumentModalProps {
@@ -11,7 +11,7 @@ interface AddDocumentModalProps {
 
 const AddDocumentModal: React.FC<AddDocumentModalProps> = ({ isOpen, onClose, onSave }) => {
     const [title, setTitle] = useState('');
-    const [category, setCategory] = useState<ProjectDocument['category']>('Projeto');
+    const [category, setCategory] = useState<ProjectDocument['category']>('Técnico');
     const [url, setUrl] = useState('');
 
     const DRAFT_KEY = 'draft_new_document';
@@ -53,11 +53,11 @@ const AddDocumentModal: React.FC<AddDocumentModalProps> = ({ isOpen, onClose, on
         localStorage.removeItem(DRAFT_KEY);
         onClose();
         setTitle('');
-        setCategory('Projeto');
+        setCategory('Técnico');
         setUrl('');
     };
 
-    const categories = ['Projeto', 'Escritura', 'Contrato', 'Outros'];
+    const categories = DOCUMENT_CATEGORIES;
 
     const modalRoot = document.getElementById('modal-root');
     if (!modalRoot) return null;
