@@ -18,26 +18,37 @@ const getPhotoUrl = async (path: string): Promise<string | null> => {
     } catch { return null; }
 };
 
-const loadImage = (url: string): Promise<string> => {
+const loadImage = (url: string, targetRatio?: number): Promise<string> => {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = 'Anonymous';
         img.src = url;
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            // Downscale for PDF (max 400px) to reduce file size
-            const maxDim = 400;
-            let w = img.width, h = img.height;
-            if (w > maxDim || h > maxDim) {
-                const ratio = Math.min(maxDim / w, maxDim / h);
-                w = Math.round(w * ratio);
-                h = Math.round(h * ratio);
-            }
-            canvas.width = w;
-            canvas.height = h;
             const ctx = canvas.getContext('2d');
-            if (ctx) { ctx.drawImage(img, 0, 0, w, h); resolve(canvas.toDataURL('image/jpeg', 0.7)); }
-            else reject(new Error('Canvas error'));
+            if (!ctx) return reject(new Error('No ctx'));
+
+            const imgRatio = img.width / img.height;
+            const finalRatio = targetRatio || imgRatio;
+            let sx = 0, sy = 0, sWidth = img.width, sHeight = img.height;
+
+            if (finalRatio < imgRatio) {
+                // Target is taller -> crop sides
+                sWidth = img.height * finalRatio;
+                sx = (img.width - sWidth) / 2;
+            } else if (finalRatio > imgRatio) {
+                // Target is wider -> crop top/bottom
+                sHeight = img.width / finalRatio;
+                sy = (img.height - sHeight) / 2;
+            }
+
+            const outW = 400; // max width for quality vs size balance
+            const outH = Math.round(outW / finalRatio);
+
+            canvas.width = outW;
+            canvas.height = outH;
+            ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, outW, outH);
+            resolve(canvas.toDataURL('image/jpeg', 0.8)); // 0.8 good quality
         };
         img.onerror = (e) => reject(e);
     });
@@ -196,13 +207,22 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         const mt = calcMetrics(project, iRate);
 
         const darkBg = () => { doc.setFillColor(...BG); doc.rect(0, 0, pw, ph, 'F'); };
-        const pageBreak = (need: number, y: number) => { if (y + need > ph - 15) { doc.addPage(); darkBg(); return 18; } return y; };
+
+        // Track base addPage to inject dark background
+        const originalAddPage = doc.addPage.bind(doc);
+        doc.addPage = function() {
+            originalAddPage(...arguments);
+            darkBg();
+            return doc;
+        };
+
+        const pageBreak = (need: number, y: number) => { if (y + need > ph - 15) { doc.addPage(); return 18; } return y; };
         const setColor = (c: string) => { const [r, g, b] = hex(c); doc.setTextColor(r, g, b); };
 
         // ══════════════════════════════════════════════════════════
         // PAGE 1
         // ══════════════════════════════════════════════════════════
-        darkBg();
+        darkBg(); // First page bg
 
         // ── HEADER ──
         // Badge
@@ -231,10 +251,11 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         const latestEv = (project.stageEvidence || []).filter(e => e.photos?.length > 0).sort((a, b) => b.stage - a.stage)[0];
         if (latestEv?.photos?.[0]) {
             try {
+                const imgH = 50;
+                const targetRatio = (W - 1) / (imgH - 1);
                 const url = await getPhotoUrl(latestEv.photos[0]);
                 if (url) {
-                    const imgData = await loadImage(url);
-                    const imgH = 50;
+                    const imgData = await loadImage(url, targetRatio);
                     doc.setDrawColor(...BORDER);
                     doc.roundedRect(M, y, W, imgH, 3, 3, 'S');
                     doc.addImage(imgData, 'JPEG', M + 0.5, y + 0.5, W - 1, imgH - 1);
@@ -438,8 +459,7 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
                     2: { cellWidth: 12, halign: 'center' },
                     3: { cellWidth: 30, halign: 'right' }
                 },
-                margin: { left: M, right: M },
-                didDrawPage: () => darkBg()
+                margin: { left: M, right: M }
             });
             y = (doc as any).lastAutoTable.finalY + 8;
         } else {
@@ -453,7 +473,7 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         // ══════════════════════════════════════════════════════════
         y = pageBreak(40, y);
         // If not enough room, new page
-        if (y > ph - 80) { doc.addPage(); darkBg(); y = 18; }
+        if (y > ph - 80) { doc.addPage(); y = 18; }
 
         doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
         doc.text('CRONOGRAMA DE ETAPAS', M, y);
@@ -473,7 +493,10 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
             if (ev?.photos?.[0]) {
                 try {
                     const url = await getPhotoUrl(ev.photos[0]);
-                    if (url) stagePhotos[stage] = await loadImage(url);
+                    // Crop thumbnail horizontally or vertically to match aspect ratio precisely
+                const thW = 30; const thH = 18;
+                const ratio = thW / thH;
+                if (url) stagePhotos[stage] = await loadImage(url, ratio);
                 } catch { /* skip */ }
             }
         });
