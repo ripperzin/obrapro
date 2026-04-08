@@ -1667,14 +1667,14 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                   {/* Realizado */}
                   <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
                     <p className="text-[9px] text-blue-400 font-black uppercase mb-1">Custo Realizado</p>
-                    <p className="text-xl font-black text-white">{formatCurrency(totalActualExpenses)}</p>
+                    <p className="text-xl font-black text-white">{formatCurrencyAbbrev(totalActualExpenses)}</p>
                   </div>
 
                   {/* Vendas Estimadas (To match context, could trigger budget total instead) */}
                   <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
                     <p className="text-[9px] text-slate-500 font-black uppercase mb-1">Custo Orçado</p>
                     <p className="text-xl font-black text-slate-300">
-                      {totalUnitsCost > 0 ? formatCurrency(totalUnitsCost) : <span className="text-sm opacity-50">Não definido</span>}
+                      {totalUnitsCost > 0 ? formatCurrencyAbbrev(totalUnitsCost) : <span className="text-sm opacity-50">Não definido</span>}
                     </p>
                   </div>
                 </div>
@@ -1738,7 +1738,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     </div>
                     <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">Total Liquidado</p>
                     <p className="text-3xl md:text-5xl font-black text-white tracking-tight">
-                      {soldUnits.length > 0 ? formatCurrency(totalUnitsSales) : <span className="text-gray-500 text-lg uppercase">Não há vendas ainda</span>}
+                      {soldUnits.length > 0 ? formatCurrencyAbbrev(totalUnitsSales) : <span className="text-gray-500 text-lg uppercase">Não há vendas ainda</span>}
                     </p>
                     <div className="mt-3 flex items-center gap-2 text-[10px] md:text-xs text-slate-400 font-medium">
                       <i className="fa-solid fa-circle-check text-emerald-500"></i>
@@ -1760,7 +1760,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     </div>
                     <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Lucro Real</p>
                     <p className="text-lg md:text-xl font-black text-white group-hover/card:text-blue-400 transition-colors">
-                      {soldUnits.length > 0 ? formatCurrency(realProfit) : <span className="text-gray-500 uppercase md:text-base">Não há vendas ainda</span>}
+                      {soldUnits.length > 0 ? formatCurrencyAbbrev(realProfit) : <span className="text-gray-500 uppercase md:text-base">Não há vendas ainda</span>}
                     </p>
                   </div>
 
@@ -1774,7 +1774,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     </div>
                     <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Lucro Proj.</p>
                     <p className="text-lg md:text-xl font-black text-white group-hover/card:text-cyan-400 transition-colors">
-                      {formatCurrency(estimatedGrossProfit)}
+                      {formatCurrencyAbbrev(estimatedGrossProfit)}
                     </p>
                   </div>
 
@@ -1793,7 +1793,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                       <p className="text-lg md:text-xl font-black text-orange-500 tracking-wider">VENDIDO</p>
                     ) : (
                       <p className="text-lg md:text-xl font-black text-white group-hover/card:text-orange-400 transition-colors">
-                        {formatCurrency(potentialSales)}
+                        {formatCurrencyAbbrev(potentialSales)}
                       </p>
                     )}
                   </div>
