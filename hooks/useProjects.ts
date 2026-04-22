@@ -23,7 +23,17 @@ export const fetchProjects = async (): Promise<Project[]> => {
           documents (*)
         `);
 
-    if (projectsError) throw projectsError;
+    if (projectsError) {
+        // Detect auth errors (JWT expired, invalid session) and force re-login
+        const errMsg = projectsError.message || '';
+        const errCode = (projectsError as any)?.code || '';
+        if (errCode === 'PGRST301' || errMsg.includes('JWT') || 
+            errMsg.includes('expired') || errMsg.includes('invalid claim')) {
+            console.error('[fetchProjects] Erro de autenticação detectado, forçando re-login');
+            await supabase.auth.signOut();
+        }
+        throw projectsError;
+    }
     if (!projectsData) return [];
 
     const projectIds = projectsData.map((p: any) => p.id);

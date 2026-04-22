@@ -163,7 +163,7 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
         },
     },
     // IMPORTANT: Increment buster to force clear old stuck mutations
-    buster: 'v6-fix-create-project',
+    buster: 'v7-fix-mobile-session',
 };
 
 export { queryClient };

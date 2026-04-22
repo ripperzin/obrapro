@@ -5,6 +5,7 @@ import { generateId } from './utils';
 import { supabase } from './supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { useProjects, useCreateProject, useUpdateProject, useDeleteProject, useDeleteUnit, useDeleteExpense, useDeleteDocument, useDeleteDiaryEntry } from './hooks/useProjects';
+import { queryClient } from './lib/react-query';
 
 // Pages (Sync - Critical for initial load)
 import LoginPage from './components/LoginPage';
@@ -97,20 +98,62 @@ const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // 1. Monitoramento de Sessão
+  // 1. Monitoramento de Sessão (com validação server-side)
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (!session) setAuthLoading(false); // Se não tem sessão, para de carregar
-    }).catch(err => setDebugError(err.message));
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session) {
+          setAuthLoading(false);
+          return;
+        }
+
+        // Validate session server-side to catch stale/invalid refresh tokens
+        // getUser() hits the auth server, unlike getSession() which only reads localStorage
+        const { error: userError } = await supabase.auth.getUser();
+
+        if (userError) {
+          console.warn('[Auth] Sessão expirada/inválida, forçando re-login:', userError.message);
+          await supabase.auth.signOut();
+          setSession(null);
+          setCurrentUser(null);
+          setAuthLoading(false);
+          return;
+        }
+
+        setSession(session);
+      } catch (err: any) {
+        console.error('[Auth] Erro ao inicializar auth:', err.message);
+        setDebugError(err.message);
+        setAuthLoading(false);
+      }
+    };
+
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Only update state on significant events to prevent re-renders on token refresh
-      // TOKEN_REFRESHED happens on visibility change and shouldn't cause UI updates
+      console.log('[Auth] Event:', event);
+
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
-        console.log('[DEBUG] Auth event:', event);
         setSession(session);
-        if (!session) setAuthLoading(false);
+        if (event === 'SIGNED_IN' && session) {
+          // Force refresh all cached data on new login to clear stale IndexedDB cache
+          queryClient.invalidateQueries();
+        }
+        if (!session) {
+          setCurrentUser(null);
+          setAuthLoading(false);
+        }
+      }
+
+      // Safety net: catch token refresh failures that don't emit SIGNED_OUT
+      if (event === 'TOKEN_REFRESHED' && !session) {
+        console.warn('[Auth] Token refresh falhou, forçando re-login');
+        supabase.auth.signOut();
+        setSession(null);
+        setCurrentUser(null);
+        setAuthLoading(false);
       }
     });
 
