@@ -98,7 +98,7 @@ const KEYWORDS = {
         'obras', 'todas', 'panorama', 'todas as obras', 'minhas obras', 'meus projetos',
         'resumo geral', 'visao geral', 'todas obras', 'projetos', 'tudo',
         'como estao', 'como estão', 'como estao as obras', 'status de todas',
-        'todas minhas', 'geral de todas', 'resumo de todas', 'no total', 'no geral', 'soma', 'consolidado',
+        'todas minhas', 'geral de todas', 'resumo de todas', 'no total', 'no geral', 'consolidado',
         'concluidas', 'finalizadas', 'prontas', 'entregues', 'em construcao', 'em construção', 'andamento'
     ],
     PANORAMA: ['resumo', 'visao', 'status geral', 'geral', 'panorama geral'],

@@ -68,7 +68,7 @@ const KEYWORDS = {
         'obras', 'todas', 'panorama', 'todas as obras', 'minhas obras', 'meus projetos',
         'resumo geral', 'visao geral', 'todas obras', 'projetos', 'tudo',
         'como estao', 'como estão', 'como estao as obras', 'status de todas',
-        'todas minhas', 'geral de todas', 'resumo de todas', 'no total', 'no geral', 'soma', 'consolidado',
+        'todas minhas', 'geral de todas', 'resumo de todas', 'no total', 'no geral', 'consolidado',
         'concluidas', 'finalizadas', 'prontas', 'entregues', 'em construcao', 'em construção', 'andamento'
     ],
     PANORAMA: ['resumo', 'visao', 'status geral', 'geral', 'panorama geral'],
@@ -310,14 +310,19 @@ function extractEntities(text: string, projects: Project[], history: ChatMessage
     }
 
     // 2. DETECTAR ESCOPO (SINGULAR vs MULTI_OBRA) NA MENSAGEM ATUAL
+    // Use word boundary matching to avoid substring issues (e.g. 'somar' matching 'soma')
     let escopoConfirmado: EscopoTipo = 'SINGULAR';
-    const multiObraMatch = KEYWORDS.MULTI_OBRA.filter(k => normalized.includes(k));
-    const panoramaMatch = KEYWORDS.PANORAMA.filter(k => normalized.includes(k));
+    const wordBoundaryMatch = (text: string, keyword: string) => {
+        const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`(?:^|\\s|[,;.!?])${escaped}(?:$|\\s|[,;.!?])`, 'i').test(text);
+    };
+    const multiObraMatch = KEYWORDS.MULTI_OBRA.filter(k => wordBoundaryMatch(normalized, k));
+    const panoramaMatch = KEYWORDS.PANORAMA.filter(k => wordBoundaryMatch(normalized, k));
 
     if (multiObraMatch.length > 0 || panoramaMatch.length > 0) {
         escopoConfirmado = 'MULTI_OBRA';
         obra = null; // Se pediu panorama de todas, ignora obra específica mencionada
-        console.log('🌐 MULTI_OBRA ATIVADO: Plural/Panorama detectado');
+        console.log('🌐 MULTI_OBRA ATIVADO: Plural/Panorama detectado', { multiObraMatch, panoramaMatch });
     }
 
     // 3. RECUPERAR CONTEXTO DO HISTÓRICO (Sticky Context)
