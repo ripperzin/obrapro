@@ -180,9 +180,35 @@ function calculateMonthsBetween(startDate: string, endDate: string): number {
     return Math.max(1, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()));
 }
 
-function filterExpenses(expenses: Expense[], insumo: string | null, dias: number | null): Expense[] {
+function filterExpenses(expenses: Expense[], insumo: string | null, dias: number | null, project?: Project): Expense[] {
     let filtered = [...expenses];
-    if (insumo) filtered = filtered.filter(e => normalizar(e.description).includes(normalizar(insumo)));
+    if (insumo) {
+        const insumoNorm = normalizar(insumo);
+
+        // Build lookup maps from budget: subMacroId -> name, macroId -> name
+        const subMacroNames: Record<string, string> = {};
+        const macroNames: Record<string, string> = {};
+        if (project?.budget?.macros) {
+            for (const macro of project.budget.macros) {
+                macroNames[macro.id] = normalizar(macro.name);
+                if (macro.subMacros) {
+                    for (const sm of macro.subMacros) {
+                        subMacroNames[sm.id] = normalizar(sm.name);
+                    }
+                }
+            }
+        }
+
+        filtered = filtered.filter(e => {
+            // 1. Match by description text (original behavior)
+            if (normalizar(e.description).includes(insumoNorm)) return true;
+            // 2. Match by linked sub-macro name
+            if (e.subMacroId && subMacroNames[e.subMacroId]?.includes(insumoNorm)) return true;
+            // 3. Match by linked macro name
+            if (e.macroId && macroNames[e.macroId]?.includes(insumoNorm)) return true;
+            return false;
+        });
+    }
     if (dias) {
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - dias);
@@ -482,7 +508,7 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
 
                 case 'DESPESAS_INSUMO':
                     if (project && entities.insumo) {
-                        const despesas = filterExpenses(project.expenses, entities.insumo, entities.periodo?.dias || null);
+                        const despesas = filterExpenses(project.expenses, entities.insumo, entities.periodo?.dias || null, project);
                         dadosFiltrados = {
                             tipo: 'DESPESAS_INSUMO',
                             origem: 'BACKEND',
