@@ -51,8 +51,29 @@ export const SyncStatus: React.FC = () => {
     };
 
     const handleForceSync = () => {
-        console.log('[SyncStatus] Forcing sync - resuming paused mutations');
+        console.log('[SyncStatus] Forcing sync - resuming ALL pending mutations');
+        
+        // 1. Resume paused mutations
         queryClient.resumePausedMutations();
+        
+        // 2. Also force-retry stuck mutations that aren't paused but have failures
+        const allMutations = queryClient.getMutationCache().getAll();
+        const stuckMutations = allMutations.filter(
+            m => m.state.status === 'pending' && m.state.failureCount > 0
+        );
+        
+        if (stuckMutations.length > 0) {
+            console.log(`[SyncStatus] Found ${stuckMutations.length} stuck mutations, forcing retry...`);
+            stuckMutations.forEach(m => {
+                // Reset failure state so they retry
+                m.state.failureCount = 0;
+                m.state.failureReason = null;
+            });
+            // Trigger re-evaluation
+            queryClient.resumePausedMutations();
+        }
+        
+        alert(`Forçando sincronização de ${stuckMutations.length} item(s) travados...`);
     };
 
     // Offline indicator
@@ -71,23 +92,23 @@ export const SyncStatus: React.FC = () => {
         );
     }
 
-    // Has paused mutations waiting to sync
+    // Has paused mutations OR stuck mutations waiting to sync
     if (pausedMutations > 0) {
         return (
             <div className="flex items-center gap-1">
                 <div
                     onClick={handleForceSync}
-                    className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-orange-500/10 border border-orange-500/20 rounded-full backdrop-blur-md pointer-events-auto transition-all hover:bg-orange-500/20"
-                    title="Clique para forçar sincronização"
+                    className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-orange-500/10 border border-orange-500/20 rounded-full backdrop-blur-md pointer-events-auto transition-all hover:bg-orange-500/20 active:scale-95"
+                    title="Toque para forçar sincronização"
                 >
                     <i className="fa-solid fa-cloud-arrow-up text-orange-500 text-xs animate-pulse"></i>
                     <span className="text-orange-500 text-xs font-semibold">
-                        {pausedMutations} pendente{pausedMutations > 1 ? 's' : ''}
+                        {pausedMutations} pendente{pausedMutations > 1 ? 's' : ''} — Toque aqui
                     </span>
                 </div>
                 <button
                     onClick={handleDebugClick}
-                    className="p-1.5 text-orange-500/60 hover:text-orange-500 transition-colors"
+                    className="p-1.5 text-orange-500/60 hover:text-orange-500 transition-colors pointer-events-auto"
                     title="Ver detalhes"
                 >
                     <i className="fa-solid fa-circle-info text-xs"></i>
@@ -98,19 +119,28 @@ export const SyncStatus: React.FC = () => {
 
     // Actively syncing
     if (activeMutations > 0) {
-        // Check for repeated failures
+        // Check for repeated failures - these are STUCK mutations
         const mutations = queryClient.getMutationCache().getAll();
         const failingMutation = mutations.find(m => m.state.status === 'pending' && m.state.failureCount > 2);
 
         if (failingMutation) {
             return (
-                <div
-                    onClick={handleDebugClick}
-                    className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-orange-500/10 border border-orange-500/20 rounded-full backdrop-blur-md pointer-events-auto transition-all hover:bg-orange-500/20"
-                    title="Clique para ver detalhes do erro"
-                >
-                    <i className="fa-solid fa-wifi text-orange-500 text-xs animate-pulse"></i>
-                    <span className="text-orange-500 text-xs font-semibold">Reconectando...</span>
+                <div className="flex items-center gap-1">
+                    <div
+                        onClick={handleForceSync}
+                        className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-orange-500/10 border border-orange-500/20 rounded-full backdrop-blur-md pointer-events-auto transition-all hover:bg-orange-500/20 active:scale-95"
+                        title="Toque para forçar sincronização"
+                    >
+                        <i className="fa-solid fa-wifi text-orange-500 text-xs animate-pulse"></i>
+                        <span className="text-orange-500 text-xs font-semibold">Travado — Toque para reenviar</span>
+                    </div>
+                    <button
+                        onClick={handleDebugClick}
+                        className="p-1.5 text-orange-500/60 hover:text-orange-500 transition-colors pointer-events-auto"
+                        title="Ver detalhes"
+                    >
+                        <i className="fa-solid fa-circle-info text-xs"></i>
+                    </button>
                 </div>
             );
         }
