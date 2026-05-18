@@ -683,7 +683,20 @@ const App: React.FC = () => {
 
             {selectedProjectId && (
               <button
-                onClick={() => setSelectedProjectId(null)}
+                onClick={() => {
+                  const params = new URLSearchParams(window.location.search);
+                  const currentTab = params.get('tab');
+                  if (currentTab && currentTab !== 'info') {
+                    // If on a sub-section (expenses, units, etc.), go back to project main view
+                    params.set('tab', 'info');
+                    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash}`);
+                    // Force re-render by dispatching a custom event that ProjectDetail can listen to
+                    window.dispatchEvent(new CustomEvent('navigate-tab', { detail: 'info' }));
+                  } else {
+                    // Already on project main view, go back to projects list
+                    setSelectedProjectId(null);
+                  }
+                }}
                 className="px-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg hover:bg-slate-700 transition shadow-sm"
               >
                 <i className="fa-solid fa-arrow-left mr-2"></i> Voltar

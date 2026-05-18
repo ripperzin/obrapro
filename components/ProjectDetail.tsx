@@ -965,6 +965,16 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
       window.history.replaceState(null, '', newUrl);
     }
   }, [activeTab]);
+
+  // Listen for external navigation (e.g., App's back button)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const tab = (e as CustomEvent).detail;
+      if (tab) setActiveTab(tab);
+    };
+    window.addEventListener('navigate-tab', handler);
+    return () => window.removeEventListener('navigate-tab', handler);
+  }, []);
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [evidenceModal, setEvidenceModal] = useState<{ isOpen: boolean; stage: number; evidence?: any }>({ isOpen: false, stage: 0 });
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
