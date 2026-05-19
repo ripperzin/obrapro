@@ -30,12 +30,88 @@ export interface ChatResponse {
     };
 }
 
+// --- Utility: Compress image before sending to API ---
+const compressImage = (base64: string, maxWidth = 1200, quality = 0.7): Promise<string> => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let { width, height } = img;
+
+            // Scale down if larger than maxWidth
+            if (width > maxWidth) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Output as JPEG for smaller size
+            const compressed = canvas.toDataURL('image/jpeg', quality);
+            resolve(compressed);
+        };
+        img.onerror = () => resolve(base64); // Fallback to original on error
+        img.src = base64.startsWith('data:') ? base64 : `data:image/jpeg;base64,${base64}`;
+    });
+};
+
+// --- Utility: Retry with exponential backoff ---
+const retryWithBackoff = async <T>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+    baseDelay = 1500
+): Promise<T> => {
+    let lastError: any;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (error: any) {
+            lastError = error;
+            const msg = error?.message || '';
+            const isRetryable = msg.includes('503') || msg.includes('Load failed') || msg.includes('overloaded') || msg.includes('high demand') || msg.includes('RESOURCE_EXHAUSTED');
+
+            if (!isRetryable || attempt === maxRetries - 1) throw error;
+
+            const delay = baseDelay * Math.pow(2, attempt); // 1.5s, 3s, 6s
+            console.warn(`[Gemini] Tentativa ${attempt + 1} falhou (${msg}). Retentando em ${delay}ms...`);
+            await new Promise(r => setTimeout(r, delay));
+        }
+    }
+    throw lastError;
+};
+
+// --- Utility: Friendly error messages ---
+const friendlyError = (error: any): string => {
+    const msg = error?.message || String(error);
+    if (msg.includes('503') || msg.includes('high demand') || msg.includes('overloaded')) {
+        return 'Servidor de IA sobrecarregado. Tente novamente em alguns segundos.';
+    }
+    if (msg.includes('Load failed') || msg.includes('fetch')) {
+        return 'Falha na conexão com o servidor. Verifique sua internet e tente novamente.';
+    }
+    if (msg.includes('API Key') || msg.includes('API_KEY')) {
+        return 'Chave de API inválida ou ausente.';
+    }
+    if (msg.includes('SAFETY') || msg.includes('blocked')) {
+        return 'A imagem foi bloqueada pelo filtro de segurança. Tente outra foto.';
+    }
+    if (msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota')) {
+        return 'Limite de uso da IA atingido. Aguarde alguns minutos.';
+    }
+    return `Erro ao analisar: ${msg}`;
+};
+
+// Primary and fallback models
+const PRIMARY_MODEL = "gemini-2.0-flash-lite";
+const FALLBACK_MODEL = "gemini-1.5-flash";
+
 export const parseReceiptImage = async (imageBase64: string): Promise<ReceiptData> => {
     if (!genAI) {
-        throw new Error("Gemini API Key missing.");
+        throw new Error("Chave de API Gemini não encontrada.");
     }
-
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     const prompt = `
     Analyze this receipt image and extract the following data in JSON format:
@@ -50,16 +126,19 @@ export const parseReceiptImage = async (imageBase64: string): Promise<ReceiptDat
   `;
 
     try {
-        let inlineData = imageBase64;
+        // Step 1: Compress the image
+        const compressed = await compressImage(imageBase64);
+
+        let inlineData = compressed;
         let mimeType = "image/jpeg";
 
-        if (imageBase64.includes("data:") && imageBase64.includes(";base64,")) {
-            const parts = imageBase64.split(";base64,");
+        if (compressed.includes("data:") && compressed.includes(";base64,")) {
+            const parts = compressed.split(";base64,");
             mimeType = parts[0].split(":")[1];
             inlineData = parts[1];
         }
 
-        const result = await model.generateContent([
+        const contentPayload = [
             prompt,
             {
                 inlineData: {
@@ -67,10 +146,25 @@ export const parseReceiptImage = async (imageBase64: string): Promise<ReceiptDat
                     mimeType: mimeType,
                 },
             },
-        ]);
+        ];
 
-        const response = await result.response;
-        const text = response.text();
+        // Step 2: Try primary model with retry, then fallback
+        const executeWithModel = async (modelName: string) => {
+            const model = genAI!.getGenerativeModel({ model: modelName });
+            const result = await model.generateContent(contentPayload);
+            const response = await result.response;
+            return response.text();
+        };
+
+        let text: string;
+        try {
+            text = await retryWithBackoff(() => executeWithModel(PRIMARY_MODEL));
+        } catch (primaryError: any) {
+            console.warn(`[Gemini] Modelo primário (${PRIMARY_MODEL}) falhou:`, primaryError.message);
+            console.log(`[Gemini] Tentando modelo fallback (${FALLBACK_MODEL})...`);
+            text = await retryWithBackoff(() => executeWithModel(FALLBACK_MODEL), 2, 2000);
+        }
+
         const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
         const data = JSON.parse(cleanText);
 
@@ -81,9 +175,9 @@ export const parseReceiptImage = async (imageBase64: string): Promise<ReceiptDat
             category: data.category_guess || null,
             description: data.description || null
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Gemini OCR Error:", error);
-        throw error;
+        throw new Error(friendlyError(error));
     }
 };
 
