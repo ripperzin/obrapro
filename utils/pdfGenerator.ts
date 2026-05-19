@@ -479,7 +479,7 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         doc.text('CRONOGRAMA DE ETAPAS', M, y);
         y += 8;
 
-        const stages = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+        const stages = [0, 15, 30, 45, 60, 75, 90, 100];
         const lineX = M + 6;
 
         // Vertical line

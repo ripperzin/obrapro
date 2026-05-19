@@ -14,12 +14,9 @@ export const PROGRESS_STAGES = [
   ProgressStage.PLANNING,
   ProgressStage.FOUNDATION,
   ProgressStage.STRUCTURE,
-  ProgressStage.BRICKWORK,
   ProgressStage.ROOFING,
-  ProgressStage.ROUGH_INSTALLS,
-  ProgressStage.INTERNAL_FINISH,
-  ProgressStage.DOORS_WINDOWS,
-  ProgressStage.FINAL_DETAILS,
+  ProgressStage.ELECTRICAL_PLUMBING,
+  ProgressStage.FINISHING_DETAILS,
   ProgressStage.FINISHING,
   ProgressStage.COMPLETED
 ];

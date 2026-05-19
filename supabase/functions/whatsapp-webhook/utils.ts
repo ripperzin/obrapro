@@ -68,9 +68,9 @@ export interface ChatResponse {
 // ==========================================
 
 export const STAGE_NAMES: Record<number, string> = {
-    0: 'Planejamento', 10: 'Fundação', 20: 'Estrutura', 30: 'Alvenaria',
-    40: 'Cobertura', 50: 'Instalações', 60: 'Revestimentos', 70: 'Esquadrias',
-    80: 'Acabamentos', 90: 'Finalização', 100: 'Concluída'
+    0: 'Planejamento', 15: 'Fundação', 30: 'Estrutura e Alvenaria',
+    45: 'Cobertura', 60: 'Elétrica e Hidráulica', 75: 'Acabamentos',
+    90: 'Finalização', 100: 'Concluída'
 };
 
 const KEYWORDS = {

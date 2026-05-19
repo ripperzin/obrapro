@@ -15,28 +15,22 @@ export interface User {
 
 export enum ProgressStage {
   PLANNING = 0,
-  FOUNDATION = 10,
-  STRUCTURE = 20,
-  BRICKWORK = 30,
-  ROOFING = 40,
-  ROUGH_INSTALLS = 50,
-  INTERNAL_FINISH = 60,
-  DOORS_WINDOWS = 70,
-  FINAL_DETAILS = 80,
+  FOUNDATION = 15,
+  STRUCTURE = 30,
+  ROOFING = 45,
+  ELECTRICAL_PLUMBING = 60,
+  FINISHING_DETAILS = 75,
   FINISHING = 90,
   COMPLETED = 100
 }
 
 export const STAGE_NAMES: Record<number, string> = {
   0: 'Planejamento',
-  10: 'Fundação',
-  20: 'Estrutura',
-  30: 'Alvenaria',
-  40: 'Cobertura',
-  50: 'Instalações Brutas',
-  60: 'Revestimentos Internos',
-  70: 'Esquadrias',
-  80: 'Acabamentos',
+  15: 'Fundação',
+  30: 'Estrutura e Alvenaria',
+  45: 'Cobertura',
+  60: 'Elétrica e Hidráulica',
+  75: 'Acabamentos (Vidros, Pisos e Pintura)',
   90: 'Finalização',
   100: 'Obra Concluída'
 };
@@ -44,14 +38,11 @@ export const STAGE_NAMES: Record<number, string> = {
 // Abbreviated names for mobile
 export const STAGE_ABBREV: Record<number, string> = {
   0: 'PLN',
-  10: 'FUN',
-  20: 'EST',
-  30: 'ALV',
-  40: 'COB',
-  50: 'INST',
-  60: 'REV',
-  70: 'ESQ',
-  80: 'ACAB',
+  15: 'FUN',
+  30: 'EST',
+  45: 'COB',
+  60: 'ELE',
+  75: 'ACAB',
   90: 'FIN',
   100: '✓'
 };
@@ -59,14 +50,11 @@ export const STAGE_ABBREV: Record<number, string> = {
 // Icons for each stage
 export const STAGE_ICONS: Record<number, string> = {
   0: 'fa-clipboard-list',
-  10: 'fa-mountain',
-  20: 'fa-building',
-  30: 'fa-cube',
-  40: 'fa-house-chimney',
-  50: 'fa-plug',
-  60: 'fa-paint-roller',
-  70: 'fa-door-open',
-  80: 'fa-brush',
+  15: 'fa-mountain',
+  30: 'fa-building',
+  45: 'fa-house-chimney',
+  60: 'fa-plug',
+  75: 'fa-paint-roller',
   90: 'fa-flag-checkered',
   100: 'fa-trophy'
 };

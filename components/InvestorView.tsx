@@ -282,7 +282,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
     const metrics = calculateMetrics();
 
     // Get all stages
-    const allStages = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+    const allStages = [0, 15, 30, 45, 60, 75, 90, 100];
 
     // Helper to display value or "--"
     const displayValue = (value: number | null, formatter: (v: number) => string, suffix: string = ''): string => {
