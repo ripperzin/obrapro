@@ -86,11 +86,11 @@ const retryWithBackoff = async <T>(
 // --- Utility: Friendly error messages ---
 const friendlyError = (error: any): string => {
     const msg = error?.message || String(error);
+    if (msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota') || msg.includes('429')) {
+        return 'Limite de uso da IA atingido. Verifique o faturamento ou cota da sua API.';
+    }
     if (msg.includes('503') || msg.includes('high demand') || msg.includes('overloaded')) {
         return 'Servidor de IA sobrecarregado. Tente novamente em alguns segundos.';
-    }
-    if (msg.includes('Load failed') || msg.includes('fetch')) {
-        return 'Falha na conexão com o servidor. Verifique sua internet e tente novamente.';
     }
     if (msg.includes('API Key') || msg.includes('API_KEY')) {
         return 'Chave de API inválida ou ausente.';
@@ -98,15 +98,18 @@ const friendlyError = (error: any): string => {
     if (msg.includes('SAFETY') || msg.includes('blocked')) {
         return 'A imagem foi bloqueada pelo filtro de segurança. Tente outra foto.';
     }
-    if (msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota')) {
-        return 'Limite de uso da IA atingido. Aguarde alguns minutos.';
+    if (msg.includes('404') || msg.includes('not found')) {
+        return 'Modelo de IA não encontrado. O modelo configurado pode estar indisponível.';
+    }
+    if (msg.includes('Load failed') || (msg.includes('fetch') && !msg.includes('fetching'))) {
+        return 'Falha na conexão com o servidor. Verifique sua internet e tente novamente.';
     }
     return `Erro ao analisar: ${msg}`;
 };
 
 // Primary and fallback models
-const PRIMARY_MODEL = "gemini-2.0-flash-lite";
-const FALLBACK_MODEL = "gemini-1.5-flash";
+const PRIMARY_MODEL = "gemini-3.1-flash-lite";
+const FALLBACK_MODEL = "gemini-2.5-flash";
 
 export const parseReceiptImage = async (imageBase64: string): Promise<ReceiptData> => {
     if (!genAI) {
@@ -190,9 +193,9 @@ export const chatWithData = async (message: string, history: ChatMessage[], cont
     }
 
     try {
-        // Fallback para o modelo legacy mais estável devido a erro de versão na API Key
+        // Atualizado para um modelo mais recente (gemini-2.5-flash) pois o anterior estava indisponível
         const model = genAI.getGenerativeModel({
-            model: "gemini-pro"
+            model: "gemini-2.5-flash"
         });
 
         const historyString = history.map(m => `${m.role === 'user' ? 'U' : 'A'}: ${m.text}`).join('\n');
