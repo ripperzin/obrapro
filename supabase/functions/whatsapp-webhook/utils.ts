@@ -69,7 +69,7 @@ export interface ChatResponse {
 
 export const STAGE_NAMES: Record<number, string> = {
     0: 'Planejamento', 15: 'Fundação', 30: 'Estrutura e Alvenaria',
-    45: 'Cobertura', 60: 'Elétrica e Hidráulica', 75: 'Acabamentos',
+    60: 'Elétrica e Hidráulica', 75: 'Acabamentos',
     90: 'Finalização', 100: 'Concluída'
 };
 
@@ -85,7 +85,7 @@ const KEYWORDS = {
     ORCAMENTO: ['orcamento', 'budget', 'verba', 'previsao', 'estimado', 'previsto'],
     MARGEM: ['margem', 'lucro', 'rentabilidade', 'retorno', 'ganho', 'roi'],
     PROGRESSO: ['progresso', 'andamento', 'status', 'como esta', 'situacao'],
-    ETAPAS: ['etapa', 'fase', 'fundacao', 'estrutura', 'alvenaria', 'cobertura', 'revestimento'],
+    ETAPAS: ['etapa', 'fase', 'fundacao', 'estrutura', 'alvenaria', 'revestimento'],
     DIARIO: ['diario', 'anotacoes', 'registros', 'aconteceu', 'anotado'],
     CRONOGRAMA: ['prazo', 'entrega', 'atraso', 'quando', 'data', 'previsao', 'termino', 'tempo'],
     UNIDADES: ['unidades', 'casas', 'apartamentos', 'aptos', 'unidade'],

@@ -55,7 +55,7 @@ const KEYWORDS = {
     ORCAMENTO: ['orcamento', 'budget', 'verba', 'previsao', 'estimado', 'previsto'],
     MARGEM: ['margem', 'lucro', 'rentabilidade', 'retorno', 'ganho', 'roi'],
     PROGRESSO: ['progresso', 'andamento', 'status', 'como esta', 'situacao'],
-    ETAPAS: ['etapa', 'fase', 'fundacao', 'estrutura', 'alvenaria', 'cobertura', 'revestimento'],
+    ETAPAS: ['etapa', 'fase', 'fundacao', 'estrutura', 'alvenaria', 'revestimento'],
     DIARIO: ['diario', 'anotacoes', 'registros', 'aconteceu', 'anotado'],
     CRONOGRAMA: ['prazo', 'entrega', 'atraso', 'quando', 'data', 'previsao', 'termino', 'tempo'],
     UNIDADES: ['unidades', 'casas', 'apartamentos', 'aptos', 'unidade'],
@@ -108,7 +108,7 @@ const PERIODOS: Array<{ keywords: string[]; tipo: PeriodoTipo; label: string; di
 
 const STAGE_NAMES: Record<number, string> = {
     0: 'Planejamento', 10: 'Fundação', 20: 'Estrutura', 30: 'Alvenaria',
-    40: 'Cobertura', 50: 'Instalações', 60: 'Revestimentos', 70: 'Esquadrias',
+    50: 'Instalações', 60: 'Revestimentos', 70: 'Esquadrias',
     80: 'Acabamentos', 90: 'Finalização', 100: 'Concluída'
 };
 

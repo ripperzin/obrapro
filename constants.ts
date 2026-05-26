@@ -14,7 +14,6 @@ export const PROGRESS_STAGES = [
   ProgressStage.PLANNING,
   ProgressStage.FOUNDATION,
   ProgressStage.STRUCTURE,
-  ProgressStage.ROOFING,
   ProgressStage.ELECTRICAL_PLUMBING,
   ProgressStage.FINISHING_DETAILS,
   ProgressStage.FINISHING,
