@@ -125,7 +125,7 @@ export const SyncStatus: React.FC = () => {
 
             {/* Premium Glassmorphic Popover Control Panel */}
             {isOpen && (
-                <div className="absolute top-11 left-0 w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl p-5 z-[999] animate-fade-in text-left pointer-events-auto">
+                <div className="absolute top-11 right-0 w-[290px] sm:w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl p-5 z-[999] animate-fade-in text-left pointer-events-auto">
                     {/* Popover Header */}
                     <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-3">
                         <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
