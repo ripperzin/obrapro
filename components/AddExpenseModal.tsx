@@ -125,17 +125,15 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        let finalMacroId = formData.macroId;
-        // Auto-select 'Geral/Outros' if no category
-        if (!finalMacroId && macros.length > 0) {
-            const defaultMacro = macros.find(m => m.name === 'Geral/Outros' || m.name === 'Outros');
-            if (defaultMacro) finalMacroId = defaultMacro.id;
+        if (!formData.macroId) {
+            alert('Por favor, selecione uma Categoria para a despesa.');
+            return;
         }
 
         onSave({
             ...formData,
             attachmentUrl: formData.attachments.length > 0 ? formData.attachments[0] : undefined,
-            macroId: finalMacroId || undefined,
+            macroId: formData.macroId,
             subMacroId: formData.subMacroId || undefined
         });
         localStorage.removeItem(DRAFT_KEY);
@@ -200,11 +198,12 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Categoria</label>
                             <select
+                                required
                                 className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-green-500 rounded-2xl outline-none font-bold text-white text-xs appearance-none cursor-pointer"
                                 value={formData.macroId}
                                 onChange={e => setFormData({ ...formData, macroId: e.target.value, subMacroId: '' })}
                             >
-                                <option value="">Sem categoria</option>
+                                <option value="" disabled>Selecione uma categoria...</option>
                                 {macros.map(m => (
                                     <option key={m.id} value={m.id}>{m.name}</option>
                                 ))}
