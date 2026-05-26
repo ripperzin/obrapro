@@ -643,65 +643,65 @@ const App: React.FC = () => {
 
         <main ref={mainRef} className="flex-1 overflow-y-auto flex flex-col relative">
           <header className="flex justify-between items-center p-4 md:px-8 md:py-6 bg-slate-900/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-30 shadow-lg">
-            <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <div className="flex flex-col gap-1">
+              <h1 className="text-2xl font-bold text-white tracking-tight leading-tight">
+                {activeTab === 'projects' && (selectedProjectId && selectedProject ? selectedProject.name : 'Obras')}
+                {activeTab === 'general' && selectedProjectId && selectedProject ? selectedProject.name : ''}
+                {activeTab === 'users' && 'Gestão de Usuários'}
+              </h1>
+              {selectedProject && selectedProjectId ? (
+                <div className="flex items-center gap-4 mt-1">
+                  <span className="text-green-400 font-semibold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                    {selectedProject.units.filter(u => u.status === 'Sold').length} vendidas
+                  </span>
+                  <span className="text-blue-400 font-semibold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    {selectedProject.units.filter(u => u.status === 'Available').length} à venda
+                  </span>
+                </div>
+              ) : activeTab === 'users' ? (
+                <p className="text-slate-400 text-xs">Bem-vindo, {currentUser.login}</p>
+              ) : null}
+            </div>
+
+            <div className="flex items-center gap-4">
               {/* Sync Status Indicator */}
               <SyncStatus />
 
-              <div>
-                <h1 className="text-2xl font-bold text-white">
-                  {activeTab === 'projects' && (selectedProjectId && selectedProject ? selectedProject.name : 'Obras')}
-                  {activeTab === 'general' && selectedProjectId && selectedProject ? selectedProject.name : ''}
-                  {activeTab === 'users' && 'Gestão de Usuários'}
-                </h1>
-                {selectedProject && selectedProjectId ? (
-                  <div className="flex items-center gap-4 mt-1">
-                    <span className="text-green-400 font-semibold text-sm">
-                      <i className="fa-solid fa-check-circle mr-1"></i>
-                      {selectedProject.units.filter(u => u.status === 'Sold').length} vendidas
-                    </span>
-                    <span className="text-blue-400 font-semibold text-sm">
-                      <i className="fa-solid fa-tag mr-1"></i>
-                      {selectedProject.units.filter(u => u.status === 'Available').length} à venda
-                    </span>
-                  </div>
-                ) : activeTab === 'users' ? (
-                  <p className="text-slate-400">Bem-vindo, {currentUser.login}</p>
-                ) : null}
-              </div>
+              {activeTab === 'general' && !selectedProjectId && (
+                <div className="hidden sm:flex flex-col gap-1 items-end text-right">
+                  <h1 className="text-lg font-black text-white italic tracking-tight truncate leading-none">
+                    Olá, {currentUser?.login || 'Usuário'}!
+                  </h1>
+                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest leading-none mt-1">
+                    {new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+              )}
+
+              {selectedProjectId && (
+                <button
+                  onClick={() => {
+                    const params = new URLSearchParams(window.location.search);
+                    const currentTab = params.get('tab');
+                    if (currentTab && currentTab !== 'info') {
+                      // If on a sub-section (expenses, units, etc.), go back to project main view
+                      params.set('tab', 'info');
+                      window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash}`);
+                      // Force re-render by dispatching a custom event that ProjectDetail can listen to
+                      window.dispatchEvent(new CustomEvent('navigate-tab', { detail: 'info' }));
+                    } else {
+                      // Already on project main view, go back to projects list
+                      setSelectedProjectId(null);
+                    }
+                  }}
+                  className="px-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg hover:bg-slate-700 transition shadow-sm"
+                >
+                  <i className="fa-solid fa-arrow-left mr-2"></i> Voltar
+                </button>
+              )}
             </div>
-
-            {activeTab === 'general' && !selectedProjectId && (
-              <div className="flex flex-col gap-1 items-end text-right">
-                <h1 className="text-2xl font-black text-white italic tracking-tight truncate">
-                  Olá, {currentUser?.login || 'Usuário'}!
-                </h1>
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-none">
-                  {new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </p>
-              </div>
-            )}
-
-            {selectedProjectId && (
-              <button
-                onClick={() => {
-                  const params = new URLSearchParams(window.location.search);
-                  const currentTab = params.get('tab');
-                  if (currentTab && currentTab !== 'info') {
-                    // If on a sub-section (expenses, units, etc.), go back to project main view
-                    params.set('tab', 'info');
-                    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash}`);
-                    // Force re-render by dispatching a custom event that ProjectDetail can listen to
-                    window.dispatchEvent(new CustomEvent('navigate-tab', { detail: 'info' }));
-                  } else {
-                    // Already on project main view, go back to projects list
-                    setSelectedProjectId(null);
-                  }
-                }}
-                className="px-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg hover:bg-slate-700 transition shadow-sm"
-              >
-                <i className="fa-solid fa-arrow-left mr-2"></i> Voltar
-              </button>
-            )}
           </header>
 
           <div className="flex-1 px-4 md:p-8 pb-24 md:pb-8">
