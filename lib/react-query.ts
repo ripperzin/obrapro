@@ -163,7 +163,7 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
         },
     },
     // IMPORTANT: Increment buster to force clear old stuck mutations
-    buster: 'v8-clear-stuck-queue',
+    buster: 'v9-clear-stuck-queue',
 };
 
 export { queryClient };
