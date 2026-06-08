@@ -371,7 +371,7 @@ const App: React.FC = () => {
     await supabase.from('logs').insert([{
       project_id: projectId,
       user_id: currentUser?.id,
-      user_name: currentUser?.name || 'Sistema',
+      user_name: currentUser?.login || 'Sistema',
       action: 'Exclusão',
       field: 'Unidade',
       old_value: unitToDelete.identifier,
@@ -715,7 +715,7 @@ const App: React.FC = () => {
                   onDeleteExpense={deleteExpense}
                   onDeleteDocument={deleteDocument}
                   onDeleteDiary={deleteDiary}
-                  onRefresh={refreshProjects}
+                  onRefresh={async () => { await refreshProjects(); }}
                 />
               ) : (
                 <ProjectsDashboard
@@ -755,7 +755,7 @@ const App: React.FC = () => {
                 onDeleteUnit={deleteUnit}
                 onDeleteExpense={deleteExpense}
                 onDeleteDocument={deleteDocument}
-                onRefresh={refreshProjects}
+                onRefresh={async () => { await refreshProjects(); }}
                 onUpdateDiary={handleUpdateDiary}
                 onDeleteDiary={deleteDiary}
               />

@@ -20,7 +20,7 @@ export function useOfflineMutation<TData, TError, TVariables>(
         // Only override the callbacks (onMutate, onError, onSuccess)
         ...options,
         onMutate: async (variables) => {
-            const context = options.onMutate ? await options.onMutate(variables) : undefined;
+            const context = options.onMutate ? await (options.onMutate as any)(variables) : undefined;
             return context as OfflineMutationContext;
         },
         onError: (err, variables, context) => {
