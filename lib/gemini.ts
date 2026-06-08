@@ -108,7 +108,7 @@ const friendlyError = (error: any): string => {
 };
 
 // Primary and fallback models
-const PRIMARY_MODEL = "gemini-3.1-flash-lite";
+const PRIMARY_MODEL = "gemini-2.5-flash-lite";
 const FALLBACK_MODEL = "gemini-2.5-flash";
 
 export const parseReceiptImage = async (imageBase64: string): Promise<ReceiptData> => {
