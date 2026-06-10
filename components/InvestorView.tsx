@@ -49,63 +49,26 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     throw new Error(`ID de projeto inválido: ${projectId}`);
                 }
 
-                // Fetch project data - using maybeSingle to avoid "Cannot coerce" error
-                const { data: projectData, error: projectError } = await supabase
-                    .from('projects')
-                    .select('*')
-                    .eq('id', projectId)
-                    .maybeSingle();
+                // Portal do Investidor é PÚBLICO (sem login). Em vez de ler as
+                // tabelas direto (o que exigia abrir o banco para o role anon),
+                // chamamos a edge function `investor-portal`, que devolve só os
+                // dados desta obra usando a service role no servidor.
+                const { data, error: fnError } = await supabase.functions.invoke('investor-portal', {
+                    body: { projectId },
+                });
 
-                if (projectError) throw projectError;
+                if (fnError) throw fnError;
+                if (data?.error) throw new Error(data.error);
+
+                const projectData = data?.project;
                 if (!projectData) throw new Error('Projeto não encontrado no banco de dados');
 
-                // Fetch units
-                const { data: unitsData } = await supabase
-                    .from('units')
-                    .select('*')
-                    .eq('project_id', projectId);
-
-                // Fetch stage evidences
-                const { data: evidenceData } = await supabase
-                    .from('stage_evidences')
-                    .select('*')
-                    .eq('project_id', projectId);
-
-                // Fetch expenses for financial health
-                const { data: expensesData } = await supabase
-                    .from('expenses')
-                    .select('*')
-                    .eq('project_id', projectId);
-
-                // Fetch budget data
-                const { data: budgetData } = await supabase
-                    .from('project_budgets')
-                    .select('*')
-                    .eq('project_id', projectId)
-                    .maybeSingle();
-
-                let macrosData: any[] = [];
-                let subMacrosData: any[] = [];
-
-                if (budgetData) {
-                    const { data: macros } = await supabase
-                        .from('project_macros')
-                        .select('*')
-                        .eq('budget_id', budgetData.id)
-                        .order('display_order');
-                    macrosData = macros || [];
-
-                    // Fetch submacros if there are macros
-                    const macroIds = macrosData.map((m: any) => m.id);
-                    if (macroIds.length > 0) {
-                        const { data: subs } = await supabase
-                            .from('project_sub_macros')
-                            .select('*')
-                            .in('project_macro_id', macroIds)
-                            .order('display_order');
-                        subMacrosData = subs || [];
-                    }
-                }
+                const unitsData = data.units || [];
+                const evidenceData = data.stageEvidences || [];
+                const expensesData = data.expenses || [];
+                const budgetData = data.budget || null;
+                const macrosData: any[] = data.macros || [];
+                const subMacrosData: any[] = data.subMacros || [];
 
                 setExpenses(expensesData || []);
 
