@@ -39,6 +39,9 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
     const [error, setError] = useState<string | null>(null);
     const [expenses, setExpenses] = useState<any[]>([]);
     const [expandedMacroId, setExpandedMacroId] = useState<string | null>(null);
+    // Mapa { path -> signed URL } gerado pela edge function (service role).
+    // O portal é anon e não acessa o Storage diretamente.
+    const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
     useEffect(() => {
         const fetchProject = async () => {
@@ -70,6 +73,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                 const macrosData: any[] = data.macros || [];
                 const subMacrosData: any[] = data.subMacros || [];
 
+                setSignedUrls(data.signedUrls || {});
                 setExpenses(expensesData || []);
 
                 const mappedProject: Project = {
@@ -254,36 +258,12 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
         return formatter(value) + suffix;
     };
 
-    // Componente auxiliar para link com assinatura
+    // Componente auxiliar para link com assinatura.
+    // O portal é anon: as signed URLs vêm prontas da edge function (mapa
+    // signedUrls). Paths já em formato http passam direto.
     const FileLink = ({ path }: { path: string }) => {
-        const [url, setUrl] = useState<string | null>(null);
-
-        useEffect(() => {
-            if (!path) return;
-            if (path.startsWith('http')) {
-                setUrl(path);
-                return;
-            }
-            // Tenta criar URL assinada, mas considera se usuário é anonimo ou não.
-            // Para portal do investidor (anon), createSignedUrl pode falhar se não tiver regra.
-            // Mas assumindo que o app já usa isso...
-            const getUrl = async () => {
-                const { data } = await supabase.storage
-                    .from('expense-attachments')
-                    .createSignedUrl(path, 3600);
-
-                if (data?.signedUrl) {
-                    setUrl(data.signedUrl);
-                } else {
-                    // Fallback
-                    const { data: d2 } = await supabase.storage
-                        .from('project-documents')
-                        .createSignedUrl(path, 3600);
-                    if (d2?.signedUrl) setUrl(d2.signedUrl);
-                }
-            };
-            getUrl();
-        }, [path]);
+        if (!path) return null;
+        const url = path.startsWith('http') ? path : signedUrls[path];
 
         if (!url) return <span className="text-slate-600"><i className="fa-solid fa-spinner fa-spin"></i></span>;
 
@@ -346,7 +326,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                 <div className="max-w-2xl mx-auto">
                                     <div className="rounded-3xl p-2 bg-slate-800/50 backdrop-blur border border-slate-700 shadow-2xl">
                                         <div className="rounded-2xl overflow-hidden aspect-video relative group">
-                                            <StageThumbnail photoPath={photo} className="w-full h-full" />
+                                            <StageThumbnail photoPath={photo} signedUrl={photo ? signedUrls[photo] : undefined} className="w-full h-full" />
                                             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 flex justify-between items-end">
                                                 <div>
                                                     <p className="text-white font-bold text-lg">{STAGE_NAMES[currentStageEvidence.stage]}</p>
@@ -786,7 +766,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                             {/* Photo Evidence */}
                                             {photo && (
                                                 <div className="mt-3 rounded-xl overflow-hidden border border-slate-600 w-32 h-24">
-                                                    <StageThumbnail photoPath={photo} className="w-full h-full" />
+                                                    <StageThumbnail photoPath={photo} signedUrl={photo ? signedUrls[photo] : undefined} className="w-full h-full" />
                                                 </div>
                                             )}
 

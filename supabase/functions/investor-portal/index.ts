@@ -85,6 +85,54 @@ Deno.serve(async (req) => {
             }
         }
 
+        // ----------------------------------------------------------------------
+        // Signed URLs: o portal é anon e NÃO tem mais acesso direto ao Storage.
+        // Geramos aqui (service role, ignora RLS) as URLs assinadas de todas as
+        // fotos/anexos e devolvemos um mapa { path -> signedUrl }. Paths que já
+        // são URL completa (http...) passam direto, sem assinar.
+        // ----------------------------------------------------------------------
+        const isPath = (v: unknown): v is string =>
+            typeof v === "string" && v.length > 0 && !v.startsWith("http");
+
+        const evidences = (evidenceRes.data ?? []) as { photos?: string[] }[];
+        const expenseRows = (expensesRes.data ?? []) as {
+            attachment_url?: string | null;
+            attachments?: string[] | null;
+        }[];
+
+        const docPaths = new Set<string>();
+        for (const ev of evidences) {
+            for (const p of ev.photos ?? []) if (isPath(p)) docPaths.add(p);
+        }
+
+        const expensePaths = new Set<string>();
+        for (const e of expenseRows) {
+            if (isPath(e.attachment_url)) expensePaths.add(e.attachment_url as string);
+            for (const p of e.attachments ?? []) if (isPath(p)) expensePaths.add(p);
+        }
+
+        const signedUrls: Record<string, string> = {};
+        const signInto = async (bucket: string, paths: string[]) => {
+            if (paths.length === 0) return;
+            const { data: signed } = await admin.storage
+                .from(bucket)
+                .createSignedUrls(paths, 3600);
+            for (const s of signed ?? []) {
+                if (s.signedUrl && s.path) signedUrls[s.path] = s.signedUrl;
+            }
+        };
+
+        // Anexos de despesa ficam em expense-attachments; fotos de etapa em
+        // project-documents. Por robustez, tentamos cada conjunto no seu bucket
+        // e, para o que sobrar, no outro (paths legados podem estar trocados).
+        await signInto("expense-attachments", [...expensePaths]);
+        await signInto("project-documents", [...docPaths]);
+        const unresolved = [...docPaths, ...expensePaths].filter((p) => !signedUrls[p]);
+        if (unresolved.length > 0) {
+            await signInto("expense-attachments", unresolved.filter((p) => !signedUrls[p]));
+            await signInto("project-documents", unresolved.filter((p) => !signedUrls[p]));
+        }
+
         return json({
             project,
             units: unitsRes.data ?? [],
@@ -93,6 +141,7 @@ Deno.serve(async (req) => {
             budget,
             macros,
             subMacros,
+            signedUrls,
         });
     } catch (err) {
         console.error("[investor-portal] Erro:", err);

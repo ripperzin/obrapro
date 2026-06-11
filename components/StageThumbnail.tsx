@@ -6,13 +6,17 @@ interface StageThumbnailProps {
     className?: string;
     alt?: string;
     placeholderIcon?: string;
+    // URL já assinada (ex.: vinda da edge function no Portal do Investidor).
+    // Se informada, usamos direto e NÃO tocamos no Storage como cliente.
+    signedUrl?: string | null;
 }
 
 const StageThumbnail: React.FC<StageThumbnailProps> = ({
     photoPath,
     className = "",
     alt = "Stage evidence",
-    placeholderIcon = "fa-image"
+    placeholderIcon = "fa-image",
+    signedUrl
 }) => {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
 
@@ -21,6 +25,12 @@ const StageThumbnail: React.FC<StageThumbnailProps> = ({
 
         if (!photoPath) {
             setImageUrl(null);
+            return;
+        }
+
+        // URL pré-assinada fornecida pelo chamador: usa direto.
+        if (signedUrl) {
+            setImageUrl(signedUrl);
             return;
         }
 
@@ -47,7 +57,7 @@ const StageThumbnail: React.FC<StageThumbnailProps> = ({
         getUrl();
 
         return () => { isMounted = false; };
-    }, [photoPath]);
+    }, [photoPath, signedUrl]);
 
     if (imageUrl) {
         return (
