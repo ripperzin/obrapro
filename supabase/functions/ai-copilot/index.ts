@@ -2,6 +2,7 @@
 // Recebe {message, context} do app, chama o Claude no SERVIDOR e devolve {text, action}.
 // A chave Anthropic fica em Deno.env (segredo do Supabase) e NUNCA é exposta no app.
 import Anthropic from "https://esm.sh/@anthropic-ai/sdk";
+import { meterAI } from "../_shared/ai-metering.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -146,6 +147,10 @@ Deno.serve(async (req) => {
         if (!message || typeof message !== "string") {
             return json({ error: "Mensagem ausente ou inválida." });
         }
+
+        // Limite de IA por usuário/mês (protege custo + base da monetização).
+        const gate = await meterAI(req, "copilot");
+        if (!gate.allowed) return json({ error: gate.reason, limitReached: true });
 
         const anthropic = new Anthropic({ apiKey });
 
