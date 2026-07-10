@@ -1,7 +1,6 @@
 // Edge Function: ocr-receipt
 // Recebe uma imagem (base64) do app, chama o Gemini no SERVIDOR e devolve os dados do recibo.
 // A chave do Gemini fica em Deno.env (segredo do Supabase) e NUNCA é exposta no app.
-import { meterAI } from "../_shared/ai-metering.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -44,10 +43,6 @@ Deno.serve(async (req) => {
         if (!image || typeof image !== "string") {
             return json({ error: "Imagem ausente ou inválida." });
         }
-
-        // Limite de IA por usuário/mês (protege custo + base da monetização).
-        const gate = await meterAI(req, "ocr");
-        if (!gate.allowed) return json({ error: gate.reason, limitReached: true });
 
         // Separar mime type e dados base64
         let data = image;
