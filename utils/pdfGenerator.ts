@@ -437,27 +437,39 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         doc.text('EXTRATO DE DESPESAS', M, y);
         y += 5;
 
+        // Mapa id -> nome para Categoria (macro) e Detalhe (submacro), a partir do orçamento.
+        const macroNameById = new Map<string, string>();
+        const subNameById = new Map<string, string>();
+        for (const m of (project.budget?.macros || [])) {
+            macroNameById.set(m.id, m.name);
+            for (const s of (m.subMacros || [])) subNameById.set(s.id, s.name);
+        }
+
         const expRows = [...project.expenses]
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
             .map(e => {
                 const att = !!(e.attachmentUrl || (e.attachments && e.attachments.length > 0));
-                return [fmtDate(e.date), e.description || '-', att ? 'Sim' : '-', fmt(e.value)];
+                const categoria = e.macroId ? (macroNameById.get(e.macroId) || '-') : '-';
+                const detalhe = e.subMacroId ? (subNameById.get(e.subMacroId) || '-') : '-';
+                return [fmtDate(e.date), categoria, detalhe, e.description || '-', att ? 'Sim' : '-', fmt(e.value)];
             });
 
         if (expRows.length > 0) {
             autoTable(doc, {
                 startY: y,
-                head: [['Data', 'Descrição', 'Anexo', 'Valor']],
+                head: [['Data', 'Categoria', 'Detalhe', 'Descrição', 'Anexo', 'Valor']],
                 body: expRows,
                 theme: 'grid',
-                headStyles: { fillColor: CARD, textColor: [255, 255, 255], lineColor: BORDER, fontSize: 7, fontStyle: 'bold' },
-                bodyStyles: { fillColor: BG, textColor: [200, 200, 200], lineColor: BORDER, fontSize: 7 },
+                headStyles: { fillColor: CARD, textColor: [255, 255, 255], lineColor: BORDER, fontSize: 6.5, fontStyle: 'bold' },
+                bodyStyles: { fillColor: BG, textColor: [200, 200, 200], lineColor: BORDER, fontSize: 6.5 },
                 alternateRowStyles: { fillColor: [20, 28, 48] },
-                styles: { cellPadding: 2.5, font: 'helvetica', overflow: 'linebreak' },
+                styles: { cellPadding: 2, font: 'helvetica', overflow: 'linebreak' },
                 columnStyles: {
-                    0: { cellWidth: 22 },
-                    2: { cellWidth: 12, halign: 'center' },
-                    3: { cellWidth: 30, halign: 'right' }
+                    0: { cellWidth: 16 },
+                    1: { cellWidth: 30 },
+                    2: { cellWidth: 32 },
+                    4: { cellWidth: 11, halign: 'center' },
+                    5: { cellWidth: 24, halign: 'right' }
                 },
                 margin: { left: M, right: M }
             });
