@@ -35,3 +35,8 @@ api_*.json
 check_models.js
 test.js
 tmp_*.ts
+
+# Pessoal / dados — nao versionar
+.claude/settings.local.json
+planilhas despesas/
+print/
