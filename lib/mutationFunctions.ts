@@ -84,6 +84,10 @@ export async function updateProjectMutationFn(input: UpdateProjectInput) {
     if (updates.totalArea !== undefined) supabaseUpdates.total_area = updates.totalArea;
     if (updates.expectedTotalCost !== undefined) supabaseUpdates.expected_total_cost = updates.expectedTotalCost;
     if (updates.expectedTotalSales !== undefined) supabaseUpdates.expected_total_sales = updates.expectedTotalSales;
+    if (updates.custoM2 !== undefined) supabaseUpdates.custo_m2 = updates.custoM2;
+    if (updates.financedByInvestorId !== undefined) supabaseUpdates.financed_by_investor_id = updates.financedByInvestorId || null;
+    if (updates.archived !== undefined) supabaseUpdates.archived = updates.archived;
+    if (updates.splitMode !== undefined) supabaseUpdates.split_mode = updates.splitMode;
 
     if (Object.keys(supabaseUpdates).length > 0) {
         const { error } = await supabase.from('projects').update(supabaseUpdates).eq('id', id);
@@ -101,7 +105,8 @@ export async function updateProjectMutationFn(input: UpdateProjectInput) {
             status: u.status,
             valor_estimado_venda: u.valorEstimadoVenda,
             sale_value: u.saleValue,
-            sale_date: u.saleDate
+            sale_date: u.saleDate,
+            owner_investor_id: u.ownerInvestorId || null
         }));
         const { error } = await supabase.from('units').upsert(unitsToUpsert, { onConflict: 'id' });
         if (error) throw error;
@@ -123,13 +128,15 @@ export async function updateProjectMutationFn(input: UpdateProjectInput) {
                 project_id: id,
                 description: e.description,
                 value: e.value,
-                date: e.date,
+                date: e.date || null, // permite despesa sem data (importada); coluna é nullable
                 user_id: e.userId,
                 user_name: e.userName,
                 attachment_url: e.attachmentUrl,
                 attachments: e.attachments,
                 macro_id: e.macroId || null,
-                sub_macro_id: e.subMacroId || null
+                sub_macro_id: e.subMacroId || null,
+                item_id: e.itemId || null,
+                paid_by_investor_id: e.paidByInvestorId || null
             }));
             const { error } = await supabase.from('expenses').upsert(expensesToUpsert, { onConflict: 'id' });
             if (error) throw error;

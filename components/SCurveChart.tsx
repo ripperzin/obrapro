@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area } from 'recharts';
-import { Project, STAGE_NAMES } from '../types';
+import { Project } from '../types';
 import { formatCurrency, formatCurrencyAbbrev } from '../utils';
 
 interface SCurveChartProps {

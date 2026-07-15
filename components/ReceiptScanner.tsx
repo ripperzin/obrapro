@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Upload, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Camera, Upload, Loader2, CheckCircle, XCircle, Lock } from 'lucide-react';
 import { parseReceiptImage, ReceiptData } from '../lib/gemini';
+import { usePlan } from './PlanProvider';
 
 interface ReceiptScannerProps {
     onScanComplete: (data: ReceiptData, file: File) => void;
@@ -11,6 +12,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onScanComplete }
     const [error, setError] = useState<string | null>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
+    const { ent, openUpgrade } = usePlan();
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -42,6 +44,33 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onScanComplete }
             setIsScanning(false);
         }
     };
+
+    // No Free o scanner vira vitrine: mesmo card, com cadeado. O servidor
+    // (edge function ocr-receipt) também barra — aqui é só pra ele não bater
+    // numa mensagem de erro sem entender o porquê.
+    if (!ent.canUseOCR) {
+        return (
+            <button
+                type="button"
+                onClick={() => openUpgrade('ocr')}
+                className="w-full text-left rounded-2xl bg-slate-800 border border-slate-700 hover:border-amber-500/50 transition-colors overflow-hidden relative"
+            >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-500/10 to-blue-500/10 blur-2xl rounded-bl-full pointer-events-none" />
+                <div className="p-5 flex flex-col items-center gap-3 relative z-10">
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center justify-center gap-2">
+                        <Lock className="w-3.5 h-3.5 text-amber-400" />
+                        Scanner Inteligente
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-medium max-w-[220px] mx-auto leading-relaxed text-center">
+                        Fotografe o comprovante e o gasto se lança sozinho. Faz parte do <b className="text-amber-400">ObraPro</b>.
+                    </p>
+                    <span className="text-[10px] font-black uppercase tracking-wide bg-amber-500/15 text-amber-400 px-3 py-1.5 rounded-full">
+                        Conhecer o ObraPro
+                    </span>
+                </div>
+            </button>
+        );
+    }
 
     return (
         <div className="relative group">

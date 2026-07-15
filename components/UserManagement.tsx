@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, UserRole, Project } from '../types';
+import { User, UserRole, Project, isPlanId } from '../types';
 import { supabase } from '../supabaseClient';
 import { generateId } from '../utils';
 
@@ -51,6 +51,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ projects, currentUser }
           login: p.email.split('@')[0], // Fallback visual
           email: p.email,
           role: (p.role || 'standard').toUpperCase() as UserRole,
+          plan: isPlanId(p.plan) ? p.plan : 'free',
           allowedProjectIds: userProjects,
           canSeeUnits: true // Por enquanto hardcoded ou criar coluna futura
         };

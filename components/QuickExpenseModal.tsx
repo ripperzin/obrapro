@@ -8,6 +8,7 @@ import { supabase } from '../supabaseClient';
 import { ReceiptScanner } from './ReceiptScanner';
 import { ReceiptData } from '../lib/gemini';
 import { getSignedUrl, uploadFile } from '../utils/storage';
+import { usePlan } from './PlanProvider';
 
 interface QuickExpenseModalProps {
     isOpen: boolean;
@@ -25,10 +26,9 @@ interface MacroOption {
     name: string;
 }
 
-interface SubMacroOption {
+interface ItemOption {
     id: string;
     name: string;
-    macroId: string;
 }
 
 const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
@@ -48,11 +48,13 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     const [attachments, setAttachments] = useState<string[]>([]);
     const [originalText, setOriginalText] = useState(initialOriginalText);
 
+    const { ent, openUpgrade } = usePlan();
+
     // Categories State
     const [macros, setMacros] = useState<MacroOption[]>([]);
-    const [subMacros, setSubMacros] = useState<SubMacroOption[]>([]);
+    const [items, setItems] = useState<ItemOption[]>([]);
     const [selectedMacroId, setSelectedMacroId] = useState<string>('');
-    const [selectedSubMacroId, setSelectedSubMacroId] = useState<string>('');
+    const [selectedItemId, setSelectedItemId] = useState<string>('');
     const [loadingCategories, setLoadingCategories] = useState(false);
     const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({});
 
@@ -65,7 +67,7 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             setAttachments([]);
             setOriginalText(initialOriginalText);
             setSelectedMacroId('');
-            setSelectedSubMacroId('');
+            setSelectedItemId('');
             setResolvedUrls({});
         }
     }, [isOpen, preSelectedProjectId, initialDescription, initialValue, initialOriginalText, projects]);
@@ -95,7 +97,7 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             fetchCategories(projectId);
         } else {
             setMacros([]);
-            setSubMacros([]);
+            setItems([]);
         }
     }, [projectId, isOpen]);
 
@@ -109,40 +111,28 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 .eq('project_id', pid)
                 .single();
 
+            let macroData: MacroOption[] = [];
             if (budget) {
-                // 2. Get Macros
-                const { data: macroData } = await supabase
+                // 2. Get Macros (etapas)
+                const { data: md } = await supabase
                     .from('project_macros')
                     .select('id, name')
                     .eq('budget_id', budget.id)
                     .order('display_order');
-
-                if (macroData) {
-                    setMacros(macroData);
-                    const macroIds = macroData.map(m => m.id);
-
-                    // 3. Get SubMacros
-                    if (macroIds.length > 0) {
-                        const { data: subData } = await supabase
-                            .from('project_sub_macros')
-                            .select('id, name, project_macro_id')
-                            .in('project_macro_id', macroIds)
-                            .order('display_order');
-
-                        if (subData) {
-                            const formattedSubs = subData.map(s => ({
-                                id: s.id,
-                                name: s.name,
-                                macroId: s.project_macro_id
-                            }));
-                            setSubMacros(formattedSubs);
-
-                            // Trigger Intelligent Matching once data is loaded
-                            matchCategories(originalText || initialOriginalText, macroData, formattedSubs);
-                        }
-                    }
-                }
+                if (md) { macroData = md; setMacros(md); }
             }
+
+            // 3. Get Items (lista plana da obra)
+            const { data: itemData } = await supabase
+                .from('project_items')
+                .select('id, name')
+                .eq('project_id', pid)
+                .order('display_order');
+            const itemList = itemData || [];
+            setItems(itemList);
+
+            // Sugestão automática a partir do texto reconhecido (OCR/voz)
+            matchCategories(originalText || initialOriginalText, macroData, itemList);
         } catch (error) {
             console.error('Error fetching categories:', error);
         }
@@ -176,50 +166,35 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
         if (data.originalText) {
             setOriginalText(data.originalText);
             // Re-run matching with new text
-            matchCategories(data.originalText, macros, subMacros);
+            matchCategories(data.originalText, macros, items);
         } else if (data.description) {
             // Fallback to matching with description if originalText isn't available
-            matchCategories(data.description, macros, subMacros);
+            matchCategories(data.description, macros, items);
         }
     };
 
 
-    // INTELLIGENT MATCHING LOGIC
-    const matchCategories = (text: string, loadedMacros: MacroOption[], loadedSubs: SubMacroOption[]) => {
+    // SUGESTAO AUTOMATICA a partir do texto (OCR/voz): casa item e etapa por nome.
+    const matchCategories = (text: string, loadedMacros: MacroOption[], loadedItems: ItemOption[]) => {
         if (!text) return;
 
-        const cleanText = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        console.log('🔍 Analyzing text for keywords:', cleanText);
+        const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+        const cleanText = norm(text);
 
-        let bestMacroId = '';
-        let bestSubMacroId = '';
-
-        // 1. Check SubMacros first (more specific)
-        for (const sub of loadedSubs) {
-            const subName = sub.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            // Heuristic: check if sub name (e.g. "cimento") is in text
-            if (cleanText.includes(subName)) {
-                bestSubMacroId = sub.id;
-                bestMacroId = sub.macroId; // Auto-select parent
-                console.log(`✅ Match found: Submacro "${sub.name}" inside "${cleanText}"`);
-                break; // Stop at first match or find all and score? First match is usually ok for now.
+        // 1. Item (especifico): ex.: "cimento", "areia", "frete" no texto da nota.
+        for (const it of loadedItems) {
+            if (cleanText.includes(norm(it.name))) {
+                setSelectedItemId(it.id);
+                break;
             }
         }
-
-        // 2. If no SubMacro match, check Macros
-        if (!bestMacroId) {
-            for (const macro of loadedMacros) {
-                const macroName = macro.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                if (cleanText.includes(macroName)) {
-                    bestMacroId = macro.id;
-                    console.log(`✅ Match found: Macro "${macro.name}" inside "${cleanText}"`);
-                    break;
-                }
+        // 2. Etapa (macro): raramente aparece no texto, mas tenta.
+        for (const macro of loadedMacros) {
+            if (cleanText.includes(norm(macro.name))) {
+                setSelectedMacroId(macro.id);
+                break;
             }
         }
-
-        if (bestMacroId) setSelectedMacroId(bestMacroId);
-        if (bestSubMacroId) setSelectedSubMacroId(bestSubMacroId);
     };
 
     if (!isOpen) return null;
@@ -260,7 +235,9 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             attachments, // New array
             attachmentUrl: attachments.length > 0 ? attachments[0] : undefined, // Legacy fallback sync
             macroId: finalMacroId,
-            subMacroId: selectedSubMacroId || null
+            // matchCategories chuta um item a partir do texto; no Free o item
+            // não é do plano, então não vai junto nem por esse caminho.
+            itemId: (ent.canUseItens && selectedItemId) || undefined
         });
         onClose();
     };
@@ -297,7 +274,7 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                         <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl mb-4">
                             <p className="text-xs text-blue-300 font-bold uppercase mb-1">Texto Reconhecido:</p>
                             <p className="text-sm text-blue-100 italic">"{originalText}"</p>
-                            {(selectedMacroId || selectedSubMacroId) && (
+                            {(selectedMacroId || selectedItemId) && (
                                 <div className="mt-2 flex gap-2">
                                     <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded-full border border-green-500/30">
                                         <i className="fa-solid fa-wand-magic-sparkles mr-1"></i>
@@ -366,14 +343,11 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Categoria {loadingCategories && <i className="fa-solid fa-spinner fa-spin ml-1"></i>}
+                                Etapa {loadingCategories && <i className="fa-solid fa-spinner fa-spin ml-1"></i>}
                             </label>
                             <select
                                 value={selectedMacroId}
-                                onChange={e => {
-                                    setSelectedMacroId(e.target.value);
-                                    setSelectedSubMacroId(''); // Reset sub on macro change
-                                }}
+                                onChange={e => setSelectedMacroId(e.target.value)}
                                 disabled={loadingCategories}
                                 className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none font-bold text-white text-xs appearance-none cursor-pointer invalid:text-slate-500"
                             >
@@ -383,23 +357,33 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                                 ))}
                             </select>
                         </div>
+                        {/* Item é do plano ObraPro — no Free vira a vitrine com cadeado. */}
                         <div className="space-y-2">
                             <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Detalhe
+                                Item
                             </label>
-                            <select
-                                value={selectedSubMacroId}
-                                onChange={e => setSelectedSubMacroId(e.target.value)}
-                                disabled={!selectedMacroId || loadingCategories}
-                                className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none font-bold text-white text-xs appearance-none cursor-pointer disabled:opacity-50"
-                            >
-                                <option value="">Sem detalhe</option>
-                                {subMacros
-                                    .filter(s => s.macroId === selectedMacroId)
-                                    .map(s => (
-                                        <option key={s.id} value={s.id}>{s.name}</option>
+                            {ent.canUseItens ? (
+                                <select
+                                    value={selectedItemId}
+                                    onChange={e => setSelectedItemId(e.target.value)}
+                                    disabled={loadingCategories}
+                                    className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none font-bold text-white text-xs appearance-none cursor-pointer disabled:opacity-50"
+                                >
+                                    <option value="">Sem item</option>
+                                    {items.map(it => (
+                                        <option key={it.id} value={it.id}>{it.name}</option>
                                     ))}
-                            </select>
+                                </select>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => openUpgrade('itens')}
+                                    className="w-full px-4 py-3 bg-slate-800/40 border-2 border-dashed border-slate-700 rounded-2xl text-left flex items-center gap-2 hover:border-amber-500/50 transition-colors"
+                                >
+                                    <i className="fa-solid fa-lock text-amber-400 text-xs shrink-0"></i>
+                                    <span className="font-bold text-slate-300 text-xs truncate">Faz parte do ObraPro</span>
+                                </button>
+                            )}
                         </div>
                     </div>
 

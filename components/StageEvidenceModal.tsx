@@ -9,6 +9,7 @@ interface StageEvidenceModalProps {
     isOpen: boolean;
     onClose: () => void;
     stage: ProgressStage;
+    stageName?: string;
     evidence?: StageEvidence;
     onSave: (photos: string[], notes: string, date: string) => Promise<void>;
     readOnly?: boolean;
@@ -18,6 +19,7 @@ const StageEvidenceModal: React.FC<StageEvidenceModalProps> = ({
     isOpen,
     onClose,
     stage,
+    stageName,
     evidence,
     onSave,
     readOnly = false
@@ -132,7 +134,7 @@ const StageEvidenceModal: React.FC<StageEvidenceModalProps> = ({
                         </div>
                         <div>
                             <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Comprovação de Etapa</p>
-                            <h3 className="font-black text-white text-lg">{STAGE_NAMES[stage]}</h3>
+                            <h3 className="font-black text-white text-lg">{stageName || STAGE_NAMES[stage] || 'Etapa'}</h3>
                         </div>
                     </div>
                     <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-slate-700 flex items-center justify-center text-slate-400 transition-colors">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import { User, UserRole, Project, ProgressStage, LogEntry, Unit, Expense } from './types';
+import { User, UserRole, Project, ProgressStage, LogEntry, Unit, Expense, isPlanId } from './types';
 import { INITIAL_ADMIN } from './constants';
 import { generateId } from './utils';
 import { supabase } from './supabaseClient';
@@ -13,6 +13,7 @@ import Sidebar from './components/Sidebar';
 import MobileNav from './components/MobileNav';
 
 import { SyncStatus } from './components/SyncStatus';
+import { PlanProvider } from './components/PlanProvider';
 
 // Pages (Lazy - Deferred until after login)
 const ProjectsDashboard = lazy(() => import('./components/ProjectsDashboard'));
@@ -31,7 +32,8 @@ import { useNotifications } from './hooks/useNotifications';
 // Helper to parse investor route from hash
 const parseInvestorRoute = (): string | null => {
   const hash = window.location.hash;
-  const match = hash.match(/^#\/investor\/([a-zA-Z0-9-]+)$/);
+  // Aceita opções do relatório após o id (ex.: #/investor/<id>?off=despesas).
+  const match = hash.match(/^#\/investor\/([a-zA-Z0-9-]+)(?:\?[^?]*)?$/);
   return match ? match[1] : null;
 };
 
@@ -189,6 +191,7 @@ const App: React.FC = () => {
                   login: cachedProfile.email ? cachedProfile.email.split('@')[0] : 'Usuário',
                   password: '',
                   role: dbRole === 'ADMIN' ? UserRole.ADMIN : UserRole.STANDARD,
+                  plan: isPlanId(cachedProfile.plan) ? cachedProfile.plan : 'free',
                   allowedProjectIds: [],
                   canSeeUnits: true
                 });
@@ -211,6 +214,7 @@ const App: React.FC = () => {
                 login: profile.email ? profile.email.split('@')[0] : 'Usuário',
                 password: '',
                 role: dbRole === 'ADMIN' ? UserRole.ADMIN : UserRole.STANDARD,
+                plan: isPlanId(profile.plan) ? profile.plan : 'free',
                 allowedProjectIds: [],
                 canSeeUnits: true
               });
@@ -222,6 +226,7 @@ const App: React.FC = () => {
                 login: userEmail.split('@')[0],
                 password: '',
                 role: UserRole.STANDARD, // Downgrade seguro
+                plan: 'free',            // Downgrade seguro
                 allowedProjectIds: [],
                 canSeeUnits: true
               });
@@ -243,6 +248,7 @@ const App: React.FC = () => {
                 login: cachedProfile.email ? cachedProfile.email.split('@')[0] : 'Usuário',
                 password: '',
                 role: dbRole === 'ADMIN' ? UserRole.ADMIN : UserRole.STANDARD,
+                plan: isPlanId(cachedProfile.plan) ? cachedProfile.plan : 'free',
                 allowedProjectIds: [],
                 canSeeUnits: true
               });
@@ -626,6 +632,7 @@ const App: React.FC = () => {
 
 
   return (
+    <PlanProvider user={currentUser}>
     <Suspense fallback={
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
@@ -650,13 +657,13 @@ const App: React.FC = () => {
                 {activeTab === 'users' && 'Gestão de Usuários'}
               </h1>
               {selectedProject && selectedProjectId ? (
-                <div className="flex items-center gap-4 mt-1">
-                  <span className="text-green-400 font-semibold text-xs uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+                  <span className="text-green-400 font-semibold text-xs uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0"></span>
                     {selectedProject.units.filter(u => u.status === 'Sold').length} vendidas
                   </span>
-                  <span className="text-blue-400 font-semibold text-xs uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                  <span className="text-blue-400 font-semibold text-xs uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0"></span>
                     {selectedProject.units.filter(u => u.status === 'Available').length} à venda
                   </span>
                 </div>
@@ -725,6 +732,8 @@ const App: React.FC = () => {
                   onUpdate={updateProjectHandler}
                   onDelete={deleteProject}
                   isAdmin={currentUser.role === UserRole.ADMIN}
+                  userId={currentUser.id}
+                  userName={currentUser.login}
                 />
               )
             )}
@@ -821,6 +830,7 @@ const App: React.FC = () => {
 
       </div>
     </Suspense>
+    </PlanProvider>
   );
 };
 

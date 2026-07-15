@@ -1,6 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Project } from '../types';
 import StageThumbnail from './StageThumbnail';
+import { getDeliveryStatus, DeliveryTone } from '../utils';
+
+const prazoTextCls = (tone: DeliveryTone): string => ({
+    green: 'text-emerald-400',
+    red: 'text-rose-400',
+    blue: 'text-blue-400',
+    slate: 'text-slate-500',
+}[tone]);
 
 interface SwipeableProjectItemProps {
     project: Project;
@@ -9,6 +17,7 @@ interface SwipeableProjectItemProps {
     onSelect: (id: string) => void;
     onEdit: (p: Project) => void;
     onDelete: (id: string) => void;
+    onArchive?: (p: Project) => void;
     isAdmin: boolean;
 }
 
@@ -19,6 +28,7 @@ const SwipeableProjectItem: React.FC<SwipeableProjectItemProps> = ({
     onSelect,
     onEdit,
     onDelete,
+    onArchive,
     isAdmin
 }) => {
     const [startX, setStartX] = useState(0);
@@ -27,7 +37,7 @@ const SwipeableProjectItem: React.FC<SwipeableProjectItemProps> = ({
     const [translateX, setTranslateX] = useState(0);
     const [isSwiping, setIsSwiping] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
-    const maxSwipe = -160;
+    const maxSwipe = onArchive ? -240 : -160;
 
     const handleTouchStart = (e: React.TouchEvent) => {
         setStartX(e.touches[0].clientX);
@@ -108,6 +118,20 @@ const SwipeableProjectItem: React.FC<SwipeableProjectItemProps> = ({
                     <i className="fa-solid fa-pen text-lg"></i>
                     <span className="text-[10px] font-bold uppercase">Editar</span>
                 </button>
+                {onArchive && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onArchive(project);
+                            setTranslateX(0);
+                            setIsOpen(false);
+                        }}
+                        className="w-20 h-full bg-amber-600 text-white flex flex-col items-center justify-center gap-1 active:bg-amber-700"
+                    >
+                        <i className={`fa-solid ${project.archived ? 'fa-box-open' : 'fa-box-archive'} text-lg`}></i>
+                        <span className="text-[10px] font-bold uppercase">{project.archived ? 'Desarq.' : 'Arquivar'}</span>
+                    </button>
+                )}
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
@@ -143,6 +167,15 @@ const SwipeableProjectItem: React.FC<SwipeableProjectItemProps> = ({
                 <div className="flex-1 min-w-0">
                     <p className="text-white font-bold truncate">{project.name}</p>
                     <p className="text-slate-400 text-sm">{sold} de {total} vendidas</p>
+                    {(() => {
+                        const st = getDeliveryStatus(project.deliveryDate, project.progress);
+                        return (
+                            <p className="text-[11px] font-bold mt-0.5 flex items-center gap-1.5 truncate">
+                                <span className={prazoTextCls(st.tone)}>{st.label}</span>
+                                {st.detail && <span className="text-slate-500 truncate">· {st.detail}</span>}
+                            </p>
+                        );
+                    })()}
                 </div>
 
                 <div className="relative w-14 h-14 shrink-0">
