@@ -54,12 +54,34 @@ Deno.serve(async (req) => {
         if (projErr) throw projErr;
         if (!project) return json({ error: "Projeto não encontrado." }, 404);
 
+        // Plano do DONO da obra (project_members.role='owner'). O portal é
+        // público, então a trava de plano (marca ObraPro + seções pagas) tem
+        // que ser decidida aqui no servidor — senão bastaria editar a URL para
+        // tirar o selo ou ligar as seções do plano pago.
+        const { data: ownerRow } = await admin
+            .from("project_members")
+            .select("profiles!inner(plan)")
+            .eq("project_id", projectId)
+            .eq("role", "owner")
+            .limit(1)
+            .maybeSingle();
+        const rawPlan = (ownerRow as { profiles?: { plan?: string } } | null)?.profiles?.plan;
+        const ownerPlan = rawPlan === "pro" || rawPlan === "business" ? rawPlan : "free";
+
         // Busca paralela das tabelas-filhas, sempre filtrando por project_id.
-        const [unitsRes, evidenceRes, expensesRes, budgetRes] = await Promise.all([
+        const [unitsRes, evidenceRes, expensesRes, budgetRes, contributionsRes, acquisitionRes, investorsRes, profitSharesRes] = await Promise.all([
             admin.from("units").select("*").eq("project_id", projectId),
             admin.from("stage_evidences").select("*").eq("project_id", projectId),
             admin.from("expenses").select("*").eq("project_id", projectId),
             admin.from("project_budgets").select("*").eq("project_id", projectId).maybeSingle(),
+            // Aportes por sócio: valor, data e o investidor (nomes vêm da tabela investors).
+            admin.from("contributions").select("value, date, investor_id").eq("project_id", projectId),
+            // Aquisição (terreno/custos iniciais): só valor/categoria -> para descontar do lucro.
+            admin.from("acquisition_costs").select("value, category, date, paid_from_project").eq("project_id", projectId),
+            // Sócios (id + nome) para exibir "aportes por sócio".
+            admin.from("investors").select("id, name").eq("project_id", projectId),
+            // Participação/aporte por sócio (Acerto de aportes): % + flag "não aporta".
+            admin.from("profit_shares").select("id, investor_id, name, percentage, nao_aporta").eq("project_id", projectId),
         ]);
 
         const budget = budgetRes.data ?? null;
@@ -134,10 +156,15 @@ Deno.serve(async (req) => {
         }
 
         return json({
+            ownerPlan,
             project,
             units: unitsRes.data ?? [],
             stageEvidences: evidenceRes.data ?? [],
             expenses: expensesRes.data ?? [],
+            contributions: contributionsRes.data ?? [],
+            acquisitionCosts: acquisitionRes.data ?? [],
+            investors: investorsRes.data ?? [],
+            profitShares: profitSharesRes.data ?? [],
             budget,
             macros,
             subMacros,
