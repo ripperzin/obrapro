@@ -130,5 +130,26 @@ const fVazia = computeProjectFinance(vazia);
 check('custo das vendidas', fVazia.custoRealVendidas, 0);
 check('lucro real', fVazia.lucroReal, 0);
 
+// ---------------------------------------------------------------------------
+// A legenda do link e do PDF promete esta conta ao sócio. Se ela não fechar, o
+// sócio soma os cards na mão e acha que o número está errado (ou que sumiu
+// dinheiro). O card de Aquisição ficou faltando no link/PDF justamente por isso.
+console.log('\n8. Caixa: a conta que o sócio faz na mão TEM que fechar');
+const caixa = obra({
+    contributions: [{ id: 'c1', value: 500000, investorId: 'i1' } as any],
+    expenses: [despesa(250000), { id: 'e2', value: 50000, paidByInvestorId: 'i1' } as any],
+    acquisitionCosts: [{ id: 'a1', value: 100000, paidFromProject: true } as any],
+});
+const fCaixa = computeProjectFinance(caixa);
+check('aportado (dinheiro + pago do bolso do sócio)', fCaixa.aportadoTotal, 550000);
+check('gasto', fCaixa.gasto, 300000);
+check('aquisição paga pela obra', fCaixa.aquisicaoPaga, 100000);
+check('saldo em caixa', fCaixa.saldoCaixa, 150000);
+check(
+    'Aportado - Gasto - Aquisição = Saldo',
+    fCaixa.aportadoTotal - fCaixa.gasto - fCaixa.aquisicaoPaga,
+    fCaixa.saldoCaixa
+);
+
 console.log(falhas === 0 ? '\n==> TODOS OS TESTES PASSARAM\n' : `\n==> ${falhas} TESTE(S) FALHARAM\n`);
 process.exit(falhas === 0 ? 0 : 1);

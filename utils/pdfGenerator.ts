@@ -346,22 +346,32 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         }
 
         // ══════════════════════════════════════════════════════════
-        // CAIXA DA OBRA (Aportado - Gasto = Saldo)
+        // CAIXA DA OBRA (Aportado - Gasto - Aquisição = Saldo)
         // ══════════════════════════════════════════════════════════
+        // A aquisição entra como card (e na legenda) só quando foi paga PELA OBRA
+        // — mesma regra do app e do link. Sem ela, a legenda prometia uma conta
+        // que não fechava: o saldo desconta a aquisição, mas ela não aparecia.
         y = pageBreak(40, y);
+
+        const temAquisicaoPaga = f.aquisicaoPaga > 0;
+        const legendaCaixa = temAquisicaoPaga ? 'Aportado - Gasto - Aquisição = Saldo' : 'Aportado - Gasto = Saldo';
 
         doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
         doc.text('CAIXA DA OBRA', M, y);
-        card(doc, pw - M - 46, y - 4.5, 46, 6);
-        doc.setFontSize(6); setColor(C.muted); doc.text('Aportado - Gasto = Saldo', pw - M - 23, y - 0.5, { align: 'center' });
+        const legW = temAquisicaoPaga ? 60 : 46;
+        card(doc, pw - M - legW, y - 4.5, legW, 6);
+        doc.setFontSize(6); setColor(C.muted); doc.text(legendaCaixa, pw - M - legW / 2, y - 0.5, { align: 'center' });
         y += 6;
 
         const caixa = [
             { lbl: 'APORTADO', val: fmtShort(f.aportadoTotal), c: C.emerald, brd: C.emerald },
             { lbl: 'GASTO', val: fmtShort(f.gasto), c: C.red, brd: C.red },
+            ...(temAquisicaoPaga
+                ? [{ lbl: 'AQUISIÇÃO', val: fmtShort(f.aquisicaoPaga), c: C.amber, brd: C.amber }]
+                : []),
             { lbl: 'SALDO EM CAIXA', val: fmtShort(f.saldoCaixa), c: f.saldoCaixa >= 0 ? C.green : C.red, brd: f.saldoCaixa >= 0 ? C.green : C.red },
         ];
-        const cxW = (W - 8) / 3, cxH = 22;
+        const cxW = (W - 4 * (caixa.length - 1)) / caixa.length, cxH = 22;
         caixa.forEach((s, i) => {
             const x = M + i * (cxW + 4);
             card(doc, x, y, cxW, cxH, s.brd);

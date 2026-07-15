@@ -433,13 +433,19 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     </div>
                 </div>
 
-                {/* 4) CAIXA DA OBRA: Aportado - Gasto = Saldo em caixa */}
+                {/* 4) CAIXA DA OBRA: Aportado - Gasto - Aquisição = Saldo em caixa.
+                       O card de Aquisição só aparece quando o terreno/aquisição foi pago
+                       PELA OBRA (saiu do caixa) — mesma regra do app (CashSummaryCards).
+                       Sem ele, o sócio fazia Aportado - Gasto e não chegava no Saldo:
+                       faltava justamente a aquisição, que o saldo desconta. Caso real:
+                       OBRA MONTE CASTELO, R$ 215.000 pagos pela obra — a conta do link
+                       fechava R$ 215.000 a mais. */}
                 <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8">
                     <h2 className="text-lg font-bold text-white mb-6">
                         <i className="fa-solid fa-hand-holding-dollar mr-2 text-emerald-400"></i>
                         Caixa da Obra
                     </h2>
-                    <div className="grid grid-cols-3 gap-2 md:gap-4">
+                    <div className={`grid ${finance.aquisicaoPaga > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-2 md:gap-4`}>
                         <div className="bg-slate-800/50 rounded-xl p-2 md:p-4 text-center">
                             <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Aportado</p>
                             <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
@@ -458,6 +464,17 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                 </span>
                             </div>
                         </div>
+                        {finance.aquisicaoPaga > 0 && (
+                            <div className="bg-slate-800/50 rounded-xl p-2 md:p-4 text-center">
+                                <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Aquisição</p>
+                                <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
+                                    <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
+                                    <span className="text-amber-400 font-black text-base md:text-xl leading-none">
+                                        {formatCurrencyAbbrev(finance.aquisicaoPaga).replace('R$', '').trim()}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                         <div className="bg-slate-800/50 rounded-xl p-2 md:p-4 text-center">
                             <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Saldo em caixa</p>
                             <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
