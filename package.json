@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:finance": "esbuild utils/projectFinance.check.ts --bundle --platform=node --outfile=node_modules/.cache/projectFinance.check.js --log-level=error && node node_modules/.cache/projectFinance.check.js"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.1.0",

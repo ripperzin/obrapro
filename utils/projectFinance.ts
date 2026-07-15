@@ -44,6 +44,33 @@ export interface ProjectFinance {
     margemRealPct: number;            // lucro real / vendas realizadas (%)
 }
 
+/**
+ * Fatia de cada casa no custo rateado (gasto da obra + terreno). Fonte ÚNICA:
+ * o empreendimento e a casa individual TÊM que ratear igual, senão a soma das
+ * casas não bate com o total.
+ *
+ * Rateia por METRAGEM quando TODAS as casas têm metragem — é o certo, casa
+ * maior consome mais obra. Se a metragem de ALGUMA casa estiver faltando, cai
+ * para divisão igual entre as casas.
+ *
+ * Por que o fallback existe (defeito real, obra de verdade): o rateio por área
+ * dava fatia ZERO para a casa sem metragem — custo zero, e a venda inteira
+ * virava lucro. Na OBRA 31 (concluída, 2 casas sem metragem, vendidas por
+ * R$ 450.000, gasto de R$ 358.000) o app mostrava lucro de R$ 450.000 e margem
+ * de 100%; o certo é R$ 92.000 e 20,4%. Dividir igual erra o tamanho da casa;
+ * dar zero erra o lucro inteiro — e é o lucro que vai para o sócio.
+ *
+ * Tudo-ou-nada de propósito: misturar área com divisão igual (uns por m², os
+ * sem metragem por cabeça) faz as fatias somarem ≠ 100% e o total não fecha.
+ */
+const rateioPorCasa = (units: Unit[]): ((u: Unit) => number) => {
+    if (units.length === 0) return () => 0;
+    const areaTotal = units.reduce((s, u) => s + (u.area || 0), 0);
+    const todasComMetragem = units.every((u) => (u.area || 0) > 0);
+    if (todasComMetragem && areaTotal > 0) return (u) => (u.area || 0) / areaTotal;
+    return () => 1 / units.length;
+};
+
 export function computeProjectFinance(project: Project): ProjectFinance {
     const contributions = project.contributions || [];
     const expenses = project.expenses || [];
@@ -82,7 +109,8 @@ export function computeProjectFinance(project: Project): ProjectFinance {
     // custo somado volta a ser orçamento + terreno (a projeção do empreendimento cheio).
     const precoProjetado = (u: Unit) => (u.status === 'Sold' ? (u.saleValue || 0) : (u.valorEstimadoVenda || 0));
     const unidadesComPreco = units.filter((u) => precoProjetado(u) > 0);
-    const terrenoDaUnidade = (u: Unit) => (areaTotal > 0 ? (u.area || 0) / areaTotal : 0) * aquisicaoTotal;
+    const fatiaDaCasa = rateioPorCasa(units);
+    const terrenoDaUnidade = (u: Unit) => fatiaDaCasa(u) * aquisicaoTotal;
 
     const vendasEstimadasTotais = unidadesComPreco.reduce((s, u) => s + precoProjetado(u), 0);
     const custoObraProjetado = unidadesComPreco.reduce((s, u) => s + (u.cost || 0), 0);
@@ -93,16 +121,20 @@ export function computeProjectFinance(project: Project): ProjectFinance {
     // REALIZADO: custo das casas efetivamente vendidas (obra + terreno)
     const soldUnits = units.filter((u) => u.status === 'Sold');
     const areaVendida = soldUnits.reduce((s, u) => s + (u.area || 0), 0);
-    const areaShareVendida = areaTotal > 0 ? areaVendida / areaTotal : 0;
+    const fatiaVendidas = soldUnits.reduce((s, u) => s + fatiaDaCasa(u), 0);
     const isConcluida = progresso >= 100;
     // Custo rateado das despesas já lançadas (subdimensionado enquanto a obra corre)
-    const custoRateadoVendidas = areaShareVendida * (gasto + aquisicaoTotal);
+    const custoRateadoVendidas = fatiaVendidas * (gasto + aquisicaoTotal);
     // Custo orçado das casas vendidas (estimativa confiável) + fatia do terreno
-    const custoOrcadoVendidas = soldUnits.reduce((s, u) => s + (u.cost || 0), 0) + areaShareVendida * aquisicaoTotal;
-    // Enquanto NÃO concluída, usa o maior entre gasto-rateado e orçado → nunca infla o lucro
-    // (evita a "margem falsa" ao vender uma casa antes de haver despesas). Concluída = custo real final.
-    const custoRealEstimado = !isConcluida;
-    const custoRealVendidas = isConcluida ? custoRateadoVendidas : Math.max(custoRateadoVendidas, custoOrcadoVendidas);
+    const custoOrcadoVendidas = soldUnits.reduce((s, u) => s + (u.cost || 0), 0) + fatiaVendidas * aquisicaoTotal;
+    // Obra marcada como concluída mas SEM despesa lançada não tem custo real para
+    // ratear: o rateio daria zero e a venda inteira viraria lucro. Nesse caso o
+    // orçado ainda é o melhor palpite — e o número segue marcado como estimado.
+    const temCustoReal = isConcluida && gasto > 0;
+    // Sem custo real, usa o maior entre gasto-rateado e orçado → nunca infla o lucro
+    // (evita a "margem falsa" ao vender uma casa antes de haver despesas).
+    const custoRealEstimado = !temCustoReal;
+    const custoRealVendidas = temCustoReal ? custoRateadoVendidas : Math.max(custoRateadoVendidas, custoOrcadoVendidas);
     const lucroReal = vendasRealizadas - custoRealVendidas;
     const margemRealPct = vendasRealizadas > 0 ? (lucroReal / vendasRealizadas) * 100 : 0;
 
@@ -178,15 +210,17 @@ export interface UnitResult {
 
 export function computeUnitResult(project: Project, unit: Unit): UnitResult {
     const units = project.units || [];
-    const totalUnitsArea = units.reduce((s, u) => s + (u.area || 0), 0);
     const terrenoTotal = (project.acquisitionCosts || []).reduce((s, a) => s + (a.value || 0), 0);
     const gastoTotal = (project.expenses || []).reduce((s, e) => s + (e.value || 0), 0);
 
-    const areaShare = totalUnitsArea > 0 ? (unit.area || 0) / totalUnitsArea : 0;
-    const terrenoRateio = areaShare * terrenoTotal;
+    // Mesma régua de rateio do empreendimento (por m², ou igual entre as casas
+    // se faltar metragem) — se as duas divergirem, a soma das casas não fecha
+    // com o total da obra.
+    const fatia = rateioPorCasa(units)(unit);
+    const terrenoRateio = fatia * terrenoTotal;
     const custoObra = unit.cost || 0;
     const custoAlocado = custoObra + terrenoRateio;              // estimado (orçado + terreno)
-    const custoRealizado = areaShare * gastoTotal + terrenoRateio; // real rateado + terreno
+    const custoRealizado = fatia * gastoTotal + terrenoRateio;   // real rateado + terreno
 
     const vendida = unit.status === 'Sold';
     const venda = vendida
@@ -194,11 +228,12 @@ export function computeUnitResult(project: Project, unit: Unit): UnitResult {
         : (unit.valorEstimadoVenda && unit.valorEstimadoVenda > 0 ? unit.valorEstimadoVenda : (unit.saleValue || 0));
 
     const progresso = project.progress || 0;
-    const isConcluida = progresso >= 100;
     // Enquanto a obra não conclui, o resultado é ESTIMADO (venda − custo orçado+terreno).
-    // Concluída, usa o custo real rateado. Espelha o Projetado×Realizado do empreendimento.
-    const isEstimado = !isConcluida;
-    const custoParaResultado = isConcluida ? custoRealizado : custoAlocado;
+    // Concluída, usa o custo real rateado. Espelha o Projetado×Realizado do empreendimento
+    // — inclusive a exceção da obra concluída sem despesa lançada (nada real para ratear).
+    const temCustoReal = progresso >= 100 && gastoTotal > 0;
+    const isEstimado = !temCustoReal;
+    const custoParaResultado = temCustoReal ? custoRealizado : custoAlocado;
     const resultado = venda - custoParaResultado;
 
     return { custoObra, terrenoRateio, custoAlocado, custoRealizado, venda, vendida, resultado, isEstimado, progresso };
