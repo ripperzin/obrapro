@@ -5,6 +5,7 @@ import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import AttachmentUpload from './AttachmentUpload';
 import { useAddInvestor, useAddContribution } from '../hooks/useAportes';
+import { usePlan } from './PlanProvider';
 
 interface Props {
     project: Project;
@@ -32,11 +33,20 @@ const AddContributionModal: React.FC<Props> = ({ project, user, onClose }) => {
 
     const addInvestor = useAddInvestor();
     const addContribution = useAddContribution();
+    const { ent, openUpgrade } = usePlan();
 
-    const isNew = investors.length === 0 || investorId === '__new__';
+    // A aba Sócios trava o limite do plano na hora de adicionar sócio, mas aqui
+    // dava para criar um sócio novo pelo caminho do aporte e furar o limite do
+    // Free. Mesma régua da aba Sócios: sócio já cadastrado ocupa vaga.
+    const podeCriarSocio = investors.length < ent.maxSocios;
+    const isNew = podeCriarSocio && (investors.length === 0 || investorId === '__new__');
 
     const handleSave = async () => {
         setError(null);
+        if (investorId === '__new__' && !podeCriarSocio) {
+            openUpgrade('socios');
+            return;
+        }
         if (value <= 0) {
             setError('Informe um valor maior que zero.');
             return;
@@ -96,7 +106,13 @@ const AddContributionModal: React.FC<Props> = ({ project, user, onClose }) => {
                         {investors.length > 0 && (
                             <select
                                 value={investorId}
-                                onChange={(e) => setInvestorId(e.target.value)}
+                                onChange={(e) => {
+                                    if (e.target.value === '__new__' && !podeCriarSocio) {
+                                        openUpgrade('socios');
+                                        return;   // não muda a seleção: o campo de nome não abre
+                                    }
+                                    setInvestorId(e.target.value);
+                                }}
                                 className={inputClass}
                             >
                                 {investors.map((i) => (
@@ -104,7 +120,9 @@ const AddContributionModal: React.FC<Props> = ({ project, user, onClose }) => {
                                         {i.name}
                                     </option>
                                 ))}
-                                <option value="__new__">➕ Novo investidor…</option>
+                                <option value="__new__">
+                                    {podeCriarSocio ? '➕ Novo investidor…' : '🔒 Novo investidor — plano ObraPro'}
+                                </option>
                             </select>
                         )}
                         {isNew && (

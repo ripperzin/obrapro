@@ -25,6 +25,7 @@ import AquisicaoSection from './AquisicaoSection';
 import ResultadoEmpreendimento from './ResultadoEmpreendimento';
 import SociosSection from './SociosSection';
 import { computeProjectFinance, computeGastoAvancoVerdito } from '../utils/projectFinance';
+import { usePlan } from './PlanProvider';
 
 import { supabase } from '../supabaseClient';
 
@@ -628,6 +629,7 @@ const ExpensesSection: React.FC<{
   const [itemsRefreshKey, setItemsRefreshKey] = useState(0);
   const [attachmentManagerId, setAttachmentManagerId] = useState<string | null>(null);
   const [tempDescription, setTempDescription] = useState('');
+  const { ent, openUpgrade } = usePlan();
 
   // Sync showAdd with URL action parameter for persistence across re-renders
   useEffect(() => {
@@ -950,7 +952,7 @@ const ExpensesSection: React.FC<{
                               {projectMacros.find(m => m.id === exp.macroId)?.name}
                             </span>
                           )}
-                          {projectItems.find(it => it.id === exp.itemId) && (
+                          {ent.canUseItens && projectItems.find(it => it.id === exp.itemId) && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300 text-[10px] font-bold">
                               <i className="fa-solid fa-box text-[8px]"></i>
                               {projectItems.find(it => it.id === exp.itemId)?.name}
@@ -1061,7 +1063,10 @@ const ExpensesSection: React.FC<{
                 <th className="px-4 py-4">Data</th>
                 <th className="px-4 py-4">Descrição</th>
                 <th className="px-4 py-4">Etapa</th>
-                <th className="px-4 py-4">Item</th>
+                {/* Item é do plano ObraPro. No Free a coluna some (mesmo critério do
+                    importador de planilha) — o convite para assinar aparece na hora
+                    de lançar a despesa, que é onde a pessoa sente falta. */}
+                {ent.canUseItens && <th className="px-4 py-4">Item</th>}
                 <th className="px-4 py-4">Autor</th>
                 <th className="px-4 py-4 text-right">Valor</th>
                 {isAdmin && <th className="px-4 py-4 text-center">Ações</th>}
@@ -1143,8 +1148,9 @@ const ExpensesSection: React.FC<{
                       )}
                     </td>
 
+                    {/* Coluna Item (lista plana da obra) — só no ObraPro */}
+                    {ent.canUseItens && (
                     <td className="px-4 py-4">
-                      {/* Coluna Item (lista plana da obra) */}
                       {isEditing && projectItems.length > 0 ? (
                         <select
                           className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs font-bold text-white w-full outline-none"
@@ -1162,6 +1168,7 @@ const ExpensesSection: React.FC<{
                         </span>
                       )}
                     </td>
+                    )}
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center text-[9px] font-black text-slate-400 border border-slate-600">
