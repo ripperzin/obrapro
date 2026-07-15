@@ -24,6 +24,17 @@ const formatCurrency = (value: number): string => {
 // Helper: cria as ETAPAS (macros) da obra a partir do template padrão.
 // O Previsto por item (project_stage_items) é semeado à parte via a RPC
 // seed_project_stage_items depois que as etapas existem (ver fetchBudgetData).
+/**
+ * CONSERTO de orçamento que ficou sem etapas. NÃO usar depois de criar o
+ * orçamento: quem semeia as etapas é o gatilho do banco (handle_new_project_budget,
+ * que roda sozinho no INSERT de project_budgets). Chamar isto ali semeava tudo
+ * DE NOVO — 9 etapas viravam 18 e o Previsto dobrava (obra de R$ 300.000
+ * aparecia com R$ 600.000 orçados).
+ *
+ * `time_based` tem que vir junto: é ela que diz que a etapa é um custo que corre
+ * o tempo todo (canteiro, água, luz) e por isso NÃO entra na régua do avanço.
+ * Sem copiar essa coluna, o Canteiro voltava para a régua.
+ */
 const populateBudgetFromTemplate = async (budgetId: string, totalValue: number) => {
     const { data: tMacros } = await supabase
         .from('template_macros')
@@ -41,7 +52,8 @@ const populateBudgetFromTemplate = async (budgetId: string, totalValue: number) 
                     percentage: tm.percentage,
                     estimated_value: estimatedVal,
                     spent_value: 0,
-                    display_order: tm.display_order
+                    display_order: tm.display_order,
+                    time_based: tm.time_based ?? false
                 });
         }
         return true;
@@ -193,7 +205,9 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                 .eq('project_id', project.id)
                 .single();
 
-            // Se não existir, criar (fluxo automático inicial)
+            // Se não existir, criar (fluxo automático inicial).
+            // Cai aqui quem abriu a obra SEM casas (useCreateObra só cria o orçamento
+            // quando já há custo) e cadastrou as casas depois.
             if (!budgetData && totalUnitsValue > 0) {
                 console.log('⚡ Criando orçamento padrão automaticamente...');
 
@@ -209,8 +223,11 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                     .single();
 
                 if (!createError && newBudget) {
+                    // As etapas JÁ vêm semeadas: o gatilho handle_new_project_budget roda
+                    // dentro deste INSERT. Semear aqui de novo dobrava tudo (9 -> 18
+                    // etapas, Previsto em dobro). A busca das macros logo abaixo já as
+                    // encontra. Mesmo caminho do useCreateObra, que também confia no gatilho.
                     budgetData = newBudget;
-                    await populateBudgetFromTemplate(newBudget.id, totalUnitsValue);
                 }
             }
 
