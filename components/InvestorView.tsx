@@ -1,10 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { Project, STAGE_NAMES, STAGE_ICONS, ProgressStage } from '../types';
+import { Project, getStageName, PlanId, isPlanId } from '../types';
 import { supabase } from '../supabaseClient';
 import StageThumbnail from './StageThumbnail';
-import { calculateFinancialMetrics, calculateAverageMetrics } from '../utils/financials';
-import { useInflation } from '../hooks/useInflation';
-import { calculateMonthsBetween } from '../utils';
+import ResultadoEmpreendimento from './ResultadoEmpreendimento';
+import { daysSince, lastUpdatedLabel, mostRecentDate } from '../utils';
+import { computeProjectFinance, computeGastoAvancoVerdito, computeAporteShares } from '../utils/projectFinance';
+import { parseReportOptionsFromHash, clampReportOptions } from '../utils/reportOptions';
+import { entitlementsFor } from '../hooks/useEntitlements';
+
+// Mapeia o tom do veredito (Gasto × Avanço) para classes Tailwind do link.
+const TONE_CLASSES: Record<string, { text: string; bar: string }> = {
+    neutral: { text: 'text-slate-400', bar: 'bg-slate-600' },
+    warning: { text: 'text-amber-400', bar: 'bg-amber-500' },
+    good: { text: 'text-emerald-400', bar: 'bg-emerald-500' },
+};
 
 interface InvestorViewProps {
     projectId: string;
@@ -33,7 +42,15 @@ const formatCurrencyAbbrev = (value: number): string => {
 
 
 const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
-    const { inflationRate } = useInflation();
+    // Opções do relatório vindas da URL (?off=despesas,resultado). Link e PDF
+    // respeitam a mesma escolha feita pelo dono da obra ao compartilhar.
+    const urlOptions = parseReportOptionsFromHash(window.location.hash);
+    // Plano do DONO da obra, dito pelo servidor. Enquanto não chega, tratamos
+    // como Free (corte seguro) — nunca mostrar seção paga por engano.
+    const [ownerPlan, setOwnerPlan] = useState<PlanId>('free');
+    const ownerEnt = entitlementsFor(ownerPlan);
+    // A URL é editável por quem recebe o link; quem manda é o plano do dono.
+    const options = clampReportOptions(urlOptions, ownerEnt.canShareFullReport);
     const [project, setProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -66,9 +83,13 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                 const projectData = data?.project;
                 if (!projectData) throw new Error('Projeto não encontrado no banco de dados');
 
+                if (isPlanId(data?.ownerPlan)) setOwnerPlan(data.ownerPlan);
+
                 const unitsData = data.units || [];
                 const evidenceData = data.stageEvidences || [];
                 const expensesData = data.expenses || [];
+                const contributionsData = data.contributions || [];
+                const acquisitionData = data.acquisitionCosts || [];
                 const budgetData = data.budget || null;
                 const macrosData: any[] = data.macros || [];
                 const subMacrosData: any[] = data.subMacros || [];
@@ -86,6 +107,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     expectedTotalCost: projectData.expected_total_cost || 0,
                     expectedTotalSales: projectData.expected_total_sales || 0,
                     progress: projectData.progress || 0,
+                    splitMode: (projectData.split_mode as 'percent' | 'unit') || 'percent',
                     units: (unitsData || []).map((u: any) => ({
                         id: u.id,
                         identifier: u.identifier,
@@ -94,7 +116,8 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         status: u.status,
                         valorEstimadoVenda: u.valor_estimado_venda,
                         saleValue: u.sale_value,
-                        saleDate: u.sale_date
+                        saleDate: u.sale_date,
+                        ownerInvestorId: u.owner_investor_id || undefined
                     })),
                     expenses: (expensesData || []).map((e: any) => ({
                         id: e.id,
@@ -104,7 +127,36 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         userId: e.user_id,
                         userName: e.user_name,
                         attachmentUrl: e.attachment_url,
-                        attachments: e.attachments || []
+                        attachments: e.attachments || [],
+                        paidByInvestorId: e.paid_by_investor_id || undefined,
+                    })),
+                    contributions: (contributionsData || []).map((c: any) => ({
+                        id: '',
+                        projectId: projectData.id,
+                        investorId: c.investor_id || '',
+                        value: c.value,
+                        date: c.date,
+                    })),
+                    investors: ((data.investors || []) as any[]).map((i: any) => ({
+                        id: i.id,
+                        projectId: projectData.id,
+                        name: i.name,
+                    })),
+                    acquisitionCosts: (acquisitionData || []).map((a: any) => ({
+                        id: '',
+                        projectId: projectData.id,
+                        category: a.category || 'terreno',
+                        value: a.value || 0,
+                        date: a.date || '',
+                        paidFromProject: a.paid_from_project ?? true,
+                    })),
+                    profitShares: ((data.profitShares || []) as any[]).map((s: any) => ({
+                        id: s.id || '',
+                        projectId: projectData.id,
+                        investorId: s.investor_id || undefined,
+                        name: s.name,
+                        percentage: s.percentage || 0,
+                        naoAporta: s.nao_aporta || false,
                     })),
                     logs: [],
                     documents: [],
@@ -127,9 +179,11 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                             name: m.name,
                             percentage: m.percentage,
                             estimatedValue: m.estimated_value,
-                            pentValue: m.spent_value || 0,
                             spentValue: m.spent_value || 0,
                             displayOrder: m.display_order,
+                            // Sem isto o link diria uma etapa e o app outra (o
+                            // canteiro voltaria a ser degrau do avanço só aqui).
+                            timeBased: m.time_based || false,
                             subMacros: subMacrosData.filter((s: any) => s.project_macro_id === m.id).map((s: any) => ({
                                 id: s.id,
                                 projectMacroId: s.project_macro_id,
@@ -153,110 +207,6 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
 
         fetchProject();
     }, [projectId]);
-
-    // Calculate financial metrics
-    const calculateMetrics = () => {
-        if (!project) return {
-            totalUnits: 0,
-            soldUnits: 0,
-            availableUnits: 0,
-            totalCost: 0,
-            totalExpenses: 0,
-            budgetUsage: null,
-            potentialSales: null,
-            averageMargin: null,
-            monthlyMargin: null,
-            totalSold: 0
-        };
-
-        const soldUnits = project.units.filter(u => u.status === 'Sold');
-        const availableUnits = project.units.filter(u => u.status === 'Available');
-        const totalCost = project.units.reduce((sum, u) => sum + u.cost, 0);
-        const totalExpenses = project.expenses.reduce((sum, e) => sum + e.value, 0);
-        const budgetUsage = totalCost > 0 ? (totalExpenses / totalCost) * 100 : null;
-        const totalSold = soldUnits.reduce((sum, u) => sum + (u.saleValue || 0), 0);
-
-        // Nova Lógica de Lucros
-        // Nova Lógica de Lucros - Com proteção
-        const totalEstimatedSales = project.units.reduce((acc, curr) => acc + (Number(curr.valorEstimadoVenda) || 0), 0);
-        const estimatedGrossProfit = (totalEstimatedSales || 0) - (totalCost || 0);
-
-        // Lucro Real
-        const isCompleted = project.progress === 100;
-        const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
-
-        const realProfit = soldUnits.reduce((acc, unit) => {
-            let costBase = unit.cost;
-            if (isCompleted && totalUnitsArea > 0) {
-                costBase = (unit.area / totalUnitsArea) * totalExpenses;
-            }
-            if (unit.saleValue && unit.saleValue > 0) {
-                return acc + (unit.saleValue - costBase);
-            }
-            return acc;
-        }, 0);
-
-        // Potencial de venda (soma dos valorEstimadoVenda das unidades disponíveis)
-        const potentialSales = availableUnits.reduce((sum, u) => sum + (u.valorEstimadoVenda || 0), 0);
-
-        // Margem média (ROI médio das unidades vendidas)
-        const firstExpenseDate = project.expenses.length > 0
-            ? project.expenses.reduce((min, e) => (e.date < min.date ? e : min), project.expenses[0]).date
-            : null;
-
-        const metricsList = soldUnits.map(unit => {
-            if (unit.saleValue && unit.saleValue > 0) {
-                let costBase = unit.cost;
-                if (isCompleted && totalUnitsArea > 0) {
-                    costBase = (unit.area / totalUnitsArea) * totalExpenses;
-                }
-
-                if (costBase > 0) {
-                    const profit = unit.saleValue - costBase;
-                    let months = 0;
-                    if (unit.saleDate && firstExpenseDate) {
-                        months = calculateMonthsBetween(firstExpenseDate, unit.saleDate);
-                    }
-                    return calculateFinancialMetrics(profit, costBase, months, inflationRate);
-                }
-            }
-            return null;
-        }).filter(m => m !== null) as any[];
-
-        const avgMetrics = calculateAverageMetrics(metricsList);
-
-        const averageMargin = avgMetrics ? avgMetrics.nominalTotalRoi * 100 : null;
-        const monthlyMargin = avgMetrics ? avgMetrics.nominalMonthlyRoi * 100 : null;
-        const realMonthlyMargin = avgMetrics ? avgMetrics.realMonthlyRoi * 100 : null;
-
-        return {
-            totalUnits: project.units.length,
-            soldUnits: soldUnits.length,
-            availableUnits: availableUnits.length,
-            totalCost,
-            totalExpenses,
-            budgetUsage,
-            potentialSales: potentialSales > 0 ? potentialSales : null,
-            averageMargin,
-            monthlyMargin,
-            realMonthlyMargin,
-            totalSold,
-            realProfit,
-            estimatedGrossProfit
-        };
-    };
-
-    const metrics = calculateMetrics();
-
-    // Get all stages
-    const allStages = [0, 15, 30, 60, 75, 90, 100];
-
-    // Helper to display value or "--"
-    const displayValue = (value: number | null, formatter: (v: number) => string, suffix: string = ''): string => {
-        if (value === null || value === undefined || isNaN(value)) return '--';
-        if (value < 0) return '--';
-        return formatter(value) + suffix;
-    };
 
     // Componente auxiliar para link com assinatura.
     // O portal é anon: as signed URLs vêm prontas da edge function (mapa
@@ -297,6 +247,16 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
         );
     }
 
+    // Fonte única de números — idêntica ao app e ao PDF.
+    const finance = computeProjectFinance(project);
+    const verdito = computeGastoAvancoVerdito(finance);
+    const tone = TONE_CLASSES[verdito.tone];
+    const investorName = (id?: string) => (project.investors || []).find(i => i.id === id)?.name;
+    // A foto (quando aparece) já mostra a etapa atual; então só repetimos "Etapa atual"
+    // no Gasto × Avanço quando a foto NÃO está no relatório.
+    const heroPhoto = (project.stageEvidence || []).filter(e => e.photos && e.photos.length > 0).sort((a, b) => b.stage - a.stage)[0]?.photos?.[0];
+    const heroPhotoShown = options.foto && !!heroPhoto;
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8 px-4">
             <div className="max-w-4xl mx-auto">
@@ -307,11 +267,28 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         Portal do Investidor
                     </div>
                     <h1 className="text-3xl md:text-4xl font-black text-white mb-2">{project.name}</h1>
-                    <p className="text-slate-400 mb-8">
+                    <p className="text-slate-400 mb-3">
                         {project.startDate && `Início: ${new Date(project.startDate + 'T00:00:00').toLocaleDateString('pt-BR')}`}
                         {project.startDate && project.deliveryDate && ' • '}
                         {project.deliveryDate && `Entrega: ${new Date(project.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR')}`}
                     </p>
+                    {(() => {
+                        const last = mostRecentDate([
+                            ...(project.expenses || []).map(e => e.date),
+                            ...(project.contributions || []).map(c => c.date),
+                            ...(project.stageEvidence || []).map(s => s.date),
+                        ]);
+                        if (!last) return <div className="mb-8" />;
+                        const days = daysSince(last);
+                        return (
+                            <div className="mb-8">
+                                <span className={`inline-flex items-center gap-1.5 text-xs font-bold ${days >= 14 ? 'text-amber-400' : 'text-slate-500'}`}>
+                                    <i className="fa-solid fa-clock-rotate-left"></i>
+                                    {lastUpdatedLabel(days)}
+                                </span>
+                            </div>
+                        );
+                    })()}
 
                     {(() => {
                         // Find latest photo from stage evidence
@@ -321,7 +298,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
 
                         const photo = currentStageEvidence?.photos?.[0];
 
-                        if (photo) {
+                        if (photo && options.foto) {
                             return (
                                 <div className="max-w-2xl mx-auto">
                                     <div className="rounded-3xl p-2 bg-slate-800/50 backdrop-blur border border-slate-700 shadow-2xl">
@@ -329,7 +306,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                             <StageThumbnail photoPath={photo} signedUrl={photo ? signedUrls[photo] : undefined} className="w-full h-full" />
                                             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 flex justify-between items-end">
                                                 <div>
-                                                    <p className="text-white font-bold text-lg">{STAGE_NAMES[currentStageEvidence.stage]}</p>
+                                                    <p className="text-white font-bold text-lg">{getStageName(currentStageEvidence.stage, project)}</p>
                                                     <p className="text-slate-300 text-sm">
                                                         <i className="fa-solid fa-camera mr-2"></i>
                                                         Registro de {new Date(currentStageEvidence.date).toLocaleDateString('pt-BR')}
@@ -345,238 +322,45 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     })()}
                 </header>
 
-                {/* Progress Card */}
-                <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-8 border border-slate-700 mb-8">
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-lg font-bold text-white">Progresso Geral</h2>
-                        <span className="text-3xl font-black text-blue-400">{project.progress}%</span>
+                {/* 2) GASTO × AVANÇO — substitui o "Progresso Geral" (idêntico ao app) */}
+                <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                        <h2 className="text-lg font-bold text-white">Gasto × Avanço</h2>
+                        <span className="text-xs md:text-sm font-bold text-white whitespace-nowrap">
+                            {finance.gastoPct.toFixed(0)}% gasto · {finance.progresso.toFixed(0)}% obra
+                        </span>
                     </div>
-                    <div className="w-full bg-slate-700 rounded-full h-4 overflow-hidden">
+                    <div className="relative bg-slate-800 rounded-full h-4 overflow-hidden border border-slate-700">
                         <div
-                            className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all duration-1000"
-                            style={{ width: `${project.progress}%` }}
+                            className={`h-full rounded-full transition-all duration-700 ${tone.bar}`}
+                            style={{ width: `${Math.min(finance.gastoPct, 100)}%` }}
                         />
+                        {/* marcador branco do avanço físico */}
+                        <div className="absolute top-0 bottom-0 w-1 bg-white" style={{ left: `${Math.min(finance.progresso, 100)}%` }} />
                     </div>
-                    <p className="text-slate-400 mt-3 text-sm">
-                        <i className="fa-solid fa-location-dot mr-2"></i>
-                        Etapa atual: <span className="text-white font-medium">{STAGE_NAMES[project.progress]}</span>
-                    </p>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 gap-1">
+                        <p className={`text-sm font-bold ${tone.text}`}>
+                            <i className={`fa-solid ${verdito.icon} mr-1.5`}></i>{verdito.texto}
+                        </p>
+                        <span className="text-xs text-slate-500 whitespace-nowrap">
+                            Gasto {formatCurrencyAbbrev(finance.gasto)} de {formatCurrencyAbbrev(finance.orcamentoObra)}
+                        </span>
+                    </div>
+                    {!heroPhotoShown && (
+                        <p className="text-slate-400 text-sm mt-3">
+                            <i className="fa-solid fa-location-dot mr-2"></i>
+                            Etapa atual: <span className="text-white font-medium">{getStageName(project.progress, project)}</span>
+                        </p>
+                    )}
                 </div>
 
-                {/* VENDAS & LUCRO DASHBOARD (Bento Format - Investor) */}
-                <div className="glass rounded-3xl p-6 border border-slate-700/50 relative overflow-hidden group mb-8">
-                    {/* Background Glow Effects */}
-                    {/* Background Glow Effects - Reduced Blur */}
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-xl -mr-32 -mt-32 pointer-events-none"></div>
-                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-xl -ml-32 -mb-32 pointer-events-none"></div>
-
-                    <div className="relative z-10">
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-lg font-black text-white uppercase tracking-widest flex items-center gap-3">
-                                <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 flex items-center justify-center shadow-lg text-blue-400">
-                                    <i className="fa-solid fa-sack-dollar"></i>
-                                </span>
-                                Vendas & Lucro
-                            </h3>
-                            <div className="px-4 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-slate-400">
-                                Visão do Investidor
-                            </div>
-                        </div>
-
-                        {/* TOP ROW: Sales Gauge & Total Liquidated */}
-                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
-
-                            {/* 1. Unidades Vendidas (Gauge Style) */}
-                            <div className="lg:col-span-2 bg-slate-800/40 rounded-2xl p-5 border border-slate-700/50 flex flex-col justify-between relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-3 opacity-10">
-                                    <i className="fa-solid fa-building text-6xl"></i>
-                                </div>
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Und. Vendidas</p>
-
-                                <div className="flex items-center gap-6 mt-2">
-                                    <div className="relative w-16 h-16 md:w-20 md:h-20 flex-shrink-0">
-                                        <svg className="w-full h-full transform -rotate-90">
-                                            <circle cx="50%" cy="50%" r="45%" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-700" />
-                                            <circle cx="50%" cy="50%" r="45%" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={226} strokeDashoffset={226 - (226 * (metrics.soldUnits / (metrics.totalUnits || 1)))} className="text-blue-500" />
-                                        </svg>
-                                        <div className="absolute inset-0 flex items-center justify-center font-black text-white text-base md:text-lg">
-                                            {Math.round((metrics.soldUnits / (metrics.totalUnits || 1)) * 100)}%
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <p className="text-3xl md:text-4xl font-black text-white leading-none mb-1">
-                                            {metrics.soldUnits}<span className="text-lg md:text-xl text-slate-500 font-bold">/{metrics.totalUnits}</span>
-                                        </p>
-                                        <p className="text-[10px] md:text-xs text-blue-400 font-bold uppercase mt-1">Metas</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* 2. Total Liquidado */}
-                            <div className="lg:col-span-3 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-2xl p-6 border border-emerald-500/20 flex flex-col justify-center relative">
-                                <div className="absolute top-4 right-4 w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center text-emerald-400 animate-pulse hidden md:flex">
-                                    <i className="fa-solid fa-coins"></i>
-                                </div>
-                                <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">Total Liquidado</p>
-                                <p className="text-3xl md:text-5xl font-black text-white tracking-tight">
-                                    {formatCurrency(metrics.totalSold)}
-                                </p>
-                                <div className="mt-3 flex items-center gap-2 text-[10px] md:text-xs text-slate-400 font-medium">
-                                    <i className="fa-solid fa-circle-check text-emerald-500"></i>
-                                    <span>Contratos validados</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* BOTTOM GRID: 4 Specs */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-
-                            {/* Lucro Real */}
-                            <div className="bg-slate-800/40 rounded-2xl p-4 md:p-5 border border-blue-500/30">
-                                <div className="flex justify-between items-start mb-2 md:mb-3">
-                                    <div className="p-1.5 md:p-2 bg-blue-500/20 rounded-lg text-blue-400">
-                                        <i className="fa-solid fa-wallet"></i>
-                                    </div>
-                                    <span className="text-[10px] uppercase font-black bg-blue-500 text-white px-2 py-0.5 rounded">Real</span>
-                                </div>
-                                <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Lucro Real</p>
-                                <p className="text-lg md:text-2xl font-black text-white">
-                                    {formatCurrency(metrics.realProfit || 0)}
-                                </p>
-                            </div>
-
-                            {/* Lucro Estimado */}
-                            <div className="bg-slate-800/40 rounded-2xl p-4 md:p-5 border border-cyan-500/30">
-                                <div className="flex justify-between items-start mb-2 md:mb-3">
-                                    <div className="p-1.5 md:p-2 bg-cyan-500/20 rounded-lg text-cyan-400">
-                                        <i className="fa-solid fa-chart-line"></i>
-                                    </div>
-                                    <span className="text-[10px] uppercase font-black bg-slate-700 text-slate-300 px-2 py-0.5 rounded">Est.</span>
-                                </div>
-                                <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Lucro Proj.</p>
-                                <p className="text-lg md:text-2xl font-black text-slate-200">
-                                    {formatCurrency(metrics.estimatedGrossProfit || 0)}
-                                </p>
-                            </div>
-
-                            {/* Potencial / Vendido */}
-                            <div className={`rounded-2xl p-4 md:p-5 border ${!metrics.potentialSales ? 'bg-orange-500/10 border-orange-500/50' : 'bg-slate-800/40 border-orange-500/30'}`}>
-                                <div className="flex justify-between items-start mb-2 md:mb-3">
-                                    <div className="p-1.5 md:p-2 bg-orange-500/20 rounded-lg text-orange-400">
-                                        <i className="fa-solid fa-gem"></i>
-                                    </div>
-                                    {!metrics.potentialSales && (
-                                        <span className="text-[10px] uppercase font-black bg-orange-500 text-white px-2 py-0.5 rounded animate-pulse">
-                                            Esgotado
-                                        </span>
-                                    )}
-                                </div>
-                                <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase mb-1">Potencial</p>
-                                {!metrics.potentialSales ? (
-                                    <p className="text-lg md:text-2xl font-black text-orange-500 tracking-wider">VENDIDO</p>
-                                ) : (
-                                    <p className="text-lg md:text-2xl font-black text-slate-200">
-                                        {metrics.potentialSales ? formatCurrency(metrics.potentialSales) : 'R$ 0,00'}
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Margens */}
-                            <div className="bg-slate-800/40 rounded-2xl p-4 md:p-5 border border-purple-500/30">
-                                <div className="flex justify-between items-start mb-2 md:mb-3">
-                                    <div className="p-1.5 md:p-2 bg-purple-500/20 rounded-lg text-purple-400">
-                                        <i className="fa-solid fa-percent"></i>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <div className="flex justify-between items-end">
-                                        <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase">ROI Real</p>
-                                        <p className="text-base md:text-lg font-black text-blue-400">
-                                            {metrics.realMonthlyMargin && !isNaN(metrics.realMonthlyMargin) ? metrics.realMonthlyMargin.toFixed(1) : '0.0'}%
-                                        </p>
-                                    </div>
-                                    <div className="w-full h-1 bg-slate-700 rounded-full overflow-hidden">
-                                        <div className="h-full bg-blue-500" style={{ width: `${Math.min(metrics.realMonthlyMargin || 0, 100)}%` }}></div>
-                                    </div>
-                                    <div className="flex justify-between items-center mt-1">
-                                        <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase">Nominal</p>
-                                        <div className="flex gap-1">
-                                            <span className="text-[10px] md:text-xs font-bold text-slate-500">
-                                                {(metrics.monthlyMargin || 0).toFixed(1)}%
-                                            </span>
-                                            <span className="text-[10px] md:text-xs font-bold text-red-400">
-                                                -{(inflationRate * 100).toFixed(1)}%
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* --- BUDGET CONTROL VISUAL (Replicated from BudgetSection.tsx) --- */}
-                <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-8 border border-slate-700 mb-8" style={{ minHeight: '200px' }}>
-                    <div className="flex justify-between items-center mb-8">
-                        <h2 className="text-lg font-bold text-white">
-                            <i className="fa-solid fa-scale-balanced mr-2 text-green-400"></i>
-                            Controle de Orçamento
-                        </h2>
-                        <div className={`px-3 py-1 rounded-full text-xs font-bold border ${metrics.budgetUsage && metrics.budgetUsage > 100
-                            ? 'bg-red-500/20 text-red-400 border-red-500/30'
-                            : 'bg-green-500/20 text-green-400 border-green-500/30'
-                            }`}>
-                            {metrics.budgetUsage ? metrics.budgetUsage.toFixed(0) : 0}% utilizado
-                        </div>
-                    </div>
-
-                    {/* Top Stats */}
-                    <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
-                        <div className="bg-slate-800/50 rounded-xl p-2 md:p-4 text-center">
-                            <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Orçamento</p>
-                            <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
-                                <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
-                                <span className="text-white font-black text-base md:text-xl leading-none">
-                                    {formatCurrencyAbbrev(metrics.totalCost).replace('R$', '').trim()}
-                                </span>
-                            </div>
-                        </div>
-                        <div className="bg-slate-800/50 rounded-xl p-2 md:p-4 text-center">
-                            <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Gasto</p>
-                            <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
-                                <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
-                                <span className="text-blue-400 font-black text-base md:text-xl leading-none">
-                                    {formatCurrencyAbbrev(metrics.totalExpenses).replace('R$', '').trim()}
-                                </span>
-                            </div>
-                        </div>
-                        <div className="bg-slate-800/50 rounded-xl p-2 md:p-4 text-center">
-                            <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Saldo</p>
-                            <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
-                                <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
-                                <span className={`font-black text-base md:text-xl leading-none ${metrics.totalCost - metrics.totalExpenses >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {formatCurrencyAbbrev(metrics.totalCost - metrics.totalExpenses).replace('R$', '').trim()}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Main Progress Bar */}
-                    <div className="w-full bg-slate-900 rounded-full h-4 mb-10 border border-slate-700 relative overflow-hidden">
-                        <div
-                            className={`h-full rounded-full transition-all duration-1000 ${metrics.budgetUsage && metrics.budgetUsage > 100
-                                ? 'bg-red-500'
-                                : 'bg-green-500' // Using consistent simple colors to match BudgetSection
-                                }`}
-                            style={{ width: `${Math.min(metrics.budgetUsage || 0, 100)}%` }}
-                        ></div>
-                    </div>
-
-                    {/* Categories List */}
+                {/* 3) ORÇAMENTO POR CATEGORIA (só a lista — a barra/totais já estão no Gasto × Avanço) */}
+                <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8">
+                    <h2 className="text-lg font-bold text-white mb-6">
+                        <i className="fa-solid fa-scale-balanced mr-2 text-green-400"></i>
+                        Orçamento por categoria
+                    </h2>
                     <div className="space-y-6">
-                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-700 pb-2">Por Categoria</h3>
-
                         {project.budget && project.budget.macros && project.budget.macros.length > 0 ? (
                             project.budget.macros.sort((a, b) => a.displayOrder - b.displayOrder).map(macro => {
                                 const percent = macro.estimatedValue > 0 ? (macro.spentValue / macro.estimatedValue) * 100 : 0;
@@ -649,12 +433,155 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     </div>
                 </div>
 
-                {/* --- EXPENSES TABLE --- */}
-                {project.expenses.length > 0 && (
-                    <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-8 border border-slate-700 mb-8 overflow-hidden">
+                {/* 4) CAIXA DA OBRA: Aportado - Gasto = Saldo em caixa */}
+                <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8">
+                    <h2 className="text-lg font-bold text-white mb-6">
+                        <i className="fa-solid fa-hand-holding-dollar mr-2 text-emerald-400"></i>
+                        Caixa da Obra
+                    </h2>
+                    <div className="grid grid-cols-3 gap-2 md:gap-4">
+                        <div className="bg-slate-800/50 rounded-xl p-2 md:p-4 text-center">
+                            <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Aportado</p>
+                            <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
+                                <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
+                                <span className="text-emerald-400 font-black text-base md:text-xl leading-none">
+                                    {formatCurrencyAbbrev(finance.aportadoTotal).replace('R$', '').trim()}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="bg-slate-800/50 rounded-xl p-2 md:p-4 text-center">
+                            <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Gasto</p>
+                            <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
+                                <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
+                                <span className="text-rose-400 font-black text-base md:text-xl leading-none">
+                                    {formatCurrencyAbbrev(finance.gasto).replace('R$', '').trim()}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="bg-slate-800/50 rounded-xl p-2 md:p-4 text-center">
+                            <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Saldo em caixa</p>
+                            <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
+                                <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
+                                <span className={`font-black text-base md:text-xl leading-none ${finance.saldoCaixa >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {formatCurrencyAbbrev(finance.saldoCaixa).replace('R$', '').trim()}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 5) ACERTO DE APORTES (Meta · Aportou · Falta por sócio — fonte única do app).
+                       Sem base pra calcular meta (sem % / sem casas com dono) → cai na lista
+                       simples "Aportes por sócio" (nome + total), sem regressão. */}
+                {options.aportes && (() => {
+                    const acerto = computeAporteShares(project);
+                    const aporteDinheiro = (id?: string) => (project.contributions || []).filter(c => c.investorId === id).reduce((s, c) => s + (c.value || 0), 0);
+                    const aporteViaDespesa = (id?: string) => (project.expenses || []).filter(e => e.paidByInvestorId === id).reduce((s, e) => s + (e.value || 0), 0);
+
+                    // Fallback: sem base de meta → só lista quem aportou (comportamento antigo).
+                    if (acerto.semBase) {
+                        const linhas = (project.investors || [])
+                            .map(inv => ({ name: inv.name, total: aporteDinheiro(inv.id) + aporteViaDespesa(inv.id) }))
+                            .filter(l => l.total > 0)
+                            .sort((a, b) => b.total - a.total);
+                        if (linhas.length === 0) return null;
+                        const totalGeral = linhas.reduce((s, l) => s + l.total, 0);
+                        return (
+                            <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8">
+                                <h2 className="text-lg font-bold text-white mb-6">
+                                    <i className="fa-solid fa-users mr-2 text-fuchsia-400"></i>
+                                    Aportes por sócio
+                                </h2>
+                                <div className="space-y-1">
+                                    {linhas.map((l, i) => (
+                                        <div key={i} className="flex items-center justify-between py-2.5 border-b border-slate-700/60">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-8 h-8 rounded-lg bg-fuchsia-500/15 text-fuchsia-400 flex items-center justify-center shrink-0">
+                                                    <i className="fa-solid fa-user"></i>
+                                                </div>
+                                                <span className="text-white font-bold truncate">{l.name}</span>
+                                            </div>
+                                            <span className="text-emerald-400 font-black whitespace-nowrap">{formatCurrency(l.total)}</span>
+                                        </div>
+                                    ))}
+                                    <div className="flex items-center justify-between pt-3 mt-1">
+                                        <span className="text-slate-400 text-xs font-black uppercase tracking-widest">Total aportado</span>
+                                        <span className="text-white font-black text-lg whitespace-nowrap">{formatCurrency(totalGeral)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    }
+
+                    // Falta: >0 precisa pôr (âmbar); <0 adiantou (verde); ~0 em dia.
+                    const faltaTone = (v: number) => (v > 0.5 ? 'text-amber-400' : v < -0.5 ? 'text-emerald-400' : 'text-slate-500');
+                    const faltaLabel = (v: number) => (v > 0.5 ? formatCurrency(v) : v < -0.5 ? `+${formatCurrency(-v)}` : 'Em dia');
+                    const shares = [...acerto.shares].sort((a, b) => b.meta - a.meta);
+                    const donoUnidades = (id?: string) => (project.units || []).filter(u => u.ownerInvestorId === id).map(u => u.identifier).join(', ');
+                    const pctDe = (id?: string) => (project.profitShares || []).find(s => s.investorId === id)?.percentage;
+
+                    return (
+                        <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8">
+                            <div className="flex items-center justify-between gap-2 mb-6">
+                                <h2 className="text-lg font-bold text-white">
+                                    <i className="fa-solid fa-scale-unbalanced mr-2 text-fuchsia-400"></i>
+                                    Acerto de aportes
+                                </h2>
+                                <span className="text-[11px] text-slate-500 font-bold whitespace-nowrap">
+                                    {acerto.mode === 'unit' ? 'Divisão por casa' : 'Divisão por porcentagem'}
+                                </span>
+                            </div>
+                            <div className="space-y-3">
+                                {shares.map((s, i) => (
+                                    <div key={i} className="bg-slate-800/40 rounded-xl border border-slate-700/60 p-4">
+                                        <div className="min-w-0 mb-3">
+                                            <p className="text-white font-black truncate">{s.name}</p>
+                                            <p className="text-[11px] text-slate-500 font-bold truncate">
+                                                {acerto.mode === 'unit'
+                                                    ? <><i className="fa-solid fa-house mr-1 text-fuchsia-400"></i>{donoUnidades(s.investorId)}</>
+                                                    : <>{pctDe(s.investorId) ?? 0}%</>}
+                                            </p>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2 text-center">
+                                            <div>
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Meta</p>
+                                                <p className="text-sm font-black text-slate-200">{formatCurrency(s.meta)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Aportou</p>
+                                                <p className="text-sm font-black text-emerald-400">{formatCurrency(s.aportado)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Falta</p>
+                                                <p className={`text-sm font-black ${faltaTone(s.falta)}`}>{faltaLabel(s.falta)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="flex items-center justify-between pt-4 mt-1">
+                                <span className="text-slate-400 text-xs font-black uppercase tracking-widest">Total aportado</span>
+                                <span className="text-white font-black text-lg whitespace-nowrap">{formatCurrency(acerto.totalAportado)}</span>
+                            </div>
+                            {acerto.totalFalta > 0.5 && (
+                                <p className="text-[11px] text-amber-400 font-bold mt-2 text-center">
+                                    <i className="fa-solid fa-circle-arrow-up mr-1"></i>
+                                    Falta aportar no total: {formatCurrency(acerto.totalFalta)}
+                                </p>
+                            )}
+                        </div>
+                    );
+                })()}
+
+                {/* 6) RESULTADO DO EMPREENDIMENTO — MESMO componente do app */}
+                {options.resultado && <ResultadoEmpreendimento project={project} />}
+
+                {/* 7) EXTRATO DE DESPESAS (com "Pago por") */}
+                {options.despesas && project.expenses.length > 0 && (
+                    <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8 overflow-hidden">
                         <h2 className="text-lg font-bold text-white mb-6">
                             <i className="fa-solid fa-receipt mr-2 text-slate-400"></i>
-                            Extrato Completo de Despesas
+                            Extrato de Despesas
                         </h2>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
@@ -662,6 +589,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                     <tr className="border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider">
                                         <th className="pb-3 pl-4">Data</th>
                                         <th className="pb-3">Descrição</th>
+                                        <th className="pb-3">Pago por</th>
                                         <th className="pb-3 text-center">Anexo</th>
                                         <th className="pb-3 text-right pr-4">Valor</th>
                                     </tr>
@@ -675,13 +603,19 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                                 ...(exp.attachmentUrl ? [exp.attachmentUrl] : []),
                                                 ...(exp.attachments || [])
                                             ];
+                                            const pagador = investorName(exp.paidByInvestorId) || 'Caixa da obra';
 
                                             return (
                                                 <tr key={exp.id} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
-                                                    <td className="py-4 pl-4 text-slate-400">
+                                                    <td className="py-4 pl-4 text-slate-400 whitespace-nowrap">
                                                         {new Date(exp.date + 'T00:00:00').toLocaleDateString('pt-BR')}
                                                     </td>
                                                     <td className="py-4 text-white font-medium">{exp.description}</td>
+                                                    <td className="py-4 text-slate-300">
+                                                        {exp.paidByInvestorId
+                                                            ? <span className="text-fuchsia-300">{pagador}</span>
+                                                            : <span className="text-slate-400">{pagador}</span>}
+                                                    </td>
                                                     <td className="py-4 text-center">
                                                         <div className="flex gap-2 justify-center">
                                                             {allAttachments.map((att, idx) => (
@@ -694,7 +628,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="py-4 text-right pr-4 text-slate-200 font-bold">
+                                                    <td className="py-4 text-right pr-4 text-slate-200 font-bold whitespace-nowrap">
                                                         {formatCurrency(exp.value)}
                                                     </td>
                                                 </tr>
@@ -706,86 +640,26 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     </div>
                 )}
 
-                {/* Timeline Visual */}
-                <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-8 border border-slate-700 mb-8">
-                    <h2 className="text-lg font-bold text-white mb-6">
-                        <i className="fa-solid fa-diagram-project mr-2 text-blue-400"></i>
-                        Cronograma de Etapas
-                    </h2>
-
-                    <div className="relative">
-                        {/* Progress Line */}
-                        <div className="absolute left-6 top-0 bottom-0 w-1 bg-slate-700">
-                            <div
-                                className="w-full bg-gradient-to-b from-blue-500 to-cyan-400 transition-all duration-1000"
-                                style={{ height: `${(project.progress / 100) * 100}%` }}
-                            />
-                        </div>
-
-                        {/* Stages */}
-                        <div className="space-y-6">
-                            {allStages.map((stage) => {
-                                const evidence = project.stageEvidence?.find(e => e.stage === stage);
-                                const isCompleted = project.progress >= stage;
-                                const isCurrent = project.progress === stage;
-                                const photo = evidence?.photos?.[0];
-
-                                return (
-                                    <div key={stage} className="relative flex items-start gap-4 pl-12">
-                                        {/* Stage Dot */}
-                                        <div
-                                            className={`absolute left-4 w-5 h-5 rounded-full border-2 transition-all ${isCompleted
-                                                ? 'bg-blue-500 border-blue-400'
-                                                : 'bg-slate-800 border-slate-600'
-                                                } ${isCurrent ? 'ring-4 ring-blue-500/30 scale-125' : ''}`}
-                                        >
-                                            {isCompleted && (
-                                                <i className="fa-solid fa-check text-[8px] text-white absolute inset-0 flex items-center justify-center"></i>
-                                            )}
-                                        </div>
-
-                                        {/* Content */}
-                                        <div className={`flex-1 ${!isCompleted ? 'opacity-50' : ''}`}>
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCompleted ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700 text-slate-500'
-                                                    }`}>
-                                                    <i className={`fa-solid ${STAGE_ICONS[stage]} text-sm`}></i>
-                                                </div>
-                                                <div>
-                                                    <h3 className={`font-bold ${isCompleted ? 'text-white' : 'text-slate-500'}`}>
-                                                        {STAGE_NAMES[stage]}
-                                                    </h3>
-                                                    {evidence?.date && (
-                                                        <p className="text-xs text-slate-400">
-                                                            {new Date(evidence.date + 'T00:00:00').toLocaleDateString('pt-BR')}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Photo Evidence */}
-                                            {photo && (
-                                                <div className="mt-3 rounded-xl overflow-hidden border border-slate-600 w-32 h-24">
-                                                    <StageThumbnail photoPath={photo} signedUrl={photo ? signedUrls[photo] : undefined} className="w-full h-full" />
-                                                </div>
-                                            )}
-
-                                            {evidence?.notes && (
-                                                <p className="text-sm text-slate-400 mt-2">{evidence.notes}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <footer className="text-center text-slate-500 text-sm">
+                {/* Footer. No Free o relatório leva a marca (e ela é o convite:
+                    quem recebe o link é justamente quem pode virar cliente).
+                    No plano ObraPro o relatório é do construtor — sem marca. */}
+                <footer className="text-center text-slate-500 text-sm space-y-4">
+                    {!ownerEnt.canRemoveBranding && (
+                        <a
+                            href="https://obrapro.com.br"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2.5 px-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-2xl hover:border-slate-500 transition-colors"
+                        >
+                            <i className="fa-solid fa-helmet-safety text-blue-400"></i>
+                            <span className="text-xs text-slate-400">
+                                Feito com <b className="text-white">ObraPro</b> — controle financeiro de obra
+                            </span>
+                        </a>
+                    )}
                     <p>
                         <i className="fa-solid fa-shield-halved mr-1"></i>
-                        Visualização segura • Obra Pro © {new Date().getFullYear()}
+                        Visualização segura • {new Date().getFullYear()}
                     </p>
                 </footer>
             </div>
