@@ -76,6 +76,30 @@ npm run dev   # rodar em background; porta 3000, host:true (exposto na LAN)
 ## Troubleshooting
 
 - **"Failed to fetch" ao logar (no PC):** Supabase local não está no ar. Rode os passos 1–2. Causa comum: PC reiniciou e o Docker/Supabase não subiu junto.
+- **🚨 "Failed to fetch" com os containers TODOS `Up (healthy)` — o Windows roubou as portas (visto em 2026-07-16, depois de um reboot).**
+  Sintoma exato: `curl http://127.0.0.1:54321/auth/v1/health` → **000**, e o Kong aparece **sem a porta publicada**:
+  ```bash
+  docker ps --filter name=supabase_kong --format '{{.Names}} :: {{.Ports}}'
+  # DOENTE: supabase_kong_obra_pro_0 :: 8000/tcp        <- falta o 0.0.0.0:54321->8000/tcp
+  # SÃO:    supabase_kong_obra_pro_0 :: 0.0.0.0:54321->8000/tcp
+  ```
+  Ao rodar `npx supabase stop && npx supabase start`, o erro aparece com todas as letras:
+  `bind: Foi feita uma tentativa de acesso a um soquete de uma maneira que é proibida pelas permissões de acesso` (porta 54322).
+  **Causa: o `winnat` do Windows reserva faixas de porta dinamicamente após o boot e engole a 54321/54322.** Não é bug do Docker nem do app.
+  **Conferir** (as portas do Supabase caem dentro de alguma faixa reservada?):
+  ```bash
+  netsh interface ipv4 show excludedportrange protocol=tcp
+  ```
+  **Consertar — precisa de PowerShell como ADMIN** (o Victor tem que rodar; sugerir `! <comando>` não resolve, o prompt normal não é admin):
+  ```powershell
+  net stop winnat
+  net start winnat
+  # depois, no terminal normal: npx supabase start
+  ```
+  **Prevenir** (reserva as portas para o Docker antes que o Windows as pegue; admin, uma vez só):
+  ```powershell
+  netsh int ipv4 add excludedportrange protocol=tcp startport=54320 numberofports=10
+  ```
 - **"Load failed" no celular:** normalmente era o app tentando `127.0.0.1` (o próprio celular). Já resolvido pelo rewrite no `supabaseClient.ts`. Se persistir: (a) confirme mesmo Wi‑Fi; (b) Firewall do Windows pode bloquear a porta 3000 — aceite o prompt de rede privada; (c) confirme que o Kong está publicado em `0.0.0.0:54321` (`docker ps --filter name=supabase_kong --format '{{.Ports}}'`).
 - **Página não carrega no PC:** confira o log do Vite (erro de compilação) e se a porta 3000 está livre.
 - **Fotos/anexos não aparecem no LOCAL (app, timeline, PDF):** DOIS motivos distintos, não confunda:
