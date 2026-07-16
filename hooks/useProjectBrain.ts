@@ -106,10 +106,17 @@ const PERIODOS: Array<{ keywords: string[]; tipo: PeriodoTipo; label: string; di
     { keywords: ['ultimos dias', 'ultimos 7'], tipo: 'ULTIMOS_7_DIAS', label: 'Últimos 7 dias', dias: 7 },
 ];
 
+// Cobre as fronteiras novas (padrão) e as antigas, para o contexto da IA nunca vir vazio.
 const STAGE_NAMES: Record<number, string> = {
-    0: 'Planejamento', 10: 'Fundação', 20: 'Estrutura', 30: 'Alvenaria',
-    50: 'Instalações', 60: 'Revestimentos', 70: 'Esquadrias',
-    80: 'Acabamentos', 90: 'Finalização', 100: 'Concluída'
+    0: 'Projetos e serviços preliminares',
+    4: 'Terraplenagem e fundações', 15: 'Terraplenagem e fundações',
+    16: 'Estrutura e alvenaria', 30: 'Estrutura e alvenaria',
+    39: 'Cobertura e impermeabilização',
+    48: 'Instalações elétricas e hidráulicas', 60: 'Instalações elétricas e hidráulicas',
+    62: 'Revestimentos, pisos e forros', 75: 'Revestimentos, pisos e forros',
+    80: 'Esquadrias, pintura e acabamentos', 90: 'Área externa, ligações e entrega',
+    95: 'Área externa, ligações e entrega',
+    100: 'Concluída'
 };
 
 // ==========================================

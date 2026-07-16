@@ -103,7 +103,11 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ project, onClose }) => {
                 <div className="glass p-8 rounded-3xl max-w-md text-center">
                     <i className="fa-solid fa-calendar-xmark text-4xl text-blue-400 mb-4"></i>
                     <h2 className="text-xl font-black text-white mb-2">Cronograma não Gerado</h2>
-                    <p className="text-slate-400 mb-6">Para visualizar o cronograma, você precisa definir as datas de <strong>Início</strong> e <strong>Fim</strong> dentro das categorias no Orçamento.</p>
+                    <p className="text-slate-400 mb-6">
+                        Vá até a aba <strong>Orçamento</strong> e clique em <strong>“Gerar cronograma”</strong> para
+                        distribuir as datas das etapas automaticamente entre o início e a entrega da obra —
+                        ou defina as datas de <strong>Início</strong> e <strong>Fim</strong> manualmente em cada etapa.
+                    </p>
                     <button onClick={onClose} className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20">Entendido</button>
                 </div>
             </div>

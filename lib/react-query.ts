@@ -39,46 +39,53 @@ const queryClient = new QueryClient({
 // Retry configuration shared by all mutations
 const retryConfig = {
     retry: (failureCount: number, error: any) => {
-        // Extract HTTP status from Supabase error (can be in different properties)
-        const status = typeof error?.code === 'number' ? error.code
-            : typeof error?.status === 'number' ? error.status
+        const message = error?.message || '';
+        const code = typeof error?.code === 'string' ? error.code : '';
+        const numStatus = typeof error?.status === 'number' ? error.status
             : typeof error?.statusCode === 'number' ? error.statusCode
             : null;
-        const message = error?.message || '';
-        const hint = error?.hint || '';
-        const details = error?.details || '';
-        const code = typeof error?.code === 'string' ? error.code : '';
 
-        // Abort on permanent logic errors
+        // Abort explícito
         if (message.includes('ABORT_')) {
             console.error('[MutationDefaults] Mutation aborted permanently:', message);
             return false;
         }
 
-        // Abort on column/schema errors from PostgREST (e.g. invalid column names)
-        if (message.includes('Could not find') || message.includes('column') ||
-            hint.includes('column') || details.includes('column') ||
-            code === 'PGRST204' || code === 'PGRST301') {
-            console.error('[MutationDefaults] Schema/column error (aborting):', message, hint);
+        // Erros de REDE (sem code do servidor) → transitórios, retenta limitado.
+        const isNetwork = !code && (
+            message.includes('Failed to fetch') || message.includes('Load failed') ||
+            message.includes('NetworkError') || message.includes('network') || message.includes('fetch')
+        );
+        if (isNetwork) {
+            console.warn(`[MutationDefaults] Erro de rede, retry #${failureCount + 1}:`, message);
+            return failureCount < 8;
+        }
+
+        // 5xx do servidor → transitório, retenta pouco.
+        if (numStatus && numStatus >= 500) return failureCount < 5;
+
+        // QUALQUER erro com code do PostgREST/Postgres é DETERMINÍSTICO (schema PGRST204/301,
+        // FK 23503, único 23505, check 23514, RLS 42501, etc.) → abortar (não adianta retentar,
+        // e retentar prende a fila serial e reverte os dados). ESTE era o bug do entupimento.
+        if (code) {
+            console.error(`[MutationDefaults] Erro determinístico (code ${code}) — abortando:`, message);
             return false;
         }
 
-        // Check if it's a permanent 4xx error (logic/validation bug)
-        if (status && status >= 400 && status < 500) {
-            const isTransient =
-                status === 408 || // Request Timeout
-                status === 429;   // Too Many Requests
-
-            if (!isTransient) {
-                console.error(`[MutationDefaults] Permanent error (${status}):`, error);
-                return false;
-            }
+        // 4xx permanente (fora 408/429)
+        if (numStatus && numStatus >= 400 && numStatus < 500 && numStatus !== 408 && numStatus !== 429) {
+            console.error(`[MutationDefaults] Erro permanente (${numStatus}) — abortando:`, error);
+            return false;
         }
 
-        console.warn(`[MutationDefaults] Retry #${failureCount + 1}:`, error?.message || error);
-        return failureCount < 50; // Max 50 retries
+        // Schema/coluna por texto (redundância)
+        if (message.includes('Could not find') || message.includes('column')) return false;
+
+        // Desconhecido: retenta pouquíssimo e desiste (nunca prende a fila por 25 min).
+        console.warn(`[MutationDefaults] Erro desconhecido, retry #${failureCount + 1}:`, message);
+        return failureCount < 3;
     },
-    retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000), // Max 30s
+    retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 15000), // Máx 15s
 };
 
 // Project mutations
@@ -163,7 +170,7 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
         },
     },
     // IMPORTANT: Increment buster to force clear old stuck mutations
-    buster: 'v10-force-clear-after-pause',
+    buster: 'v15-retry-fix-2026-07-12',
 };
 
 export { queryClient };

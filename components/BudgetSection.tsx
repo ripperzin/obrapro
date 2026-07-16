@@ -1,11 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { Project, ProjectBudget, ProjectMacro, TemplateMacro, CostTemplate, ProjectSubMacro, TemplateSubMacro } from '../types';
+import { Project, ProjectBudget, ProjectMacro, TemplateMacro, CostTemplate, ProjectItem } from '../types';
 import { supabase } from '../supabaseClient';
 import { formatCurrencyAbbrev } from '../utils'; // Import added
 import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
+import { usePlan } from './PlanProvider';
+import { computeScheduleDates } from '../utils/schedule';
 
 interface BudgetSectionProps {
     project: Project;
@@ -19,26 +21,30 @@ const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
-// Helper: Populate Macros/SubMacros from Template
+// Helper: cria as ETAPAS (macros) da obra a partir do template padrão.
+// O Previsto por item (project_stage_items) é semeado à parte via a RPC
+// seed_project_stage_items depois que as etapas existem (ver fetchBudgetData).
+/**
+ * CONSERTO de orçamento que ficou sem etapas. NÃO usar depois de criar o
+ * orçamento: quem semeia as etapas é o gatilho do banco (handle_new_project_budget,
+ * que roda sozinho no INSERT de project_budgets). Chamar isto ali semeava tudo
+ * DE NOVO — 9 etapas viravam 18 e o Previsto dobrava (obra de R$ 300.000
+ * aparecia com R$ 600.000 orçados).
+ *
+ * `time_based` tem que vir junto: é ela que diz que a etapa é um custo que corre
+ * o tempo todo (canteiro, água, luz) e por isso NÃO entra na régua do avanço.
+ * Sem copiar essa coluna, o Canteiro voltava para a régua.
+ */
 const populateBudgetFromTemplate = async (budgetId: string, totalValue: number) => {
-    // 1. Fetch Default Template Macros/SubMacros
     const { data: tMacros } = await supabase
         .from('template_macros')
         .select('*')
         .eq('template_id', DEFAULT_TEMPLATE_ID);
 
     if (tMacros && tMacros.length > 0) {
-        const tMacroIds = tMacros.map(m => m.id);
-        const { data: tSubMacros } = await supabase
-            .from('template_sub_macros')
-            .select('*')
-            .in('macro_id', tMacroIds);
-
-        // 2. Insert Project Macros
         for (const tm of tMacros) {
             const estimatedVal = (totalValue * tm.percentage) / 100;
-
-            const { data: newMacro, error: macroError } = await supabase
+            await supabase
                 .from('project_macros')
                 .insert({
                     budget_id: budgetId,
@@ -46,27 +52,9 @@ const populateBudgetFromTemplate = async (budgetId: string, totalValue: number) 
                     percentage: tm.percentage,
                     estimated_value: estimatedVal,
                     spent_value: 0,
-                    display_order: tm.display_order
-                })
-                .select()
-                .single();
-
-            if (!macroError && newMacro && tSubMacros) {
-                // 3. Insert Project SubMacros
-                const subsForThis = tSubMacros.filter(ts => ts.macro_id === tm.id);
-                if (subsForThis.length > 0) {
-                    const subInserts = subsForThis.map(ts => ({
-                        project_macro_id: newMacro.id,
-                        name: ts.name,
-                        percentage: ts.percentage,
-                        estimated_value: (estimatedVal * ts.percentage) / 100,
-                        spent_value: 0,
-                        display_order: ts.display_order
-                    }));
-
-                    await supabase.from('project_sub_macros').insert(subInserts);
-                }
-            }
+                    display_order: tm.display_order,
+                    time_based: tm.time_based ?? false
+                });
         }
         return true;
     }
@@ -79,14 +67,17 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
     const [budget, setBudget] = useState<ProjectBudget | null>(null);
     const [macros, setMacros] = useState<ProjectMacro[]>([]);
     const [templateMacros, setTemplateMacros] = useState<TemplateMacro[]>([]);
-    const [templateSubMacros, setTemplateSubMacros] = useState<TemplateSubMacro[]>([]);
-    const [projectSubMacros, setProjectSubMacros] = useState<ProjectSubMacro[]>([]);
     const [showSetupModal, setShowSetupModal] = useState(false);
     const [totalEstimated, setTotalEstimated] = useState(0);
     const [expandedMacroId, setExpandedMacroId] = useState<string | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editMacros, setEditMacros] = useState<ProjectMacro[]>([]);
-    const [editSubMacros, setEditSubMacros] = useState<ProjectSubMacro[]>([]);
+    const [viewMode, setViewMode] = useState<'stage' | 'item'>('stage'); // "Por etapa" x "Por item"
+    const { ent, openUpgrade } = usePlan();
+    const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
+    // Previsto por item dentro da etapa (project_stage_items): {macroId,itemId,percentage}
+    const [stageRows, setStageRows] = useState<{ macroId: string; itemId: string; percentage: number }[]>([]);
+    const [editStageRows, setEditStageRows] = useState<{ macroId: string; itemId: string; percentage: number }[]>([]);
 
     const modalRoot = document.getElementById('modal-root');
 
@@ -115,13 +106,91 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
         fetchTemplateMacros();
     }, [project.id, project.units.length, project.units.reduce((sum, u) => sum + u.cost, 0)]);
 
+    // Itens da obra (para o modo "Por item" — mapear item_id → nome)
+    useEffect(() => {
+        const fetchItems = async () => {
+            const { data } = await supabase
+                .from('project_items')
+                .select('id, name, display_order')
+                .eq('project_id', project.id)
+                .order('display_order');
+            if (data) {
+                setProjectItems(data.map(it => ({
+                    id: it.id, projectId: project.id, name: it.name, displayOrder: it.display_order
+                })));
+            }
+        };
+        fetchItems();
+    }, [project.id]);
+
     // Inicializar estado de edição quando entrar no modo edição
     useEffect(() => {
         if (isEditing) {
             setEditMacros([...macros]);
-            setEditSubMacros([...projectSubMacros]);
+            setEditStageRows(stageRows.map(r => ({ ...r })));
         }
-    }, [isEditing, macros, projectSubMacros]);
+    }, [isEditing, macros, stageRows]);
+
+    // Recarrega só o Previsto por item (sem re-semear), depois de add/remover item.
+    const reloadStageItems = async () => {
+        const { data } = await supabase
+            .from('project_stage_items')
+            .select('macro_id, item_id, percentage')
+            .eq('project_id', project.id);
+        if (data) {
+            const rows = data.map((r: any) => ({ macroId: r.macro_id, itemId: r.item_id, percentage: r.percentage }));
+            setStageRows(rows);
+            setEditStageRows(rows.map(r => ({ ...r })));
+        }
+    };
+
+    // Edita o % do item na etapa (local); salva no blur.
+    const handleUpdateStageItemLocal = (macroId: string, itemId: string, pct: number) => {
+        setEditStageRows(prev => prev.map(r =>
+            (r.macroId === macroId && r.itemId === itemId) ? { ...r, percentage: pct } : r
+        ));
+    };
+    const handleSaveStageItemPct = async (macroId: string, itemId: string, pct: number) => {
+        try {
+            const { error } = await supabase
+                .from('project_stage_items')
+                .update({ percentage: pct })
+                .eq('project_id', project.id).eq('macro_id', macroId).eq('item_id', itemId);
+            if (error) throw error;
+            setStageRows(prev => prev.map(r =>
+                (r.macroId === macroId && r.itemId === itemId) ? { ...r, percentage: pct } : r
+            ));
+        } catch (e) {
+            console.error('Erro ao salvar % do item:', e);
+            alert('Erro ao salvar o previsto do item.');
+        }
+    };
+    // Adiciona um item ao previsto da etapa (nasce com 0% — não mexe nos outros).
+    const handleAddStageItem = async (macroId: string, itemId: string) => {
+        if (!itemId) return;
+        try {
+            const { error } = await supabase
+                .from('project_stage_items')
+                .insert({ project_id: project.id, macro_id: macroId, item_id: itemId, percentage: 0, display_order: 99 });
+            if (error) throw error;
+            await reloadStageItems();
+        } catch (e) {
+            console.error('Erro ao adicionar item na etapa:', e);
+            alert('Erro ao adicionar item. Pode já estar na etapa.');
+        }
+    };
+    const handleRemoveStageItem = async (macroId: string, itemId: string) => {
+        try {
+            const { error } = await supabase
+                .from('project_stage_items')
+                .delete()
+                .eq('project_id', project.id).eq('macro_id', macroId).eq('item_id', itemId);
+            if (error) throw error;
+            await reloadStageItems();
+        } catch (e) {
+            console.error('Erro ao remover item da etapa:', e);
+        }
+    };
 
     const fetchBudgetData = async (background = false) => {
         if (!background) setLoading(true);
@@ -136,7 +205,9 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                 .eq('project_id', project.id)
                 .single();
 
-            // Se não existir, criar (fluxo automático inicial)
+            // Se não existir, criar (fluxo automático inicial).
+            // Cai aqui quem abriu a obra SEM casas (useCreateObra só cria o orçamento
+            // quando já há custo) e cadastrou as casas depois.
             if (!budgetData && totalUnitsValue > 0) {
                 console.log('⚡ Criando orçamento padrão automaticamente...');
 
@@ -152,8 +223,11 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                     .single();
 
                 if (!createError && newBudget) {
+                    // As etapas JÁ vêm semeadas: o gatilho handle_new_project_budget roda
+                    // dentro deste INSERT. Semear aqui de novo dobrava tudo (9 -> 18
+                    // etapas, Previsto em dobro). A busca das macros logo abaixo já as
+                    // encontra. Mesmo caminho do useCreateObra, que também confia no gatilho.
                     budgetData = newBudget;
-                    await populateBudgetFromTemplate(newBudget.id, totalUnitsValue);
                 }
             }
 
@@ -232,29 +306,21 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                         spentValue: m.spent_value || 0,
                         displayOrder: m.display_order,
                         plannedStartDate: m.planned_start_date,
-                        plannedEndDate: m.planned_end_date
+                        plannedEndDate: m.planned_end_date,
+                        timeBased: m.time_based || false
                     })));
+                }
 
-                    const macroIds = macrosData.map(m => m.id);
-                    if (macroIds.length > 0) {
-                        const { data: subData } = await supabase
-                            .from('project_sub_macros')
-                            .select('*')
-                            .in('project_macro_id', macroIds)
-                            .order('display_order');
-
-                        if (subData) {
-                            setProjectSubMacros(subData.map(sm => ({
-                                id: sm.id,
-                                projectMacroId: sm.project_macro_id,
-                                name: sm.name,
-                                percentage: sm.percentage,
-                                estimatedValue: sm.estimated_value,
-                                spentValue: sm.spent_value || 0,
-                                displayOrder: sm.display_order
-                            })));
-                        }
-                    }
+                // Previsto por item da etapa: garante a semeadura (idempotente) e lê.
+                await supabase.rpc('seed_project_stage_items', { p_project_id: project.id });
+                const { data: stageData } = await supabase
+                    .from('project_stage_items')
+                    .select('macro_id, item_id, percentage')
+                    .eq('project_id', project.id);
+                if (stageData) {
+                    setStageRows(stageData.map((r: any) => ({
+                        macroId: r.macro_id, itemId: r.item_id, percentage: r.percentage
+                    })));
                 }
             }
         } catch (error) {
@@ -281,26 +347,6 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                     laborHint: m.labor_hint,
                     displayOrder: m.display_order
                 })));
-
-                const macroIds = data.map(m => m.id);
-                if (macroIds.length > 0) {
-                    const { data: subData } = await supabase
-                        .from('template_sub_macros')
-                        .select('*')
-                        .in('macro_id', macroIds)
-                        .order('display_order');
-
-                    if (subData) {
-                        setTemplateSubMacros(subData.map(sm => ({
-                            id: sm.id,
-                            macroId: sm.macro_id,
-                            name: sm.name,
-                            percentage: sm.percentage,
-                            description: sm.description,
-                            displayOrder: sm.display_order
-                        })));
-                    }
-                }
             }
         } catch (error) {
             console.error('Erro ao carregar template:', error);
@@ -329,6 +375,43 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
         } catch (error) {
             console.error('Erro ao atualizar macro:', error);
             alert('Erro ao salvar alteração da macro');
+        }
+    };
+
+    // Cronograma automático: distribui as datas das etapas entre o início e a entrega
+    // da obra, proporcional ao peso (%) de cada etapa — a mesma fonte do avanço.
+    const handleGenerateSchedule = async () => {
+        if (!project.startDate || !project.deliveryDate) {
+            alert('Defina a data de início e a de entrega da obra (na aba Gestão) para gerar o cronograma automaticamente.');
+            return;
+        }
+        const updates = computeScheduleDates(macros, project.startDate, project.deliveryDate);
+        if (updates.length === 0) {
+            alert('A data de entrega precisa ser posterior à data de início.');
+            return;
+        }
+
+        const fmt = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR');
+        const corridas = macros.filter(m => m.timeBased);
+        if (!window.confirm(
+            `Gerar as datas das ${macros.length} etapas de ${fmt(project.startDate)} a ${fmt(project.deliveryDate)}, ` +
+            `distribuindo pelo peso (%) de cada etapa?` +
+            (corridas.length > 0
+                ? `\n\n${corridas.map(m => m.name).join(', ')} corre${corridas.length > 1 ? 'm' : ''} do início à entrega (é custo do tempo, não uma fase).`
+                : '') +
+            `\n\nIsto substitui as datas planejadas atuais.`
+        )) return;
+        try {
+            await Promise.all(updates.map(u =>
+                supabase.from('project_macros')
+                    .update({ planned_start_date: u.planned_start_date, planned_end_date: u.planned_end_date })
+                    .eq('id', u.id)
+            ));
+            fetchBudgetData(true);
+            onBudgetUpdate?.();
+            alert('Cronograma gerado! Ajuste as datas de cada etapa aqui se precisar, ou veja no botão "Cronograma" da obra.');
+        } catch (e: any) {
+            alert('Erro ao gerar cronograma: ' + (e.message || e));
         }
     };
 
@@ -391,85 +474,6 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
         }
     };
 
-    // 4. Add sub-macro
-    const handleAddSubMacro = async (macroId: string) => {
-        try {
-            const { error } = await supabase
-                .from('project_sub_macros')
-                .insert({
-                    project_macro_id: macroId,
-                    name: 'Novo Subtópico',
-                    percentage: 0,
-                    estimated_value: 0,
-                    spent_value: 0,
-                    display_order: 99
-                });
-
-            if (error) throw error;
-            fetchBudgetData(true);
-            onBudgetUpdate?.();
-        } catch (error) {
-            console.error('Erro ao adicionar sub-macro:', error);
-        }
-    };
-
-    // 5. Delete sub-macro
-    const handleDeleteSubMacro = async (id: string) => {
-        if (!window.confirm('Remover este subtópico? As despesas vinculadas ficarão "Sem Detalhe".')) return;
-        try {
-            // 1. Desvincular despesas (setar sub_macro_id = null)
-            const { error: updateError } = await supabase
-                .from('expenses')
-                .update({ sub_macro_id: null })
-                .eq('sub_macro_id', id);
-
-            if (updateError) throw updateError;
-
-            // 2. Deletar o subtópico
-            const { error } = await supabase.from('project_sub_macros').delete().eq('id', id);
-
-            if (error) throw error;
-            fetchBudgetData(true);
-            onBudgetUpdate?.();
-        } catch (error) {
-            console.error('Erro ao remover sub-macro:', error);
-            alert('Erro ao remover subtópico.');
-        }
-    };
-
-    // 6. Update sub-macro local
-    const handleUpdateSubMacroLocal = (id: string, field: 'name' | 'percentage', value: any) => {
-        setEditSubMacros(prev => prev.map(s => {
-            if (s.id === id) {
-                return { ...s, [field]: value };
-            }
-            return s;
-        }));
-    };
-
-    // 7. Save sub-macro update
-    const handleSaveSubMacroUpdate = async (sub: ProjectSubMacro) => {
-        try {
-            const parentMacro = editMacros.find(m => m.id === sub.projectMacroId);
-            const parentValue = parentMacro ? (budget?.totalEstimated || 0) * (parentMacro.percentage / 100) : 0;
-
-            const { error } = await supabase
-                .from('project_sub_macros')
-                .update({
-                    name: sub.name,
-                    percentage: sub.percentage,
-                    estimated_value: parentValue * (sub.percentage / 100)
-                })
-                .eq('id', sub.id);
-
-            if (error) throw error;
-            fetchBudgetData(true);
-            onBudgetUpdate?.();
-        } catch (error) {
-            console.error('Erro ao atualizar sub-macro:', error);
-        }
-    };
-
     const handleCreateBudget = async () => {
         if (totalEstimated <= 0) return;
 
@@ -488,11 +492,11 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
 
             if (budgetError) throw budgetError;
 
-            // 2. Criar macros baseadas no template
+            // 2. Criar as ETAPAS (macros) baseadas no template.
+            // O Previsto por item é semeado depois via seed_project_stage_items (fetchBudgetData).
             for (const tm of templateMacros) {
                 const estimatedVal = (totalEstimated * tm.percentage) / 100;
-
-                const { data: newMacro, error: macroError } = await supabase
+                const { error: macroError } = await supabase
                     .from('project_macros')
                     .insert({
                         budget_id: newBudget.id,
@@ -501,30 +505,8 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                         estimated_value: estimatedVal,
                         spent_value: 0,
                         display_order: tm.displayOrder
-                    })
-                    .select()
-                    .single();
-
+                    });
                 if (macroError) throw macroError;
-
-                // 3. Criar Sub-macros para esta Macro
-                const subsForThisMacro = templateSubMacros.filter(tsm => tsm.macroId === tm.id);
-                if (subsForThisMacro.length > 0) {
-                    const subMacrosToInsert = subsForThisMacro.map(tsm => ({
-                        project_macro_id: newMacro.id,
-                        name: tsm.name,
-                        percentage: tsm.percentage,
-                        estimated_value: (estimatedVal * tsm.percentage) / 100,
-                        spent_value: 0,
-                        display_order: tsm.displayOrder
-                    }));
-
-                    const { error: subError } = await supabase
-                        .from('project_sub_macros')
-                        .insert(subMacrosToInsert);
-
-                    if (subError) throw subError;
-                }
             }
 
             setShowSetupModal(false);
@@ -541,6 +523,96 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
     const totalSpent = macros.reduce((sum, m) => sum + m.spentValue, 0);
     const totalBudget = budget?.totalEstimated || 0;
     const overallProgress = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+
+    // ── Modo "Por item": os 2 espelhos (pra onde o dinheiro foi) ─────────────────
+    const itemNameById = React.useMemo(() => {
+        const m: Record<string, string> = {};
+        projectItems.forEach(it => { m[it.id] = it.name; });
+        return m;
+    }, [projectItems]);
+    const macroNameById = React.useMemo(() => {
+        const m: Record<string, string> = {};
+        macros.forEach(mc => { m[mc.id] = mc.name; });
+        return m;
+    }, [macros]);
+    const SEM_ITEM = 'Sem item';
+    const SEM_ETAPA = 'Sem etapa';
+
+    // Real por (etapa, item): soma das despesas. Chave `${macroId}|${itemId}` ('' = sem item).
+    const realByMacroItem = React.useMemo(() => {
+        const m: Record<string, number> = {};
+        (project.expenses || []).forEach(e => {
+            if (!e.macroId) return;
+            const key = `${e.macroId}|${e.itemId || ''}`;
+            m[key] = (m[key] || 0) + (e.value || 0);
+        });
+        return m;
+    }, [project.expenses]);
+
+    // Drill-down de uma etapa: itens Previstos (com Real) + itens "fora do previsto".
+    const macroDrilldown = (macro: ProjectMacro) => {
+        const planned = stageRows
+            .filter(r => r.macroId === macro.id)
+            .map(r => ({
+                itemId: r.itemId,
+                name: itemNameById[r.itemId] || '—',
+                previsto: macro.estimatedValue * (r.percentage / 100),
+                real: realByMacroItem[`${macro.id}|${r.itemId}`] || 0,
+            }))
+            .sort((a, b) => b.previsto - a.previsto);
+        const plannedIds = new Set(planned.map(p => p.itemId));
+        const unplannedMap: Record<string, number> = {};
+        (project.expenses || []).forEach(e => {
+            if (e.macroId !== macro.id) return;
+            if (e.itemId && plannedIds.has(e.itemId)) return; // já está no previsto
+            const label = (e.itemId && itemNameById[e.itemId]) || SEM_ITEM;
+            unplannedMap[label] = (unplannedMap[label] || 0) + (e.value || 0);
+        });
+        const unplanned = Object.entries(unplannedMap)
+            .map(([name, total]) => ({ name, total }))
+            .sort((a, b) => b.total - a.total);
+        return { planned, unplanned };
+    };
+
+    // Espelho 1: total gasto por item (no que mais gastei), ranqueado.
+    const spentByItem = React.useMemo(() => {
+        const acc: Record<string, number> = {};
+        (project.expenses || []).forEach(e => {
+            const label = (e.itemId && itemNameById[e.itemId]) || SEM_ITEM;
+            acc[label] = (acc[label] || 0) + (e.value || 0);
+        });
+        return Object.entries(acc)
+            .map(([name, total]) => ({ name, total }))
+            .sort((a, b) => b.total - a.total);
+    }, [project.expenses, itemNameById]);
+    const spentByItemTotal = spentByItem.reduce((s, r) => s + r.total, 0);
+    const spentByItemMax = spentByItem.reduce((m, r) => Math.max(m, r.total), 0);
+
+    // Espelho 2: por etapa, do que ela foi feita (itens dentro da etapa).
+    const stageBreakdown = React.useMemo(() => {
+        const byMacro: Record<string, { total: number; items: Record<string, number> }> = {};
+        (project.expenses || []).forEach(e => {
+            const macroLabel = (e.macroId && macroNameById[e.macroId]) || SEM_ETAPA;
+            const itemLabel = (e.itemId && itemNameById[e.itemId]) || SEM_ITEM;
+            if (!byMacro[macroLabel]) byMacro[macroLabel] = { total: 0, items: {} };
+            byMacro[macroLabel].total += (e.value || 0);
+            byMacro[macroLabel].items[itemLabel] = (byMacro[macroLabel].items[itemLabel] || 0) + (e.value || 0);
+        });
+        // ordena etapas pela ordem do orçamento; "Sem etapa" por último
+        const order = (name: string) => {
+            const mc = macros.find(m => m.name === name);
+            return mc ? mc.displayOrder : 9999;
+        };
+        return Object.entries(byMacro)
+            .map(([name, data]) => ({
+                name,
+                total: data.total,
+                items: Object.entries(data.items)
+                    .map(([iname, total]) => ({ name: iname, total }))
+                    .sort((a, b) => b.total - a.total)
+            }))
+            .sort((a, b) => order(a.name) - order(b.name));
+    }, [project.expenses, itemNameById, macroNameById, macros]);
 
     if (loading) {
         return (
@@ -693,24 +765,65 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             </div>
 
             <div className="space-y-3">
+                {/* Alternância Por etapa / Por item */}
+                <div className="flex bg-slate-800/50 rounded-full p-1 w-fit">
+                    <button
+                        onClick={() => setViewMode('stage')}
+                        className={`px-4 py-1.5 rounded-full text-xs font-black transition ${viewMode === 'stage' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        <i className="fa-solid fa-layer-group mr-2"></i>Por etapa
+                    </button>
+                    {/* "Por item" é do plano ObraPro. No Free o botão CONTINUA à
+                        vista, com cadeado — é a vitrine do que ele ganha. */}
+                    <button
+                        onClick={() => {
+                            if (!ent.canUseItens) { openUpgrade('itens'); return; }
+                            setViewMode('item');
+                            if (isEditing) handleSetIsEditing(false);
+                        }}
+                        className={`px-4 py-1.5 rounded-full text-xs font-black transition ${viewMode === 'item' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        <i className={`fa-solid ${ent.canUseItens ? 'fa-boxes-stacked' : 'fa-lock text-amber-400'} mr-2`}></i>Por item
+                    </button>
+                </div>
+
+                {viewMode === 'stage' && (
                 <div className="flex justify-between items-center px-2">
                     <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest">
                         Por Categoria
                     </h4>
                     {isAdmin && (
-                        <button
-                            onClick={() => handleSetIsEditing(!isEditing)}
-                            className={`text-xs font-bold px-3 py-1 rounded-full border transition ${isEditing
-                                ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/50'
-                                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
-                                }`}
-                        >
-                            <i className={`fa-solid ${isEditing ? 'fa-check' : 'fa-gear'} mr-2`}></i>
-                            {isEditing ? 'Concluir Edição' : 'Personalizar'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleGenerateSchedule}
+                                title="Distribui as datas das etapas entre o início e a entrega da obra (pelo peso de cada etapa)"
+                                className="text-xs font-bold px-3 py-1 rounded-full border transition bg-blue-600/10 text-blue-400 border-blue-500/40 hover:bg-blue-600 hover:text-white"
+                            >
+                                <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>
+                                Gerar cronograma
+                            </button>
+                            <button
+                                onClick={() => handleSetIsEditing(!isEditing)}
+                                className={`text-xs font-bold px-3 py-1 rounded-full border transition ${isEditing
+                                    ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/50'
+                                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                                    }`}
+                            >
+                                <i className={`fa-solid ${isEditing ? 'fa-check' : 'fa-gear'} mr-2`}></i>
+                                {isEditing ? 'Concluir Edição' : 'Personalizar'}
+                            </button>
+                        </div>
                     )}
                 </div>
+                )}
 
+                {viewMode === 'stage' ? (
+                  <>
+                {/* Rótulo honesto: o preset é ponto de partida, não verdade. */}
+                <div className="flex items-start gap-2 text-[11px] text-slate-500 px-2 -mt-1">
+                    <i className="fa-solid fa-circle-info mt-0.5 text-slate-600"></i>
+                    <span>Distribuição <b className="text-slate-400">sugerida</b> (base em obras residenciais econômicas). Ajuste em <b className="text-slate-400">Personalizar</b> conforme seu projeto, região e método construtivo.</span>
+                </div>
                 {isEditing && (
                     <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 mb-4 animate-fade-in">
                         <div className="flex items-start gap-3">
@@ -718,10 +831,10 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                             <div>
                                 <h5 className="text-sm font-bold text-yellow-400 mb-1">Modo de Personalização</h5>
                                 <p className="text-xs text-yellow-400/80 mb-2">
-                                    Você está editando a estrutura do orçamento. Alterações nas porcentagens recalcularão automaticamente os valores meta.
+                                    Ajuste o <b>% de cada etapa</b> (a régua do orçamento) e o <b>previsto de cada item dentro da etapa</b>. Os valores em R$ recalculam sozinhos. São só um ponto de partida — mude à vontade.
                                 </p>
                                 <div className="text-xs font-mono bg-black/20 rounded px-2 py-1 inline-block">
-                                    Soma Total: <span className={editMacros.reduce((acc, m) => acc + m.percentage, 0) === 100 ? 'text-green-400' : 'text-red-400'}>
+                                    Soma das etapas: <span className={editMacros.reduce((acc, m) => acc + m.percentage, 0) === 100 ? 'text-green-400' : 'text-red-400'}>
                                         {editMacros.reduce((acc, m) => acc + m.percentage, 0).toFixed(2)}%
                                     </span>
                                 </div>
@@ -790,43 +903,55 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                                         </div>
                                     </div>
 
+                                    {(() => {
+                                        const rows = editStageRows
+                                            .filter(r => r.macroId === macro.id)
+                                            .sort((a, b) => b.percentage - a.percentage);
+                                        const usados = new Set(rows.map(r => r.itemId));
+                                        const disponiveis = projectItems.filter(pi => !usados.has(pi.id));
+                                        const soma = rows.reduce((s, r) => s + r.percentage, 0);
+                                        return (
                                     <div className="pl-12 pr-1 space-y-2">
                                         <div className="flex justify-between items-center">
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Subtópicos</p>
-                                            <button
-                                                onClick={() => handleAddSubMacro(macro.id)}
-                                                className="text-[10px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                                Itens previstos <span className={`ml-1 ${Math.round(soma) === 100 ? 'text-green-400' : 'text-amber-400'}`}>({soma.toFixed(0)}%)</span>
+                                            </p>
+                                            <select
+                                                value=""
+                                                onChange={(e) => { if (e.target.value) handleAddStageItem(macro.id, e.target.value); }}
+                                                className="text-[10px] font-bold text-blue-400 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 outline-none cursor-pointer max-w-[45%]"
                                             >
-                                                <i className="fa-solid fa-plus"></i> Adicionar
-                                            </button>
+                                                <option value="">+ Adicionar item…</option>
+                                                {disponiveis.map(pi => (
+                                                    <option key={pi.id} value={pi.id}>{pi.name}</option>
+                                                ))}
+                                            </select>
                                         </div>
 
-                                        {editSubMacros.filter(sm => sm.projectMacroId === macro.id).map(sub => (
-                                            <div key={sub.id} className="grid grid-cols-12 gap-2 items-center bg-slate-800/30 rounded-lg p-2">
+                                        {rows.length === 0 && (
+                                            <p className="text-[10px] text-slate-600 italic">Nenhum item previsto nesta etapa. Adicione um item acima.</p>
+                                        )}
+                                        {rows.map(row => (
+                                            <div key={row.itemId} className="grid grid-cols-12 gap-2 items-center bg-slate-800/30 rounded-lg p-2">
                                                 <div className="col-span-1 flex justify-center">
                                                     <i className="fa-solid fa-turn-up rotate-90 text-slate-600 text-[10px]"></i>
                                                 </div>
                                                 <div className="col-span-7">
-                                                    <input
-                                                        className="w-full bg-transparent border-b border-transparent focus:border-slate-600 px-1 py-0.5 text-xs font-bold text-slate-300 outline-none"
-                                                        value={sub.name}
-                                                        onChange={(e) => handleUpdateSubMacroLocal(sub.id, 'name', e.target.value)}
-                                                        onBlur={() => handleSaveSubMacroUpdate(sub)}
-                                                    />
+                                                    <span className="text-xs font-bold text-slate-300 px-1">{itemNameById[row.itemId] || '—'}</span>
                                                 </div>
                                                 <div className="col-span-3 relative">
                                                     <input
                                                         type="number"
                                                         className="w-full bg-transparent border-b border-transparent focus:border-slate-600 px-1 py-0.5 text-xs font-bold text-slate-300 outline-none text-right pr-4"
-                                                        value={sub.percentage}
-                                                        onChange={(e) => handleUpdateSubMacroLocal(sub.id, 'percentage', parseFloat(e.target.value) || 0)}
-                                                        onBlur={() => handleSaveSubMacroUpdate(sub)}
+                                                        value={row.percentage}
+                                                        onChange={(e) => handleUpdateStageItemLocal(macro.id, row.itemId, parseFloat(e.target.value) || 0)}
+                                                        onBlur={() => handleSaveStageItemPct(macro.id, row.itemId, row.percentage)}
                                                     />
                                                     <span className="absolute right-1 top-0.5 text-slate-500 text-[10px]">%</span>
                                                 </div>
                                                 <div className="col-span-1 flex justify-center">
                                                     <button
-                                                        onClick={() => handleDeleteSubMacro(sub.id)}
+                                                        onClick={() => handleRemoveStageItem(macro.id, row.itemId)}
                                                         className="text-slate-600 hover:text-red-400"
                                                     >
                                                         <i className="fa-solid fa-xmark"></i>
@@ -835,6 +960,8 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                                             </div>
                                         ))}
                                     </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         ))}
@@ -883,36 +1010,125 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                                     <span>Meta: {formatCurrency(macro.estimatedValue)}</span>
                                 </div>
 
-                                {expandedMacroId === macro.id && (
-                                    <div className="mt-4 pl-4 border-l-2 border-slate-700 space-y-3 animate-fade-in">
-                                        {projectSubMacros.filter(sm => sm.projectMacroId === macro.id).length > 0 ? (
-                                            projectSubMacros.filter(sm => sm.projectMacroId === macro.id).map(sub => {
-                                                const subProgress = sub.estimatedValue > 0 ? (sub.spentValue / sub.estimatedValue) * 100 : 0;
-                                                return (
-                                                    <div key={sub.id} className="text-xs">
-                                                        <div className="flex justify-between items-center mb-1">
-                                                            <span className="text-slate-300 font-bold">{sub.name}</span>
-                                                            <span className={`${subProgress > 100 ? 'text-red-400' : 'text-slate-400'}`}>
-                                                                {formatCurrency(sub.spentValue)} / {formatCurrency(sub.estimatedValue)}
-                                                            </span>
+                                {expandedMacroId === macro.id && (() => {
+                                    const { planned, unplanned } = macroDrilldown(macro);
+                                    return (
+                                        <div className="mt-4 pl-4 border-l-2 border-slate-700 space-y-3 animate-fade-in" onClick={e => e.stopPropagation()}>
+                                            {planned.length === 0 && unplanned.length === 0 ? (
+                                                <p className="text-xs text-slate-600 italic">Sem itens previstos nesta etapa. Lance despesas com item para acompanhar aqui.</p>
+                                            ) : (
+                                                <>
+                                                    {/* Itens previstos: barra Gasto × Previsto */}
+                                                    {planned.map(it => {
+                                                        const itemProgress = it.previsto > 0 ? (it.real / it.previsto) * 100 : (it.real > 0 ? 100 : 0);
+                                                        return (
+                                                            <div key={it.itemId} className="text-xs">
+                                                                <div className="flex justify-between items-center mb-1">
+                                                                    <span className="text-slate-300 font-bold">{it.name}</span>
+                                                                    <span className={`${itemProgress > 100 ? 'text-red-400' : 'text-slate-400'}`}>
+                                                                        {itemProgress > 100 && <i className="fa-solid fa-triangle-exclamation mr-1"></i>}
+                                                                        {formatCurrency(it.real)} <span className="text-slate-600">/ {formatCurrency(it.previsto)}</span>
+                                                                    </span>
+                                                                </div>
+                                                                <div className="w-full h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={`h-full rounded-full ${itemProgress > 100 ? 'bg-red-500' : 'bg-blue-400'}`}
+                                                                        style={{ width: `${Math.min(itemProgress, 100)}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+
+                                                    {/* Itens fora do previsto: só o gasto */}
+                                                    {unplanned.length > 0 && (
+                                                        <div className="pt-2 mt-1 border-t border-slate-700/50 space-y-2">
+                                                            <p className="text-[10px] font-black text-amber-400/80 uppercase tracking-wider">Fora do previsto</p>
+                                                            {unplanned.map(it => (
+                                                                <div key={it.name} className="flex justify-between items-center text-xs">
+                                                                    <span className={`font-bold ${it.name === SEM_ITEM ? 'text-slate-500 italic' : 'text-slate-300'}`}>
+                                                                        <i className="fa-solid fa-circle-plus text-amber-400/60 text-[9px] mr-1.5"></i>{it.name}
+                                                                    </span>
+                                                                    <span className="text-amber-400/90">{formatCurrency(it.total)}</span>
+                                                                </div>
+                                                            ))}
                                                         </div>
-                                                        <div className="w-full h-1 bg-slate-700/50 rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full rounded-full ${subProgress > 100 ? 'bg-red-500' : 'bg-blue-400'}`}
-                                                                style={{ width: `${Math.min(subProgress, 100)}%` }}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })
-                                        ) : (
-                                            <p className="text-xs text-slate-600 italic">Nenhum subtópico configurado.</p>
-                                        )}
-                                    </div>
-                                )}
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         );
                     })
+                )}
+                  </>
+                ) : (
+                  /* ── MODO POR ITEM: os 2 espelhos ── */
+                  <div className="space-y-6">
+                    {spentByItemTotal === 0 ? (
+                      <div className="glass rounded-2xl p-8 text-center">
+                        <i className="fa-solid fa-boxes-stacked text-3xl text-slate-600 mb-3"></i>
+                        <p className="font-bold text-white mb-1">Ainda sem itens lançados</p>
+                        <p className="text-sm text-slate-400 max-w-sm mx-auto">Ao lançar uma despesa, escolha o <b>Item</b> ("o que comprei"). Aqui você vê no que mais gastou e do que cada etapa foi feita.</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Espelho 1 — no que mais gastou */}
+                        <div className="glass rounded-2xl p-5">
+                          <h4 className="text-sm font-black text-slate-300 uppercase tracking-widest mb-1">No que você mais gastou</h4>
+                          <p className="text-xs text-slate-500 mb-4">Somando todas as despesas, por item.</p>
+                          <div className="space-y-3">
+                            {spentByItem.map(row => {
+                              const pct = spentByItemTotal > 0 ? (row.total / spentByItemTotal) * 100 : 0;
+                              const bar = spentByItemMax > 0 ? (row.total / spentByItemMax) * 100 : 0;
+                              return (
+                                <div key={row.name}>
+                                  <div className="flex justify-between items-center mb-1 text-sm">
+                                    <span className={`font-bold ${row.name === SEM_ITEM ? 'text-slate-500 italic' : 'text-white'}`}>{row.name}</span>
+                                    <span className="text-slate-300 font-bold">{formatCurrency(row.total)} <span className="text-slate-500 text-xs font-normal">· {pct.toFixed(0)}%</span></span>
+                                  </div>
+                                  <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full bg-blue-500" style={{ width: `${bar}%` }} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Espelho 2 — do que cada etapa foi feita */}
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest px-2">Do que cada etapa foi feita</h4>
+                          {stageBreakdown.map(stage => (
+                            <div key={stage.name} className="glass rounded-2xl p-4">
+                              <div className="flex justify-between items-center mb-3">
+                                <span className={`font-bold ${stage.name === SEM_ETAPA ? 'text-slate-500 italic' : 'text-white'}`}>{stage.name}</span>
+                                <span className="text-blue-400 font-black">{formatCurrency(stage.total)}</span>
+                              </div>
+                              <div className="space-y-2">
+                                {stage.items.map(it => {
+                                  const bar = stage.total > 0 ? (it.total / stage.total) * 100 : 0;
+                                  return (
+                                    <div key={it.name} className="text-xs">
+                                      <div className="flex justify-between items-center mb-1">
+                                        <span className={`${it.name === SEM_ITEM ? 'text-slate-500 italic' : 'text-slate-300'} font-bold`}>{it.name}</span>
+                                        <span className="text-slate-400">{formatCurrency(it.total)} · {bar.toFixed(0)}%</span>
+                                      </div>
+                                      <div className="w-full h-1 bg-slate-700/50 rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full bg-blue-400" style={{ width: `${bar}%` }} />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
             </div>
         </div>

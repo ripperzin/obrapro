@@ -1,16 +1,19 @@
 
 import React from 'react';
 import { UserRole } from '../types';
+import { usePlan } from './PlanProvider';
+import { planLabel } from '../hooks/useEntitlements';
 
 interface SidebarProps {
   role: UserRole;
   activeTab: 'projects' | 'general' | 'users' | 'audit';
   setActiveTab: (tab: 'projects' | 'general' | 'users' | 'audit') => void;
   onLogout: () => void;
-  onTriggerAI: () => void;
+  onTriggerAI?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogout, onTriggerAI }) => {
+const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogout }) => {
+  const { ent, openUpgrade } = usePlan();
   const NavItem = ({ id, icon, label }: { id: typeof activeTab; icon: string; label: string }) => (
     <button
       onClick={() => setActiveTab(id)}
@@ -44,19 +47,30 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
           <NavItem id="general" icon="fa-home" label="Início" />
           <NavItem id="audit" icon="fa-fingerprint" label="Auditoria" />
           {role === UserRole.ADMIN && <NavItem id="users" icon="fa-users" label="Usuários" />}
-
-          <button
-            onClick={onTriggerAI}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all text-indigo-400 hover:bg-indigo-500/10 hover:text-indigo-300"
-          >
-            <svg viewBox="0 0 24 24" className="w-6 h-6 text-indigo-400" fill="currentColor">
-              <path d="M12 3L14.5 8.5L20 11L14.5 13.5L12 19L9.5 13.5L4 11L9.5 8.5L12 3Z" />
-              <path d="M19 3L20 5.5L22.5 6.5L20 7.5L19 10L18 7.5L15.5 6.5L18 5.5L19 3Z" />
-              <path d="M5 14L6 16.5L8.5 17.5L6 18.5L5 21L4 18.5L1.5 17.5L4 16.5L5 14Z" />
-            </svg>
-            <span className="font-bold text-lg">Copiloto IA</span>
-          </button>
         </nav>
+
+        {/* Selo do plano. 'business' é etiqueta interna (admin), não um plano
+            de venda — nesse caso não mostra nada em vez de escrever "Business". */}
+        {ent.plan !== 'business' && (
+          <div className="pt-4 border-t border-slate-800 space-y-2">
+            <div className="flex items-center justify-between px-4">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">
+                Seu plano
+              </span>
+              <span className={`text-xs font-black whitespace-nowrap ${ent.isFree ? 'text-slate-300' : 'text-blue-400'}`}>
+                {planLabel(ent.plan)}
+              </span>
+            </div>
+            {ent.isFree && (
+              <button
+                onClick={() => openUpgrade('geral')}
+                className="w-full px-4 py-2.5 bg-amber-500/10 border border-amber-500/40 text-amber-400 rounded-xl font-black text-xs hover:bg-amber-500/20 transition whitespace-nowrap"
+              >
+                Conhecer o ObraPro
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="pt-4 border-t border-slate-800">
           <button

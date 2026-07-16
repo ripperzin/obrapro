@@ -1,21 +1,57 @@
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Project, STAGE_NAMES } from '../types';
+import { Project, getStageName } from '../types';
 import { supabase } from '../supabaseClient';
-import { calculateFinancialMetrics, calculateAverageMetrics } from './financials';
+import { computeProjectFinance, computeGastoAvancoVerdito, computeAporteShares } from './projectFinance';
+import { daysSince, lastUpdatedLabel, mostRecentDate } from '../utils';
+import { ReportOptions, DEFAULT_REPORT_OPTIONS } from './reportOptions';
 
 // ============================================================================
 // IMAGE HELPERS
 // ============================================================================
 
+const blobToDataUrl = (blob: Blob): Promise<string | null> =>
+    new Promise((resolve) => {
+        const fr = new FileReader();
+        fr.onloadend = () => resolve(typeof fr.result === 'string' ? fr.result : null);
+        fr.onerror = () => resolve(null);
+        fr.readAsDataURL(blob);
+    });
+
+// Baixa a imagem como data URL para desenhar no PDF.
+// 1) Assina a URL (createSignedUrl — mesma via que o app usa p/ exibir a foto).
+// 2) Baixa os bytes dessa URL (token público + CORS *) e converte em data URL,
+//    evitando o canvas "tainted".
 const getPhotoUrl = async (path: string): Promise<string | null> => {
     if (!path) return null;
-    if (path.startsWith('http') || path.startsWith('blob:') || path.startsWith('data:')) return path;
+    if (path.startsWith('data:')) return path;
+
+    // 1) Obtém uma URL acessível
+    let url = '';
+    if (path.startsWith('http') || path.startsWith('blob:')) {
+        url = path;
+    } else {
+        for (const bucket of ['project-documents', 'expense-attachments']) {
+            try {
+                const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+                if (error) { console.warn('[PDF] createSignedUrl falhou em', bucket, '->', error.message); continue; }
+                if (data?.signedUrl) { url = data.signedUrl; break; }
+            } catch (e) { console.warn('[PDF] createSignedUrl exceção em', bucket, e); }
+        }
+    }
+    if (!url) { console.warn('[PDF] Não consegui assinar a foto:', path); return null; }
+
+    // 2) Baixa os bytes e converte em data URL
     try {
-        const { data } = await supabase.storage.from('project-documents').createSignedUrl(path, 3600);
-        return data?.signedUrl || null;
-    } catch { return null; }
+        const resp = await fetch(url);
+        if (!resp.ok) { console.warn('[PDF] fetch da foto retornou', resp.status); return null; }
+        const blob = await resp.blob();
+        return await blobToDataUrl(blob);
+    } catch (e) {
+        console.warn('[PDF] fetch da foto falhou:', e);
+        return null;
+    }
 };
 
 const loadImage = (url: string, targetRatio?: number): Promise<string> => {
@@ -102,52 +138,8 @@ const bar = (doc: any, x: number, y: number, w: number, h: number, pct: number, 
 };
 
 // ============================================================================
-// METRICS
+// (métricas vêm do computeProjectFinance — fonte única do app e do Portal)
 // ============================================================================
-
-const calcMetrics = (project: Project, inflationRate: number) => {
-    const sold = project.units.filter(u => u.status === 'Sold');
-    const avail = project.units.filter(u => u.status === 'Available');
-    const totalCost = project.units.reduce((s, u) => s + u.cost, 0);
-    const totalExp = project.expenses.reduce((s, e) => s + e.value, 0);
-    const usage = totalCost > 0 ? (totalExp / totalCost) * 100 : 0;
-    const totalSold = sold.reduce((s, u) => s + (u.saleValue || 0), 0);
-    const estSales = project.units.reduce((s, u) => s + (u.valorEstimadoVenda || 0), 0);
-    const estProfit = estSales - totalCost;
-    const potential = avail.reduce((s, u) => s + (u.valorEstimadoVenda || 0), 0);
-    const done = project.progress === 100;
-    const area = project.units.reduce((s, u) => s + u.area, 0);
-
-    const realProfit = sold.reduce((a, u) => {
-        let cb = u.cost;
-        if (done && area > 0) cb = (u.area / area) * totalExp;
-        return (u.saleValue && u.saleValue > 0) ? a + (u.saleValue - cb) : a;
-    }, 0);
-
-    const first = project.expenses.length > 0 ? project.expenses.reduce((m, e) => e.date < m.date ? e : m, project.expenses[0]) : null;
-    const ml = sold.map(u => {
-        if (u.saleValue && u.saleValue > 0) {
-            let cb = u.cost;
-            if (done && area > 0) cb = (u.area / area) * totalExp;
-            if (cb > 0) {
-                let mo = 0;
-                if (u.saleDate && first) { const s = new Date(first.date), e = new Date(u.saleDate); mo = Math.max(1, Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24 * 30))); }
-                return calculateFinancialMetrics(u.saleValue - cb, cb, mo, inflationRate);
-            }
-        }
-        return null;
-    }).filter(Boolean) as any[];
-    const avg = calculateAverageMetrics(ml);
-
-    return {
-        total: project.units.length, sold: sold.length, avail: avail.length,
-        totalCost, totalExp, usage, totalSold, potential,
-        realProfit, estProfit,
-        monthlyRoi: avg ? avg.nominalMonthlyRoi * 100 : 0,
-        realRoi: avg ? avg.realMonthlyRoi * 100 : 0,
-        inflationRate
-    };
-};
 
 // ============================================================================
 // FETCH DATA
@@ -158,7 +150,11 @@ const fetchData = async (id: string) => {
     if (error || !p) throw new Error('Projeto não encontrado');
     const { data: units } = await supabase.from('units').select('*').eq('project_id', id);
     const { data: exps } = await supabase.from('expenses').select('*').eq('project_id', id);
+    const { data: acqs } = await supabase.from('acquisition_costs').select('*').eq('project_id', id);
     const { data: evs } = await supabase.from('stage_evidences').select('*').eq('project_id', id);
+    const { data: contribs } = await supabase.from('contributions').select('*').eq('project_id', id);
+    const { data: invs } = await supabase.from('investors').select('*').eq('project_id', id);
+    const { data: shares } = await supabase.from('profit_shares').select('*').eq('project_id', id);
     const { data: bud } = await supabase.from('project_budgets')
         .select(`*, macros:project_macros (*, subMacros:project_sub_macros (*))`)
         .eq('project_id', id).maybeSingle();
@@ -168,15 +164,22 @@ const fetchData = async (id: string) => {
         unitCount: p.unit_count || 0, totalArea: p.total_area || 0,
         progress: p.progress || 0, expectedTotalCost: p.expected_total_cost || 0,
         expectedTotalSales: p.expected_total_sales || 0,
-        units: (units || []).map((u: any) => ({ id: u.id, identifier: u.identifier, area: u.area, cost: u.cost, status: u.status, valorEstimadoVenda: u.valor_estimado_venda, saleValue: u.sale_value, saleDate: u.sale_date })),
-        expenses: (exps || []).map((e: any) => ({ id: e.id, description: e.description, value: e.value, date: e.date, userId: e.user_id, userName: e.user_name, macroId: e.macro_id, subMacroId: e.sub_macro_id, attachmentUrl: e.attachment_url, attachments: e.attachments || [] })),
+        splitMode: (p.split_mode as 'percent' | 'unit') || 'percent',
+        units: (units || []).map((u: any) => ({ id: u.id, identifier: u.identifier, area: u.area, cost: u.cost, status: u.status, valorEstimadoVenda: u.valor_estimado_venda, saleValue: u.sale_value, saleDate: u.sale_date, ownerInvestorId: u.owner_investor_id || undefined })),
+        expenses: (exps || []).map((e: any) => ({ id: e.id, description: e.description, value: e.value, date: e.date, userId: e.user_id, userName: e.user_name, macroId: e.macro_id, subMacroId: e.sub_macro_id, attachmentUrl: e.attachment_url, attachments: e.attachments || [], paidByInvestorId: e.paid_by_investor_id || undefined })),
+        acquisitionCosts: (acqs || []).map((a: any) => ({ id: a.id, projectId: a.project_id, category: a.category, description: a.description, value: a.value, date: a.date, paidFromProject: a.paid_from_project })),
         stageEvidence: (evs || []).map((e: any) => ({ stage: e.stage, photos: e.photos || [], date: e.date, notes: e.notes, user: e.user_name })),
+        contributions: (contribs || []).map((c: any) => ({ id: c.id, projectId: c.project_id, investorId: c.investor_id, value: c.value, date: c.date })),
+        investors: (invs || []).map((i: any) => ({ id: i.id, projectId: i.project_id, name: i.name })),
+        profitShares: (shares || []).map((s: any) => ({ id: s.id, projectId: s.project_id, investorId: s.investor_id || undefined, name: s.name, percentage: s.percentage || 0, naoAporta: s.nao_aporta || false })),
         logs: [], documents: [], diary: [],
         budget: bud ? {
             id: bud.id, projectId: bud.project_id, totalEstimated: bud.total_estimated || 0, totalValue: bud.total_value,
             macros: (bud.macros || []).map((m: any) => ({
                 id: m.id, budgetId: m.budget_id, name: m.name, percentage: m.percentage,
                 estimatedValue: m.estimated_value, spentValue: m.spent_value || 0, displayOrder: m.display_order,
+                // Igual ao app e ao link: canteiro fora da régua do avanço.
+                timeBased: m.time_based || false,
                 subMacros: (m.subMacros || []).map((s: any) => ({
                     id: s.id, projectMacroId: s.project_macro_id, name: s.name, percentage: s.percentage,
                     estimatedValue: s.estimated_value, spentValue: s.spent_value || 0, displayOrder: s.display_order
@@ -190,7 +193,7 @@ const fetchData = async (id: string) => {
 // MAIN PDF GENERATOR
 // ============================================================================
 
-export const generateProjectPDF = async (projectPartial: Project, userName: string, inflationRateOverride?: number) => {
+export const generateProjectPDF = async (projectPartial: Project, userName: string, options: ReportOptions = DEFAULT_REPORT_OPTIONS) => {
     try {
         const project = await fetchData(projectPartial.id);
         const doc = new jsPDF() as any;
@@ -200,11 +203,18 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         const W = pw - M * 2; // content width
         const today = new Date().toLocaleDateString('pt-BR');
 
-        let iRate = 0.005;
-        if (typeof inflationRateOverride === 'number') iRate = inflationRateOverride;
-        else { const { data } = await supabase.from('inflation_rates').select('rate').order('month', { ascending: false }).limit(1).single(); iRate = data?.rate || 0.005; }
-
-        const mt = calcMetrics(project, iRate);
+        // Fonte única — mesmos números do app e do Portal do Investidor.
+        const f = computeProjectFinance(project);
+        const isCompleted = project.progress >= 100;
+        const verdito = computeGastoAvancoVerdito(f);
+        const toneHex = ({ neutral: C.muted2, warning: C.amber, good: C.emerald } as Record<string, string>)[verdito.tone];
+        const invName = (id?: string) => (project.investors || []).find(i => i.id === id)?.name;
+        const lastUpd = mostRecentDate([
+            ...(project.expenses || []).map(e => e.date),
+            ...(project.contributions || []).map(c => c.date),
+            ...(project.stageEvidence || []).map(s => s.date),
+        ]);
+        let fotoShown = false;
 
         const darkBg = () => { doc.setFillColor(...BG); doc.rect(0, 0, pw, ph, 'F'); };
 
@@ -244,12 +254,13 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
 
         // Right
         doc.text(`Gerado: ${today}  •  Por: ${userName}`, pw - M, 14, { align: 'right' });
+        if (lastUpd) { doc.setFontSize(7); setColor(C.muted); doc.text(lastUpdatedLabel(daysSince(lastUpd)), pw - M, 18.5, { align: 'right' }); }
 
         let y = 38;
 
         // ── HERO PHOTO ──
         const latestEv = (project.stageEvidence || []).filter(e => e.photos?.length > 0).sort((a, b) => b.stage - a.stage)[0];
-        if (latestEv?.photos?.[0]) {
+        if (latestEv?.photos?.[0] && options.foto) {
             try {
                 const imgH = 100;
                 const targetRatio = (W - 1) / (imgH - 1);
@@ -263,173 +274,284 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
                     doc.setFillColor(10, 15, 30);
                     doc.rect(M + 0.5, y + imgH - 13, W - 1, 12.5, 'F');
                     doc.setFontSize(9); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold');
-                    doc.text(STAGE_NAMES[latestEv.stage] || '', M + 5, y + imgH - 4);
+                    doc.text(getStageName(latestEv.stage, project) || '', M + 5, y + imgH - 4);
                     if (latestEv.date) { doc.setFontSize(7); setColor(C.muted); doc.text(`Foto: ${fmtDate(latestEv.date)}`, pw - M - 5, y + imgH - 4, { align: 'right' }); }
                     y += imgH + 6;
+                    fotoShown = true;
+                } else {
+                    console.warn('[PDF] getPhotoUrl retornou vazio para', latestEv.photos[0]);
                 }
-            } catch { /* skip */ }
+            } catch (err) { console.warn('[PDF] Falha ao desenhar a foto:', err); }
+        } else {
+            console.warn('[PDF] Sem foto para o hero. options.foto=', options.foto, 'latestEv=', latestEv);
         }
 
-        // ── PROGRESS ──
-        y = pageBreak(18, y);
-        doc.setFontSize(11); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
-        doc.text('Progresso Geral', M, y);
-        doc.setFontSize(16); setColor(C.blue); doc.text(`${project.progress}%`, pw - M, y, { align: 'right' });
+        // ══════════════════════════════════════════════════════════
+        // GASTO x AVANÇO (substitui o "Progresso Geral" — igual ao app)
+        // ══════════════════════════════════════════════════════════
+        y = pageBreak(30, y);
+        doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
+        doc.text('GASTO x AVANÇO', M, y);
+        doc.setFontSize(7); setColor(C.muted); doc.setFont('helvetica', 'normal');
+        doc.text(`${f.gastoPct.toFixed(0)}% gasto  •  ${f.progresso.toFixed(0)}% obra`, pw - M, y, { align: 'right' });
         y += 4;
-        bar(doc, M, y, W, 5, project.progress, C.blue);
-        y += 8;
+        // barra de gasto + marcador branco do avanço físico
+        bar(doc, M, y, W, 5, f.gastoPct, toneHex);
+        const markX = M + Math.min(f.progresso, 100) * (W / 100);
+        doc.setFillColor(255, 255, 255);
+        doc.rect(markX - 0.3, y - 1.2, 0.6, 7.4, 'F');
+        y += 9;
+        // veredito (esquerda) + "Gasto X de Y" (direita) — igual ao app
+        doc.setFontSize(9); setColor(toneHex); doc.setFont('helvetica', 'bold');
+        doc.text(verdito.texto, M, y);
         doc.setFontSize(8); setColor(C.muted); doc.setFont('helvetica', 'normal');
-        doc.text(`Etapa: ${STAGE_NAMES[project.progress] || 'N/A'}`, M, y);
-        y += 10;
-
-        // ══════════════════════════════════════════════════════════
-        // VENDAS & LUCRO
-        // ══════════════════════════════════════════════════════════
-        y = pageBreak(55, y);
-
-        doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
-        doc.text('VENDAS & LUCRO', M, y);
-        // Small badge right
-        card(doc, pw - M - 38, y - 4.5, 38, 6);
-        doc.setFontSize(6); setColor(C.muted); doc.text('Visão do Investidor', pw - M - 19, y - 0.5, { align: 'center' });
+        doc.text(`Gasto ${fmtShort(f.gasto)} de ${fmtShort(f.orcamentoObra)}`, pw - M, y, { align: 'right' });
         y += 6;
-
-        // TOP ROW: Und. Vendidas + Total Liquidado
-        const c1W = W * 0.35, c2W = W * 0.62, gap = W * 0.03;
-        const topH = 28;
-
-        // Card: Und. Vendidas
-        card(doc, M, y, c1W, topH);
-        doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'bold');
-        doc.text('UND. VENDIDAS', M + 3, y + 5);
-        const pct = Math.round((mt.sold / (mt.total || 1)) * 100);
-        doc.setFontSize(13); doc.setTextColor(C.text);
-        doc.text(`${pct}%`, M + 6, y + 15);
-        doc.setFontSize(18); doc.text(`${mt.sold}`, M + c1W / 2 + 4, y + 15);
-        doc.setFontSize(11); setColor(C.muted2); doc.text(`/${mt.total}`, M + c1W / 2 + 4 + doc.getTextWidth(`${mt.sold}`), y + 15);
-        doc.setFontSize(6); setColor(C.blue); doc.text('METAS', M + c1W / 2 + 4, y + 21);
-
-        // Card: Total Liquidado
-        card(doc, M + c1W + gap, y, c2W, topH, C.emerald);
-        doc.setFontSize(7); setColor(C.emerald); doc.setFont('helvetica', 'bold');
-        doc.text('TOTAL LIQUIDADO', M + c1W + gap + 4, y + 6);
-        doc.setFontSize(16); doc.setTextColor(C.text);
-        doc.text(fmtShort(mt.totalSold), M + c1W + gap + 4, y + 17);
-        doc.setFontSize(6); setColor(C.muted); doc.text('Contratos validados', M + c1W + gap + 4, y + 23);
-        y += topH + 4;
-
-        // BOTTOM ROW: 4 compact cards
-        y = pageBreak(24, y);
-        const sW = (W - 9) / 4, sH = 22, sG = 3;
-
-        const specs = [
-            { lbl: 'LUCRO REAL', val: fmtShort(mt.realProfit), bdg: 'Real', bc: C.blue, brd: C.blue },
-            { lbl: 'LUCRO PROJ.', val: fmtShort(mt.estProfit), bdg: 'Est.', bc: C.muted2, brd: C.cyan },
-            { lbl: 'POTENCIAL', val: mt.potential > 0 ? fmtShort(mt.potential) : 'VENDIDO', bdg: mt.potential > 0 ? '' : 'Esgotado', bc: C.orange, brd: C.orange },
-            { lbl: 'ROI REAL (A.M.)', val: `${(mt.realRoi || 0).toFixed(1)}%`, bdg: '', bc: '', brd: C.purple }
-        ];
-
-        specs.forEach((s, i) => {
-            const x = M + i * (sW + sG);
-            card(doc, x, y, sW, sH, s.brd);
-
-            // Badge
-            if (s.bdg) {
-                doc.setFillColor(...hex(s.bc));
-                const bw = doc.getTextWidth(s.bdg) + 5;
-                doc.roundedRect(x + sW - bw - 2, y + 1.5, bw, 4.5, 2, 2, 'F');
-                doc.setFontSize(5.5); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold');
-                doc.text(s.bdg.toUpperCase(), x + sW - bw / 2 - 2, y + 4.5, { align: 'center' });
-            }
-
-            doc.setFontSize(5.5); setColor(C.muted); doc.setFont('helvetica', 'bold');
-            doc.text(s.lbl, x + 3, y + 9);
-
-            doc.setFontSize(10); doc.setTextColor(C.text);
-            doc.text(s.val, x + 3, y + 17);
-
-            // Extra ROI info
-            if (i === 3) {
-                doc.setFontSize(5); setColor(C.muted);
-                doc.text(`Nom. ${(mt.monthlyRoi || 0).toFixed(1)}%  IPCA -${(mt.inflationRate * 100).toFixed(1)}%`, x + 3, y + 20.5);
-            }
-        });
-
-        y += sH + 8;
+        // Etapa atual só quando a foto (que já mostra a etapa) não está no relatório
+        if (!fotoShown) {
+            doc.setFontSize(8); setColor(C.muted); doc.setFont('helvetica', 'normal');
+            doc.text(`Etapa atual: ${getStageName(project.progress, project) || 'N/A'}`, M, y);
+            y += 6;
+        }
+        y += 4;
 
         // ══════════════════════════════════════════════════════════
-        // CONTROLE DE ORÇAMENTO
+        // ORÇAMENTO POR CATEGORIA (só a lista — a barra/totais já estão acima)
         // ══════════════════════════════════════════════════════════
-        y = pageBreak(50, y);
-
-        doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
-        doc.text('CONTROLE DE ORÇAMENTO', M, y);
-
-        // Badge usage
-        const uc = mt.usage > 100 ? C.red : C.green;
-        doc.setFillColor(...hex(uc));
-        const ut = `${mt.usage.toFixed(0)}% usado`;
-        const uw = doc.getTextWidth(ut) + 6;
-        doc.roundedRect(pw - M - uw, y - 4, uw, 6, 3, 3, 'F');
-        doc.setFontSize(6); doc.setTextColor(255, 255, 255); doc.text(ut, pw - M - uw / 2, y - 0.2, { align: 'center' });
-
-        y += 6;
-
-        // 3 Stats
-        const stW = (W - 4) / 3, stH = 16;
-        const stats3 = [
-            { lbl: 'ORÇAMENTO', val: fmtShort(mt.totalCost), c: C.text },
-            { lbl: 'GASTO', val: fmtShort(mt.totalExp), c: C.blue },
-            { lbl: 'SALDO', val: fmtShort(mt.totalCost - mt.totalExp), c: (mt.totalCost - mt.totalExp) >= 0 ? C.green : C.red }
-        ];
-        stats3.forEach((s, i) => {
-            const x = M + i * (stW + 2);
-            card(doc, x, y, stW, stH);
-            doc.setFontSize(5.5); setColor(C.muted); doc.setFont('helvetica', 'bold');
-            doc.text(s.lbl, x + stW / 2, y + 5, { align: 'center' });
-            doc.setFontSize(10); setColor(s.c);
-            doc.text(s.val, x + stW / 2, y + 13, { align: 'center' });
-        });
-
-        y += stH + 3;
-        bar(doc, M, y, W, 4, mt.usage, mt.usage > 100 ? C.red : C.green);
-        y += 10;
-
-        // Macros (SEM submacros - enxuto)
         if (project.budget?.macros?.length) {
-            doc.setFontSize(7); setColor(C.muted2); doc.setFont('helvetica', 'bold');
-            doc.text('POR CATEGORIA', M, y);
-            y += 5;
+            y = pageBreak(24, y);
+            doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
+            doc.text('ORÇAMENTO POR CATEGORIA', M, y);
+            y += 7;
 
             const macros = [...project.budget.macros].sort((a, b) => a.displayOrder - b.displayOrder);
-
             for (const macro of macros) {
                 y = pageBreak(14, y);
                 const p2 = macro.estimatedValue > 0 ? (macro.spentValue / macro.estimatedValue) * 100 : 0;
                 const over = p2 > 100;
 
-                // Name + percentage
                 doc.setFontSize(8); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
                 doc.text(macro.name, M + 2, y + 3);
-
                 doc.setFontSize(7); setColor(over ? C.red : C.green);
                 doc.text(`${p2.toFixed(0)}%`, pw - M - 2, y + 3, { align: 'right' });
 
-                // Bar
                 bar(doc, M + 2, y + 5.5, W - 4, 2, p2, over ? C.red : C.blue);
 
-                // Values below bar
                 doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'normal');
                 doc.text(`Gasto: ${fmtShort(macro.spentValue)}`, M + 2, y + 11);
                 doc.text(`Meta: ${fmtShort(macro.estimatedValue)}`, pw - M - 2, y + 11, { align: 'right' });
-
                 y += 14;
+            }
+            y += 2;
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // CAIXA DA OBRA (Aportado - Gasto - Aquisição = Saldo)
+        // ══════════════════════════════════════════════════════════
+        // A aquisição entra como card (e na legenda) só quando foi paga PELA OBRA
+        // — mesma regra do app e do link. Sem ela, a legenda prometia uma conta
+        // que não fechava: o saldo desconta a aquisição, mas ela não aparecia.
+        y = pageBreak(40, y);
+
+        const temAquisicaoPaga = f.aquisicaoPaga > 0;
+        const legendaCaixa = temAquisicaoPaga ? 'Aportado - Gasto - Aquisição = Saldo' : 'Aportado - Gasto = Saldo';
+
+        doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
+        doc.text('CAIXA DA OBRA', M, y);
+        const legW = temAquisicaoPaga ? 60 : 46;
+        card(doc, pw - M - legW, y - 4.5, legW, 6);
+        doc.setFontSize(6); setColor(C.muted); doc.text(legendaCaixa, pw - M - legW / 2, y - 0.5, { align: 'center' });
+        y += 6;
+
+        const caixa = [
+            { lbl: 'APORTADO', val: fmtShort(f.aportadoTotal), c: C.emerald, brd: C.emerald },
+            { lbl: 'GASTO', val: fmtShort(f.gasto), c: C.red, brd: C.red },
+            ...(temAquisicaoPaga
+                ? [{ lbl: 'AQUISIÇÃO', val: fmtShort(f.aquisicaoPaga), c: C.amber, brd: C.amber }]
+                : []),
+            { lbl: 'SALDO EM CAIXA', val: fmtShort(f.saldoCaixa), c: f.saldoCaixa >= 0 ? C.green : C.red, brd: f.saldoCaixa >= 0 ? C.green : C.red },
+        ];
+        const cxW = (W - 4 * (caixa.length - 1)) / caixa.length, cxH = 22;
+        caixa.forEach((s, i) => {
+            const x = M + i * (cxW + 4);
+            card(doc, x, y, cxW, cxH, s.brd);
+            doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'bold');
+            doc.text(s.lbl, x + cxW / 2, y + 6, { align: 'center' });
+            doc.setFontSize(12); setColor(s.c);
+            doc.text(s.val, x + cxW / 2, y + 15, { align: 'center' });
+        });
+        y += cxH + 8;
+
+        // ══════════════════════════════════════════════════════════
+        // ACERTO DE APORTES (Meta · Aportou · Falta por sócio — fonte única do app).
+        // Sem base de meta (sem % / sem casas com dono) → cai na lista simples
+        // "Aportes por sócio" (nome + total), sem regressão.
+        // ══════════════════════════════════════════════════════════
+        if (options.aportes) {
+            const acerto = computeAporteShares(project);
+
+            if (acerto.semBase) {
+                const aporteSocio = (project.investors || []).map(inv => {
+                    const dinheiro = (project.contributions || []).filter(c => c.investorId === inv.id).reduce((s, c) => s + (c.value || 0), 0);
+                    const bolso = (project.expenses || []).filter(e => e.paidByInvestorId === inv.id).reduce((s, e) => s + (e.value || 0), 0);
+                    return { name: inv.name, total: dinheiro + bolso };
+                }).filter(l => l.total > 0).sort((a, b) => b.total - a.total);
+
+                if (aporteSocio.length > 0) {
+                    y = pageBreak(18 + aporteSocio.length * 7, y);
+                    doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
+                    doc.text('APORTES POR SÓCIO', M, y);
+                    y += 7;
+                    const totalSocios = aporteSocio.reduce((s, l) => s + l.total, 0);
+                    aporteSocio.forEach(l => {
+                        doc.setFontSize(8); setColor(C.text); doc.setFont('helvetica', 'normal');
+                        doc.text(l.name, M + 2, y);
+                        doc.setFont('helvetica', 'bold'); setColor(C.emerald);
+                        doc.text(fmt(l.total), pw - M - 2, y, { align: 'right' });
+                        doc.setDrawColor(...BORDER); doc.setLineWidth(0.2); doc.line(M + 2, y + 2, pw - M - 2, y + 2);
+                        y += 7;
+                    });
+                    doc.setFontSize(8); setColor(C.muted); doc.setFont('helvetica', 'bold');
+                    doc.text('Total aportado', M + 2, y + 1);
+                    setColor(C.text); doc.setFontSize(9);
+                    doc.text(fmt(totalSocios), pw - M - 2, y + 1, { align: 'right' });
+                    y += 10;
+                }
+            } else {
+                const shares = [...acerto.shares].sort((a, b) => b.meta - a.meta);
+                const pctDe = (id?: string) => (project.profitShares || []).find(s => s.investorId === id)?.percentage;
+                const donoUn = (id?: string) => (project.units || []).filter(u => u.ownerInvestorId === id).map(u => u.identifier).join(', ');
+                const colW = (W - 4) / 3;
+
+                y = pageBreak(18 + shares.length * 12, y);
+                doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
+                doc.text('ACERTO DE APORTES', M, y);
+                doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'normal');
+                doc.text(acerto.mode === 'unit' ? 'Divisão por casa' : 'Divisão por porcentagem', pw - M, y, { align: 'right' });
+                y += 6;
+
+                for (const s of shares) {
+                    y = pageBreak(14, y);
+                    // Nome + participação (%/casas)
+                    doc.setFontSize(8); setColor(C.text); doc.setFont('helvetica', 'bold');
+                    doc.text(s.name, M + 2, y);
+                    const sub = acerto.mode === 'unit' ? donoUn(s.investorId) : `${pctDe(s.investorId) ?? 0}%`;
+                    if (sub) { doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'normal'); doc.text(sub, pw - M - 2, y, { align: 'right' }); }
+                    y += 5;
+                    // Meta · Aportou · Falta
+                    const faltaColor = s.falta > 0.5 ? C.amber : s.falta < -0.5 ? C.emerald : C.muted2;
+                    const faltaTxt = s.falta > 0.5 ? fmtShort(s.falta) : s.falta < -0.5 ? `+${fmtShort(-s.falta)}` : 'Em dia';
+                    const cells = [
+                        { lbl: 'META', val: fmtShort(s.meta), c: C.text },
+                        { lbl: 'APORTOU', val: fmtShort(s.aportado), c: C.emerald },
+                        { lbl: 'FALTA', val: faltaTxt, c: faltaColor },
+                    ];
+                    cells.forEach((cell, i) => {
+                        const x = M + 2 + i * colW;
+                        doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'bold');
+                        doc.text(cell.lbl, x, y);
+                        doc.setFontSize(8.5); setColor(cell.c); doc.setFont('helvetica', 'bold');
+                        doc.text(cell.val, x, y + 4.5);
+                    });
+                    doc.setDrawColor(...BORDER); doc.setLineWidth(0.2); doc.line(M + 2, y + 8, pw - M - 2, y + 8);
+                    y += 12;
+                }
+
+                doc.setFontSize(8); setColor(C.muted); doc.setFont('helvetica', 'bold');
+                doc.text('Total aportado', M + 2, y + 1);
+                setColor(C.text); doc.setFontSize(9);
+                doc.text(fmt(acerto.totalAportado), pw - M - 2, y + 1, { align: 'right' });
+                y += 6;
+                if (acerto.totalFalta > 0.5) {
+                    doc.setFontSize(7); setColor(C.amber); doc.setFont('helvetica', 'normal');
+                    doc.text(`Falta aportar no total: ${fmt(acerto.totalFalta)}`, M + 2, y + 1);
+                    y += 5;
+                }
+                y += 5;
             }
         }
 
         // ══════════════════════════════════════════════════════════
-        // EXTRATO DE DESPESAS
+        // RESULTADO DO EMPREENDIMENTO (espelha o componente do app)
         // ══════════════════════════════════════════════════════════
+        if (options.resultado) {
+        y = pageBreak(58, y);
+
+        doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
+        doc.text('RESULTADO DO EMPREENDIMENTO', M, y);
+        y += 6;
+
+        const temProjecao = f.vendasEstimadasTotais > 0;
+        const temVenda = f.unidadesVendidas > 0;
+        const resW = (W - 4) / 2, resH = 44;
+        const col2 = M + resW + 4;
+
+        // Linha label/valor dentro de um card
+        const resLine = (x: number, yy: number, w: number, label: string, val: string, valColor?: string, bold = false) => {
+            doc.setFontSize(7); setColor(C.muted); doc.setFont('helvetica', 'normal');
+            doc.text(label, x + 3, yy);
+            doc.setFont('helvetica', bold ? 'bold' : 'normal');
+            setColor(valColor || C.text);
+            doc.text(val, x + w - 3, yy, { align: 'right' });
+        };
+
+        // --- PROJETADO (tudo vendido) ---
+        card(doc, M, y, resW, resH, C.cyan);
+        doc.setFontSize(7); setColor(C.cyan); doc.setFont('helvetica', 'bold');
+        doc.text('PROJETADO (tudo vendido)', M + 3, y + 6);
+        if (temProjecao) {
+            resLine(M, y + 14, resW, 'Vendas estimadas', fmtShort(f.vendasEstimadasTotais));
+            resLine(M, y + 20, resW, '- Obra (orçamento)', fmtShort(f.custoObraProjetado));
+            if (f.terrenoProjetado > 0) resLine(M, y + 26, resW, '- Terreno', fmtShort(f.terrenoProjetado));
+            const py = f.terrenoProjetado > 0 ? y + 35 : y + 29;
+            doc.setDrawColor(...BORDER); doc.line(M + 3, py - 4, M + resW - 3, py - 4);
+            resLine(M, py, resW, 'LUCRO PROJETADO', fmtShort(f.lucroProjetado), f.lucroProjetado >= 0 ? C.cyan : C.red, true);
+            doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'normal');
+            doc.text(`margem ${f.margemPct.toFixed(1)}%`, M + resW - 3, py + 5, { align: 'right' });
+        } else {
+            doc.setFontSize(8); setColor(C.muted); doc.setFont('helvetica', 'normal');
+            doc.text('Sem projeção ainda', M + 3, y + 20);
+            doc.setFontSize(6);
+            doc.text('Defina o valor de venda das casas em Unidades.', M + 3, y + 26);
+        }
+
+        // --- REALIZADO (casas vendidas) ---
+        card(doc, col2, y, resW, resH, isCompleted ? C.green : undefined);
+        doc.setFontSize(7); setColor(C.emerald); doc.setFont('helvetica', 'bold');
+        doc.text('REALIZADO (casas vendidas)', col2 + 3, y + 6);
+        if (temVenda) {
+            resLine(col2, y + 14, resW, 'Vendido', `${f.unidadesVendidas}/${f.unidadesTotais} casas`);
+            resLine(col2, y + 20, resW, 'Liquidado', fmtShort(f.vendasRealizadas));
+            if (isCompleted) {
+                resLine(col2, y + 26, resW, '- Custo real', fmtShort(f.custoRealVendidas));
+                doc.setDrawColor(...BORDER); doc.line(col2 + 3, y + 31, col2 + resW - 3, y + 31);
+                resLine(col2, y + 37, resW, 'LUCRO REAL', fmtShort(f.lucroReal), f.lucroReal >= 0 ? C.green : C.red, true);
+                doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'normal');
+                doc.text(`margem ${f.margemRealPct.toFixed(1)}%`, col2 + resW - 3, y + 42, { align: 'right' });
+            } else {
+                doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'italic');
+                doc.text('Lucro real disponível ao concluir a obra', col2 + 3, y + 30);
+            }
+        } else {
+            doc.setFontSize(8); setColor(C.muted); doc.setFont('helvetica', 'normal');
+            doc.text('Nenhuma casa vendida ainda', col2 + 3, y + 20);
+        }
+        y += resH + 5;
+
+        // A vender (mesma linha do componente do app)
+        const disponiveis = f.unidadesTotais - f.unidadesVendidas;
+        if (disponiveis > 0) {
+            doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'normal');
+            doc.text(`A vender: ${fmtShort(f.vendasPotencial)}  •  ${disponiveis} casa${disponiveis > 1 ? 's' : ''} disponíve${disponiveis > 1 ? 'is' : 'l'}`, M, y);
+            y += 6;
+        }
+        y += 3;
+        } // fim options.resultado
+
+        // ══════════════════════════════════════════════════════════
+        // EXTRATO DE DESPESAS (com "Pago por")
+        // ══════════════════════════════════════════════════════════
+        if (options.despesas) {
         y += 4;
         y = pageBreak(30, y);
 
@@ -437,27 +559,18 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         doc.text('EXTRATO DE DESPESAS', M, y);
         y += 5;
 
-        // Mapa id -> nome para Categoria (macro) e Detalhe (submacro), a partir do orçamento.
-        const macroNameById = new Map<string, string>();
-        const subNameById = new Map<string, string>();
-        for (const m of (project.budget?.macros || [])) {
-            macroNameById.set(m.id, m.name);
-            for (const s of (m.subMacros || [])) subNameById.set(s.id, s.name);
-        }
-
         const expRows = [...project.expenses]
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
             .map(e => {
                 const att = !!(e.attachmentUrl || (e.attachments && e.attachments.length > 0));
-                const categoria = e.macroId ? (macroNameById.get(e.macroId) || '-') : '-';
-                const detalhe = e.subMacroId ? (subNameById.get(e.subMacroId) || '-') : '-';
-                return [fmtDate(e.date), categoria, detalhe, e.description || '-', att ? 'Sim' : '-', fmt(e.value)];
+                const pagador = invName(e.paidByInvestorId) || 'Caixa da obra';
+                return [fmtDate(e.date), e.description || '-', pagador, att ? 'Sim' : '-', fmt(e.value)];
             });
 
         if (expRows.length > 0) {
             autoTable(doc, {
                 startY: y,
-                head: [['Data', 'Categoria', 'Detalhe', 'Descrição', 'Anexo', 'Valor']],
+                head: [['Data', 'Descrição', 'Pago por', 'Anexo', 'Valor']],
                 body: expRows,
                 theme: 'grid',
                 headStyles: { fillColor: CARD, textColor: [255, 255, 255], lineColor: BORDER, fontSize: 6.5, fontStyle: 'bold' },
@@ -465,11 +578,10 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
                 alternateRowStyles: { fillColor: [20, 28, 48] },
                 styles: { cellPadding: 2, font: 'helvetica', overflow: 'linebreak' },
                 columnStyles: {
-                    0: { cellWidth: 16 },
-                    1: { cellWidth: 30 },
+                    0: { cellWidth: 20 },
                     2: { cellWidth: 32 },
-                    4: { cellWidth: 11, halign: 'center' },
-                    5: { cellWidth: 24, halign: 'right' }
+                    3: { cellWidth: 12, halign: 'center' },
+                    4: { cellWidth: 28, halign: 'right' }
                 },
                 margin: { left: M, right: M }
             });
@@ -479,94 +591,7 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
             doc.text('Nenhuma despesa registrada.', M, y + 5);
             y += 15;
         }
-
-        // ══════════════════════════════════════════════════════════
-        // CRONOGRAMA COMPACTO (sem ocupar muitas páginas)
-        // ══════════════════════════════════════════════════════════
-        y = pageBreak(40, y);
-        // If not enough room, new page
-        if (y > ph - 80) { doc.addPage(); y = 18; }
-
-        doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
-        doc.text('CRONOGRAMA DE ETAPAS', M, y);
-        y += 8;
-
-        const stages = [0, 15, 30, 60, 75, 90, 100];
-        const lineX = M + 6;
-
-        // Vertical line
-        doc.setDrawColor(...BORDER); doc.setLineWidth(0.8);
-        const lineStart = y;
-
-        // Collect stage photos to load in parallel
-        const stagePhotos: { [key: number]: string | null } = {};
-        const photoPromises = stages.map(async (stage) => {
-            const ev = project.stageEvidence?.find(e => e.stage === stage);
-            if (ev?.photos?.[0]) {
-                try {
-                    const url = await getPhotoUrl(ev.photos[0]);
-                    // Crop thumbnail horizontally or vertically to match aspect ratio precisely
-                const thW = 30; const thH = 18;
-                const ratio = thW / thH;
-                if (url) stagePhotos[stage] = await loadImage(url, ratio);
-                } catch { /* skip */ }
-            }
-        });
-        await Promise.all(photoPromises);
-
-        for (const stage of stages) {
-            y = pageBreak(22, y);
-
-            const done = project.progress >= stage;
-            const ev = project.stageEvidence?.find(e => e.stage === stage);
-            const hasImg = !!stagePhotos[stage];
-
-            // Dot
-            if (done) { doc.setFillColor(...hex(C.blue)); doc.setDrawColor(...hex(C.blue)); }
-            else { doc.setFillColor(...CARD); doc.setDrawColor(...BORDER); }
-            doc.circle(lineX, y + 2, 2.5, 'FD');
-
-            // Stage Name
-            doc.setFontSize(8.5); doc.setTextColor(done ? C.text : C.muted); doc.setFont('helvetica', 'bold');
-            doc.text(STAGE_NAMES[stage] || `${stage}%`, lineX + 8, y + 3);
-
-            // Date
-            if (ev?.date) {
-                const nameW = doc.getTextWidth(STAGE_NAMES[stage] || '');
-                doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'normal');
-                doc.text(fmtDate(ev.date), lineX + 8 + nameW + 4, y + 3);
-            }
-
-            // Small inline photo (compact: 28x18 thumbnail)
-            if (hasImg) {
-                const imgX = pw - M - 32;
-                const imgW = 30, imgH = 18;
-                try {
-                    doc.setDrawColor(...BORDER);
-                    doc.roundedRect(imgX, y - 3, imgW, imgH, 1.5, 1.5, 'S');
-                    doc.addImage(stagePhotos[stage]!, 'JPEG', imgX + 0.3, y - 2.7, imgW - 0.6, imgH - 0.6);
-                } catch { /* skip */ }
-            }
-
-            // Notes (truncated to 1 line)
-            if (ev?.notes) {
-                const maxW = hasImg ? W - 50 : W - 15;
-                let note = ev.notes;
-                if (doc.getTextWidth(note) > maxW) {
-                    while (doc.getTextWidth(note + '...') > maxW && note.length > 0) note = note.slice(0, -1);
-                    note += '...';
-                }
-                doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'italic');
-                doc.text(note, lineX + 8, y + 8);
-            }
-
-            y += hasImg ? 18 : (ev?.notes ? 13 : 9);
-        }
-
-        // Draw the vertical line over everything
-        for (let pg = 1; pg <= doc.internal.getNumberOfPages(); pg++) {
-            // Lines are drawn per-stage above
-        }
+        } // fim options.despesas
 
         // ══════════════════════════════════════════════════════════
         // FOOTER (all pages)

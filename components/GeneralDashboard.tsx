@@ -1,8 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Project, ProgressStage, Expense } from '../types';
-import { formatCurrency, calculateMonthsBetween, formatCurrencyAbbrev } from '../utils';
+import { formatCurrency, calculateMonthsBetween, formatCurrencyAbbrev, getDeliveryStatus, DeliveryTone } from '../utils';
+
+// Classes do selo de prazo por tom.
+const prazoToneCls = (tone: DeliveryTone): string => ({
+  green: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+  red: 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
+  blue: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
+  slate: 'bg-slate-700/40 text-slate-400 border border-slate-600/40',
+}[tone]);
 import { useInflation } from '../hooks/useInflation';
+import { computeProjectFinance } from '../utils/projectFinance';
 
 import ConfirmModal from './ConfirmModal';
 import MoneyInput from './MoneyInput';
@@ -11,6 +20,8 @@ import AttachmentUpload from './AttachmentUpload';
 import StageThumbnail from './StageThumbnail';
 import QuickExpenseModal from './QuickExpenseModal';
 import SwipeableProjectItem from './SwipeableProjectItem';
+import NewObraModal from './NewObraModal';
+import { usePlan } from './PlanProvider';
 
 interface GeneralDashboardProps {
    projects: Project[];
@@ -38,6 +49,21 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    const [showModal, setShowModal] = useState(false);
    const [editingProject, setEditingProject] = useState<Project | null>(null);
    const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
+   const [showNew, setShowNew] = useState(false);
+   const [showArchived, setShowArchived] = useState(false);
+   const { ent, openUpgrade } = usePlan();
+
+   // Obras arquivadas saem da lista ativa e não entram nos números do portfólio.
+   const activeProjects = projects.filter(p => !p.archived);
+   const archivedProjects = projects.filter(p => p.archived);
+   const visibleProjects = showArchived ? archivedProjects : activeProjects;
+   // Vagas de obra ativa acabaram? O botão continua lá, com cadeado.
+   const obrasCheias = activeProjects.length >= ent.maxObrasAtivas;
+
+   const toggleArchive = (e: React.MouseEvent | null, p: Project) => {
+      e?.stopPropagation();
+      onUpdate?.(p.id, { archived: !p.archived }, p.archived ? `Obra desarquivada: ${p.name}` : `Obra arquivada: ${p.name}`);
+   };
 
    // Sync showModal (New Project) with URL
    useEffect(() => {
@@ -106,7 +132,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
       }
    }, [formData, showModal, editingProject]);
 
-   const unitsInventory = projects.reduce((acc, p) => {
+   const unitsInventory = activeProjects.reduce((acc, p) => {
       p.units.forEach(u => {
          if (u.status === 'Available') {
             acc.availableCount += 1;
@@ -124,10 +150,12 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    let totalMonthlyRoi = 0;
    let soldUnitsCount = 0;
 
-   projects.forEach(project => {
+   activeProjects.forEach(project => {
       const isCompleted = project.progress === 100;
       const totalExpenses = project.expenses.reduce((sum, exp) => sum + exp.value, 0);
       const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
+      // Terreno + custos de aquisição entram no custo da casa (rateio por área) — senão o ROI infla.
+      const aquisicaoTotal = (project.acquisitionCosts || []).reduce((sum, a) => sum + (a.value || 0), 0);
 
       const firstExpenseDate = project.expenses.length > 0
          ? project.expenses.reduce((min, e) => e.date < min ? e.date : min, project.expenses[0].date)
@@ -135,9 +163,11 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
 
       project.units.forEach(unit => {
          if (unit.status === 'Sold' && unit.saleValue) {
+            const areaShare = totalUnitsArea > 0 ? unit.area / totalUnitsArea : 0;
+            const terrenoShare = areaShare * aquisicaoTotal;
             const realCost = (isCompleted && totalUnitsArea > 0)
-               ? (unit.area / totalUnitsArea) * totalExpenses
-               : unit.cost;
+               ? areaShare * totalExpenses + terrenoShare
+               : unit.cost + terrenoShare;
 
             const costBase = realCost > 0 ? realCost : unit.cost;
 
@@ -166,6 +196,14 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
 
    const totalUnits = unitsInventory.availableCount + unitsInventory.soldCount;
    const salesPerformance = totalUnits > 0 ? (unitsInventory.soldCount / totalUnits) * 100 : 0;
+
+   // Números do portfólio pela fonte única (Resultado). Já descontam terreno.
+   const portfolioFin = activeProjects.map(p => computeProjectFinance(p));
+   const portfolioLucroProj = portfolioFin.reduce((s, f) => s + f.lucroProjetado, 0);
+   // Margem = lucro ÷ receita (padrão do app: Resultado, Sócios, Unidades).
+   const totalVendasReal = portfolioFin.reduce((s, f) => s + f.vendasRealizadas, 0);
+   const totalLucroReal = portfolioFin.reduce((s, f) => s + f.lucroReal, 0);
+   const portfolioMargem = totalVendasReal > 0 ? (totalLucroReal / totalVendasReal) * 100 : null;
 
    // Data atual formatada
    const today = new Date();
@@ -207,19 +245,15 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
       handleSetShowModal(true);
    };
 
+   // Funil único de "Nova obra" (os dois botões e o atalho ?action=new-project
+   // passam por aqui). Obra ARQUIVADA não ocupa vaga — só as ativas contam.
    const openAddModal = () => {
+      if (activeProjects.length >= ent.maxObrasAtivas) {
+         openUpgrade('obras');
+         return;
+      }
       setEditingProject(null);
-      setFormData({
-         name: '',
-         unitCount: 0,
-         totalArea: 0,
-         expectedTotalCost: 0,
-         expectedTotalSales: 0,
-         progress: ProgressStage.PLANNING,
-         startDate: '',
-         deliveryDate: ''
-      });
-      handleSetShowModal(true);
+      setShowNew(true);
    };
 
    const handleSubmit = (e: React.FormEvent) => {
@@ -299,53 +333,15 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                <div className="grid grid-cols-2 gap-2">
                   <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1 relative overflow-hidden">
                      <i className="fa-solid fa-money-bill-trend-up text-green-400 text-2xl mb-1"></i>
-                     <p className="text-white font-black text-xl tracking-tight">{formatCurrencyAbbrev(unitsInventory.realizedValue)}</p>
-                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Receita</p>
+                     <p className="text-white font-black text-xl tracking-tight whitespace-nowrap">{formatCurrencyAbbrev(unitsInventory.realizedValue)}</p>
+                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Recebido</p>
                   </div>
 
-                  <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1 relative overflow-hidden">
-                     <i className="fa-solid fa-chart-pie text-purple-400 text-2xl mb-1"></i>
-                     <p className="text-white font-black text-xl tracking-tight">{formatCurrencyAbbrev(unitsInventory.totalPotentialSale)}</p>
-                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Potencial</p>
-                  </div>
-               </div>
-
-               <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 text-center">
-                     <i className="fa-solid fa-chart-line text-green-400 text-xl"></i>
-                     <p className="text-white font-black text-2xl leading-none">
-                        {soldUnitsCount > 0 ? `${(avgRoi * 100).toFixed(0)}%` : '--'}
-                     </p>
-                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Margem</p>
-                  </div>
-
-                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 text-center">
-                     <i className="fa-solid fa-percent text-blue-400 text-xl"></i>
-                     <p className="text-white font-black text-2xl leading-none">
-                        {soldUnitsCount > 0 ? `${(avgRealMonthlyRoi * 100).toFixed(1)}%` : '--'}
-                     </p>
-                     {soldUnitsCount > 0 && (
-                        <div className="flex items-center gap-2">
-                           <span className="text-slate-600 text-[9px] font-bold">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
-                           <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[7px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
-                              -{(inflationRate * 100).toFixed(1)}% IPCA
-                           </span>
-                        </div>
-                     )}
-                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Margem Média</p>
-                  </div>
-               </div>
-
-               <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4 flex items-center justify-between">
-                  <div className="flex flex-col">
-                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Conversão de Vendas</p>
-                     <p className="text-white font-black text-2xl mt-1">{salesPerformance.toFixed(1)}%</p>
-                  </div>
-                  <div className="h-10 w-32 bg-slate-700 rounded-full overflow-hidden relative">
-                     <div
-                        className="h-full bg-blue-500 absolute top-0 left-0 transition-all duration-1000"
-                        style={{ width: `${salesPerformance}%` }}
-                     ></div>
+                  <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-0.5 relative overflow-hidden">
+                     <i className="fa-solid fa-sack-dollar text-cyan-400 text-2xl mb-1"></i>
+                     <p className={`font-black text-xl tracking-tight whitespace-nowrap ${portfolioLucroProj >= 0 ? 'text-white' : 'text-rose-400'}`}>{formatCurrencyAbbrev(portfolioLucroProj)}</p>
+                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Lucro projetado</p>
+                     {portfolioMargem !== null && <p className="text-slate-600 text-[9px] font-bold">margem {portfolioMargem.toFixed(0)}%</p>}
                   </div>
                </div>
             </div>
@@ -365,18 +361,23 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
 
          <div className="space-y-4 block md:hidden">
             <div className="flex justify-between items-center">
-               <h3 className="text-slate-400 font-bold text-xs uppercase tracking-widest">Seus Projetos</h3>
-               {isAdmin && onAddProject && (
+               <h3 className="text-slate-400 font-bold text-xs uppercase tracking-widest">{showArchived ? 'Arquivadas' : 'Seus Projetos'}</h3>
+               {isAdmin && onAddProject && !showArchived && (
                   <button
                      onClick={() => openAddModal()}
                      className="px-4 py-2 bg-blue-600/20 border border-blue-500/40 rounded-xl text-blue-400 flex items-center gap-2 hover:bg-blue-600/30 transition-all active:scale-95"
                   >
-                     <i className="fa-solid fa-plus text-xs"></i>
+                     <i className={`fa-solid ${obrasCheias ? 'fa-lock text-amber-400' : 'fa-plus'} text-xs`}></i>
                      <span className="font-black text-[10px] uppercase tracking-wider">Adicionar Obra</span>
                   </button>
                )}
             </div>
-            {projects.map(p => {
+            {visibleProjects.length === 0 && (
+               <p className="text-slate-500 text-sm text-center py-8">
+                  {showArchived ? 'Nenhuma obra arquivada.' : 'Nenhuma obra ativa. Adicione a primeira.'}
+               </p>
+            )}
+            {visibleProjects.map(p => {
                const sold = p.units.filter(u => u.status === 'Sold').length;
                const total = p.units.length;
                return (
@@ -388,10 +389,20 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                      onSelect={(id) => onSelectProject?.(id)}
                      onEdit={(p) => openEditModal({ stopPropagation: () => { } } as any, p)}
                      onDelete={(id) => requestDelete({ stopPropagation: () => { } } as any, id)}
+                     onArchive={(p) => toggleArchive(null, p)}
                      isAdmin={isAdmin}
                   />
                );
             })}
+            {(archivedProjects.length > 0 || showArchived) && (
+               <button
+                  onClick={() => setShowArchived(v => !v)}
+                  className="w-full py-3 text-slate-400 text-xs font-bold uppercase tracking-wider hover:text-white transition flex items-center justify-center gap-2"
+               >
+                  <i className={`fa-solid ${showArchived ? 'fa-arrow-left' : 'fa-box-archive'} text-[11px]`}></i>
+                  {showArchived ? 'Ver obras ativas' : `Ver arquivadas (${archivedProjects.length})`}
+               </button>
+            )}
          </div>
 
          {/* ===== DESKTOP LAYOUT (Horizontal Ribbon - Opção 2) ===== */}
@@ -424,72 +435,21 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                         <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center mb-1">
                            <i className="fa-solid fa-money-bill-trend-up text-green-400 text-xl"></i>
                         </div>
-                        <p className="text-white font-black text-2xl leading-none">{formatCurrencyAbbrev(unitsInventory.realizedValue)}</p>
-                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Faturado</p>
+                        <p className="text-white font-black text-2xl leading-none whitespace-nowrap">{formatCurrencyAbbrev(unitsInventory.realizedValue)}</p>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Recebido</p>
                      </div>
 
-                     {/* Potencial */}
-                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-purple-500/5 border border-purple-500/10 hover:bg-purple-500/10 transition-colors group flex-1 h-36">
-                        <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-1">
-                           <i className="fa-solid fa-chart-line text-purple-400 text-xl"></i>
-                        </div>
-                        <p className="text-white font-black text-2xl leading-none">{formatCurrencyAbbrev(unitsInventory.totalPotentialSale)}</p>
-                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Potencial</p>
-                     </div>
-
-                     {/* Margem */}
-                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-emerald-500/5 border border-emerald-500/10 hover:bg-emerald-500/10 transition-colors group flex-1 h-36">
-                        <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-1">
-                           <i className="fa-solid fa-chart-line text-emerald-400 text-xl"></i>
-                        </div>
-                        <p className="text-white font-black text-2xl leading-none">
-                           {soldUnitsCount > 0 ? `${(avgRoi * 100).toFixed(0)}%` : '--'}
-                        </p>
-                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Margem</p>
-                     </div>
-
-                     {/* Margem Média */}
-                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-blue-500/5 border border-blue-500/10 hover:bg-blue-500/10 transition-colors group flex-1 h-36">
-                        <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-1">
-                           <i className="fa-solid fa-percent text-blue-400 text-xl"></i>
+                     {/* Lucro projetado do portfólio (margem como subtítulo) */}
+                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-cyan-500/5 border border-cyan-500/10 hover:bg-cyan-500/10 transition-colors group flex-1 h-36">
+                        <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center mb-1">
+                           <i className="fa-solid fa-sack-dollar text-cyan-400 text-xl"></i>
                         </div>
                         <div className="text-center flex flex-col items-center">
-                           <p className="text-white font-black text-2xl leading-none">
-                              {soldUnitsCount > 0 ? `${(avgRealMonthlyRoi * 100).toFixed(1)}%` : '--'}
+                           <p className={`font-black text-2xl leading-none whitespace-nowrap ${portfolioLucroProj >= 0 ? 'text-white' : 'text-rose-400'}`}>
+                              {formatCurrencyAbbrev(portfolioLucroProj)}
                            </p>
-                           {soldUnitsCount > 0 && (
-                              <div className="flex items-center gap-2 mt-1">
-                                 <span className="text-slate-600 text-[8px] font-bold">{(avgMonthlyRoi * 100).toFixed(1)}%</span>
-                                 <span className="px-1.5 py-0.5 bg-red-500/10 text-red-400/90 text-[7px] font-black rounded border border-red-500/20 leading-none whitespace-nowrap">
-                                    -{(inflationRate * 100).toFixed(1)}% IPCA
-                                 </span>
-                              </div>
-                           )}
-                           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Margem Média</p>
-                        </div>
-                     </div>
-
-                     {/* Conversion Ring - Small & Embedded */}
-                     <div className="relative w-24 h-24 shrink-0">
-                        <svg className="w-full h-full transform -rotate-90">
-                           <circle cx="48" cy="48" r="32" stroke="#1e293b" strokeWidth="8" fill="transparent" />
-                           <circle
-                              cx="48" cy="48" r="32"
-                              stroke="url(#blueGradientRibbon)" strokeWidth="8" fill="transparent"
-                              strokeDasharray={2 * Math.PI * 32}
-                              strokeDashoffset={2 * Math.PI * 32 - (2 * Math.PI * 32 * salesPerformance / 100)}
-                              strokeLinecap="round"
-                           />
-                           <defs>
-                              <linearGradient id="blueGradientRibbon" x1="0%" y1="0%" x2="100%" y2="100%">
-                                 <stop offset="0%" stopColor="#38bdf8" />
-                                 <stop offset="100%" stopColor="#3b82f6" />
-                              </linearGradient>
-                           </defs>
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                           <span className="text-lg font-black text-white leading-none">{salesPerformance.toFixed(0)}%</span>
-                           <span className="text-[7px] text-slate-500 font-bold uppercase mt-1">Vendas</span>
+                           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Lucro projetado</p>
+                           {portfolioMargem !== null && <p className="text-slate-600 text-[9px] font-bold mt-0.5">margem {portfolioMargem.toFixed(0)}%</p>}
                         </div>
                      </div>
                   </div>
@@ -500,22 +460,38 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
             <div className="px-10">
                <div className="flex justify-between items-center mb-8">
                   <h3 className="text-white font-black text-2xl flex items-center gap-3">
-                     <i className="fa-solid fa-building text-blue-400"></i>
-                     EMPREENDIMENTOS
+                     <i className={`fa-solid ${showArchived ? 'fa-box-archive text-slate-400' : 'fa-building text-blue-400'}`}></i>
+                     {showArchived ? 'ARQUIVADAS' : 'EMPREENDIMENTOS'}
                   </h3>
-                  {onAddProject && (
-                     <button
-                        onClick={openAddModal}
-                        className="px-8 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 hover:-translate-y-2 active:scale-95 transition-all shadow-lg shadow-blue-600/30 font-black flex items-center gap-2 border border-blue-400/50"
-                     >
-                        <i className="fa-solid fa-plus"></i>
-                        NOVA OBRA
-                     </button>
-                  )}
+                  <div className="flex items-center gap-3">
+                     {(archivedProjects.length > 0 || showArchived) && (
+                        <button
+                           onClick={() => setShowArchived(v => !v)}
+                           className="px-5 py-3 bg-slate-800/60 text-slate-300 rounded-2xl hover:bg-slate-700 active:scale-95 transition-all font-bold text-sm flex items-center gap-2 border border-slate-700/50"
+                        >
+                           <i className={`fa-solid ${showArchived ? 'fa-arrow-left' : 'fa-box-archive'}`}></i>
+                           {showArchived ? 'Ver ativas' : `Arquivadas (${archivedProjects.length})`}
+                        </button>
+                     )}
+                     {onAddProject && !showArchived && (
+                        <button
+                           onClick={openAddModal}
+                           className="px-8 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 hover:-translate-y-2 active:scale-95 transition-all shadow-lg shadow-blue-600/30 font-black flex items-center gap-2 border border-blue-400/50"
+                        >
+                           <i className={`fa-solid ${obrasCheias ? 'fa-lock' : 'fa-plus'}`}></i>
+                           NOVA OBRA
+                        </button>
+                     )}
+                  </div>
                </div>
 
+               {visibleProjects.length === 0 && (
+                  <p className="text-slate-500 text-center py-16">
+                     {showArchived ? 'Nenhuma obra arquivada.' : 'Nenhuma obra ativa. Clique em "Nova obra" para começar.'}
+                  </p>
+               )}
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                  {projects.map(p => {
+                  {visibleProjects.map(p => {
                      const sold = p.units.filter(u => u.status === 'Sold').length;
                      const total = p.units.length;
                      return (
@@ -541,10 +517,15 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                               <div className="absolute top-4 right-4 flex gap-2">
                                  {isAdmin && (
                                     <>
-                                       <button onClick={(e) => openEditModal(e, p)} className="w-8 h-8 rounded-lg bg-slate-900/80 backdrop-blur-md text-blue-400 flex items-center justify-center border border-slate-700 hover:bg-blue-600 hover:text-white transition">
-                                          <i className="fa-solid fa-pen text-xs"></i>
+                                       {!p.archived && (
+                                          <button onClick={(e) => openEditModal(e, p)} className="w-8 h-8 rounded-lg bg-slate-900/80 backdrop-blur-md text-blue-400 flex items-center justify-center border border-slate-700 hover:bg-blue-600 hover:text-white transition" title="Editar">
+                                             <i className="fa-solid fa-pen text-xs"></i>
+                                          </button>
+                                       )}
+                                       <button onClick={(e) => toggleArchive(e, p)} className="w-8 h-8 rounded-lg bg-slate-900/80 backdrop-blur-md text-amber-400 flex items-center justify-center border border-slate-700 hover:bg-amber-600 hover:text-white transition" title={p.archived ? 'Desarquivar' : 'Arquivar'}>
+                                          <i className={`fa-solid ${p.archived ? 'fa-box-open' : 'fa-box-archive'} text-xs`}></i>
                                        </button>
-                                       <button onClick={(e) => requestDelete(e, p.id)} className="w-8 h-8 rounded-lg bg-slate-900/80 backdrop-blur-md text-red-400 flex items-center justify-center border border-slate-700 hover:bg-red-600 hover:text-white transition">
+                                       <button onClick={(e) => requestDelete(e, p.id)} className="w-8 h-8 rounded-lg bg-slate-900/80 backdrop-blur-md text-red-400 flex items-center justify-center border border-slate-700 hover:bg-red-600 hover:text-white transition" title="Excluir">
                                           <i className="fa-solid fa-trash text-xs"></i>
                                        </button>
                                     </>
@@ -560,6 +541,19 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                               <div className="w-full bg-slate-900/50 h-3 rounded-full overflow-hidden border border-slate-700/30">
                                  <div className="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(59,130,246,0.5)]" style={{ width: `${p.progress}%` }}></div>
                               </div>
+                              {(() => {
+                                 const st = getDeliveryStatus(p.deliveryDate, p.progress);
+                                 return (
+                                    <div className="flex items-center justify-between gap-2 mt-5">
+                                       <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap ${prazoToneCls(st.tone)}`}>{st.label}</span>
+                                       <span className="text-slate-500 text-xs font-bold text-right truncate">
+                                          {st.dateLabel && <>Entrega {st.dateLabel}</>}
+                                          {st.dateLabel && st.detail && ' · '}
+                                          {st.detail}
+                                       </span>
+                                    </div>
+                                 );
+                              })()}
                            </div>
                         </div>
                      );
@@ -569,6 +563,15 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
          </div>
 
          {/* MODALS SECTION */}
+         {showNew && (
+            <NewObraModal
+               onClose={() => setShowNew(false)}
+               onCreated={(id) => onSelectProject?.(id)}
+               userId={userId}
+               userName={userName}
+            />
+         )}
+
          {showModal && modalRoot && ReactDOM.createPortal(
             <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center z-[100] p-4 animate-fade-in">
                <div className="bg-slate-900 rounded-[3rem] p-10 w-full max-w-md border border-slate-800 shadow-2xl relative overflow-hidden">

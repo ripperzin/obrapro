@@ -40,6 +40,10 @@ export const fetchProjects = async (): Promise<Project[]> => {
     let diaryMap: Record<string, any[]> = {};
     let evidenceMap: Record<string, any[]> = {};
     let budgetMap: Record<string, any> = {};
+    let investorMap: Record<string, any[]> = {};
+    let contributionMap: Record<string, any[]> = {};
+    let acquisitionMap: Record<string, any[]> = {};
+    let profitShareMap: Record<string, any[]> = {};
 
     if (projectIds.length > 0) {
         const { data: diaryData } = await supabase
@@ -89,6 +93,7 @@ export const fetchProjects = async (): Promise<Project[]> => {
                         displayOrder: m.display_order,
                         plannedStartDate: m.planned_start_date,
                         plannedEndDate: m.planned_end_date,
+                        timeBased: m.time_based || false,
                         subMacros: (m.project_sub_macros || []).map((sm: any) => ({
                             id: sm.id,
                             projectMacroId: sm.project_macro_id,
@@ -102,6 +107,50 @@ export const fetchProjects = async (): Promise<Project[]> => {
                 };
             });
         }
+
+        const { data: investorsData } = await supabase
+            .from('investors')
+            .select('*')
+            .in('project_id', projectIds);
+        if (investorsData) {
+            investorsData.forEach((i: any) => {
+                if (!investorMap[i.project_id]) investorMap[i.project_id] = [];
+                investorMap[i.project_id].push(i);
+            });
+        }
+
+        const { data: contributionsData } = await supabase
+            .from('contributions')
+            .select('*')
+            .in('project_id', projectIds);
+        if (contributionsData) {
+            contributionsData.forEach((c: any) => {
+                if (!contributionMap[c.project_id]) contributionMap[c.project_id] = [];
+                contributionMap[c.project_id].push(c);
+            });
+        }
+
+        const { data: acquisitionData } = await supabase
+            .from('acquisition_costs')
+            .select('*')
+            .in('project_id', projectIds);
+        if (acquisitionData) {
+            acquisitionData.forEach((a: any) => {
+                if (!acquisitionMap[a.project_id]) acquisitionMap[a.project_id] = [];
+                acquisitionMap[a.project_id].push(a);
+            });
+        }
+
+        const { data: profitShareData } = await supabase
+            .from('profit_shares')
+            .select('*')
+            .in('project_id', projectIds);
+        if (profitShareData) {
+            profitShareData.forEach((s: any) => {
+                if (!profitShareMap[s.project_id]) profitShareMap[s.project_id] = [];
+                profitShareMap[s.project_id].push(s);
+            });
+        }
     }
 
     return projectsData.map((p: any) => ({
@@ -112,12 +161,17 @@ export const fetchProjects = async (): Promise<Project[]> => {
         totalArea: p.total_area || 0,
         expectedTotalCost: p.expected_total_cost || 0,
         expectedTotalSales: p.expected_total_sales || 0,
+        custoM2: p.custo_m2 || 0,
+        financedByInvestorId: p.financed_by_investor_id || undefined,
+        splitMode: (p.split_mode as 'percent' | 'unit') || 'percent',
+        archived: p.archived || false,
         progress: p.progress || 0,
         units: (p.units || []).map((u: any) => ({
             ...u,
             valorEstimadoVenda: u.valor_estimado_venda || 0,
             saleValue: u.sale_value,
-            saleDate: u.sale_date
+            saleDate: u.sale_date,
+            ownerInvestorId: u.owner_investor_id || undefined
         })),
         expenses: (p.expenses || []).map((e: any) => ({
             ...e,
@@ -126,7 +180,9 @@ export const fetchProjects = async (): Promise<Project[]> => {
             attachmentUrl: e.attachment_url,
             attachments: e.attachments || [],
             macroId: e.macro_id,
-            subMacroId: e.sub_macro_id
+            subMacroId: e.sub_macro_id,
+            itemId: e.item_id || undefined,
+            paidByInvestorId: e.paid_by_investor_id || undefined
         })),
         logs: (p.logs || []).map((l: any) => ({
             ...l,
@@ -158,7 +214,49 @@ export const fetchProjects = async (): Promise<Project[]> => {
             notes: e.notes,
             user: e.user_name
         })),
-        budget: budgetMap[p.id]
+        budget: budgetMap[p.id],
+        investors: (investorMap[p.id] || []).map((i: any) => ({
+            id: i.id,
+            projectId: i.project_id,
+            name: i.name,
+            email: i.email,
+            phone: i.phone,
+            createdAt: i.created_at
+        })),
+        contributions: (contributionMap[p.id] || []).map((c: any) => ({
+            id: c.id,
+            projectId: c.project_id,
+            investorId: c.investor_id,
+            value: c.value,
+            date: c.date,
+            description: c.description,
+            userId: c.user_id,
+            userName: c.user_name,
+            attachments: c.attachments || [],
+            createdAt: c.created_at
+        })),
+        acquisitionCosts: (acquisitionMap[p.id] || []).map((a: any) => ({
+            id: a.id,
+            projectId: a.project_id,
+            category: a.category,
+            description: a.description,
+            value: a.value,
+            date: a.date,
+            paidFromProject: a.paid_from_project,
+            attachments: a.attachments || [],
+            userId: a.user_id,
+            userName: a.user_name,
+            createdAt: a.created_at
+        })),
+        profitShares: (profitShareMap[p.id] || []).map((s: any) => ({
+            id: s.id,
+            projectId: s.project_id,
+            investorId: s.investor_id,
+            name: s.name,
+            percentage: s.percentage,
+            naoAporta: s.nao_aporta || false,
+            createdAt: s.created_at
+        }))
     }));
 };
 
@@ -189,7 +287,7 @@ export const useCreateProject = () => {
             const optimisticProject: Project = {
                 id: optimisticId,
                 ...newProject as any,
-                units: [], expenses: [], logs: [], documents: [], diary: [], stageEvidence: [], budget: undefined
+                units: [], expenses: [], logs: [], documents: [], diary: [], stageEvidence: [], budget: undefined, investors: [], contributions: []
             };
             queryClient.setQueryData<Project[]>(['projects'], (old) => old ? [...old, optimisticProject] : [optimisticProject]);
             return { previousData: previousProjects || [] };

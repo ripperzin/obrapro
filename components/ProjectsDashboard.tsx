@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Project, ProgressStage, STAGE_NAMES } from '../types';
+import { Project, ProgressStage, getStageName } from '../types';
 import StageThumbnail from './StageThumbnail';
 import DateInput from './DateInput';
 import ConfirmModal from './ConfirmModal';
 import SwipeableProjectItem from './SwipeableProjectItem';
+import NewObraModal from './NewObraModal';
+import { usePlan } from './PlanProvider';
 
 interface ProjectsDashboardProps {
   projects: Project[];
@@ -13,9 +15,11 @@ interface ProjectsDashboardProps {
   onUpdate?: (id: string, updates: Partial<Project>, logMsg?: string) => void;
   onDelete?: (id: string) => void;
   isAdmin: boolean;
+  userId?: string;
+  userName?: string;
 }
 
-const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelect, onAdd, onUpdate, onDelete, isAdmin }) => {
+const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelect, onAdd, onUpdate, onDelete, isAdmin, userId, userName }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
 
@@ -33,7 +37,17 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
     progress: ProgressStage.PLANNING
   });
 
+  const [showNew, setShowNew] = useState(false);
+  const { ent, openUpgrade } = usePlan();
+
+  // Obra ARQUIVADA não ocupa vaga — só as ativas contam contra o plano.
+  const obrasCheias = projects.filter(p => !p.archived).length >= ent.maxObrasAtivas;
+
   const openAddModal = () => {
+    if (obrasCheias) {
+      openUpgrade('obras');
+      return;
+    }
     setEditingProject(null);
     setFormData({
       name: '',
@@ -45,7 +59,7 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
       expectedTotalSales: 0,
       progress: ProgressStage.PLANNING
     });
-    setShowModal(true);
+    setShowNew(true);
   };
 
   const openEditModal = (e: React.MouseEvent, project: Project) => {
@@ -84,8 +98,6 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
         startDate: formData.startDate || undefined,
         deliveryDate: formData.deliveryDate || undefined
       }, `Projeto atualizado: ${formData.name}`);
-    } else {
-      onAdd(formData);
     }
     setShowModal(false);
   };
@@ -99,7 +111,7 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
           onClick={openAddModal}
           className="w-full md:w-auto px-8 py-4 bg-emerald-600 text-white rounded-2xl md:rounded-full hover:bg-emerald-700 transition shadow-lg md:shadow-xl shadow-emerald-900/20 font-black flex items-center justify-center gap-2 border border-emerald-500/50"
         >
-          <i className="fa-solid fa-plus"></i>
+          <i className={`fa-solid ${obrasCheias ? 'fa-lock' : 'fa-plus'}`}></i>
           ADICIONAR EMPREENDIMENTO
         </button>
       </div>
@@ -189,7 +201,7 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                 </div>
 
                 <h3 className="text-2xl font-black text-slate-800 mb-2 leading-tight group-hover:text-blue-700 transition-colors">{p.name}</h3>
-                <p className="text-sm text-slate-400 mb-8 font-bold uppercase tracking-widest">{STAGE_NAMES[p.progress]}</p>
+                <p className="text-sm text-slate-400 mb-8 font-bold uppercase tracking-widest">{getStageName(p.progress, p)}</p>
 
                 <div className="w-full bg-slate-100 rounded-full h-4 mb-3 overflow-hidden border border-slate-200">
                   <div
@@ -213,6 +225,15 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
         </>
       )}
 
+      {showNew && (
+        <NewObraModal
+          onClose={() => setShowNew(false)}
+          onCreated={onSelect}
+          userId={userId}
+          userName={userName}
+        />
+      )}
+
       {
         showModal && modalRoot && ReactDOM.createPortal(
           <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-fade-in">
@@ -228,7 +249,7 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                   <i className="fa-solid fa-xmark"></i>
                 </button>
               </div>
-              <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[75vh] overflow-y-auto">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest ml-4">Nome do Empreendimento</label>
                   <input
@@ -265,7 +286,7 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                     type="submit"
                     className="flex-1 py-4 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition shadow-lg shadow-blue-600/30 font-black uppercase text-xs tracking-widest"
                   >
-                    {editingProject ? 'Salvar Alterações' : 'Criar Projeto'}
+                    Salvar Alterações
                   </button>
                 </div>
               </form>

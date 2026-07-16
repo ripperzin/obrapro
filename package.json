@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:finance": "esbuild utils/projectFinance.check.ts --bundle --platform=node --outfile=node_modules/.cache/projectFinance.check.js --log-level=error && node node_modules/.cache/projectFinance.check.js"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.1.0",
@@ -22,7 +23,8 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-is": "^19.2.3",
-    "recharts": "^3.7.0"
+    "recharts": "^3.7.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
@@ -32,6 +34,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.24",
     "postcss": "^8.5.6",
+    "supabase": "^2.109.1",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
