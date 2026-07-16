@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { Project, ProjectBudget, ProjectMacro, TemplateMacro, CostTemplate, ProjectItem } from '../types';
+import { Project, ProjectBudget, ProjectMacro, TemplateMacro, CostTemplate, ProjectItem, getProjectStages, getStageIndex } from '../types';
 import { supabase } from '../supabaseClient';
 import { formatCurrencyAbbrev } from '../utils'; // Import added
 import MoneyInput from './MoneyInput';
@@ -9,10 +9,26 @@ import DateInput from './DateInput';
 import { usePlan } from './PlanProvider';
 import { computeScheduleDates } from '../utils/schedule';
 
+/**
+ * RÉGUA FIXA — por que não se adiciona, remove nem renomeia etapa aqui.
+ *
+ * "Etapa é a régua, Item é o espelho": as etapas são as mesmas em toda obra, e é
+ * isso que deixa comparar uma obra com a outra e aprender o custo real para a
+ * próxima — o motivo de o produto existir. Etapa livre por obra destruiria a
+ * comparação em silêncio. Além disso, `getProjectStages` monta as fronteiras do
+ * AVANÇO a partir do % das etapas (acc/denom): tirar uma etapa muda o denominador
+ * e move a régua de todas as obras.
+ *
+ * O que varia por obra: o % de cada etapa (o preset é sugestão) e os itens dentro
+ * dela. Mudar o % move as fronteiras — por isso handleSaveMacroUpdate re-ancora o
+ * progresso, senão a obra escorrega de etapa sozinha.
+ */
 interface BudgetSectionProps {
     project: Project;
     isAdmin: boolean;
     onBudgetUpdate?: () => void;
+    // Para re-ancorar project.progress quando o % das etapas muda.
+    onUpdate?: (id: string, updates: Partial<Project>, logMsg?: string) => void;
 }
 
 const DEFAULT_TEMPLATE_ID = '00000000-0000-0000-0000-000000000001';
@@ -61,7 +77,7 @@ const populateBudgetFromTemplate = async (budgetId: string, totalValue: number) 
     return false;
 };
 
-const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudgetUpdate }) => {
+const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudgetUpdate, onUpdate }) => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [budget, setBudget] = useState<ProjectBudget | null>(null);
@@ -358,6 +374,9 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
     // 1. Update existing macro
     const handleSaveMacroUpdate = async (macro: ProjectMacro) => {
         try {
+            // Em qual etapa a obra está, medido pela régua ANTES da mudança.
+            const idxAntes = getStageIndex(getProjectStages(project), project.progress);
+
             const { error } = await supabase
                 .from('project_macros')
                 .update({
@@ -370,6 +389,34 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                 .eq('id', macro.id);
 
             if (error) throw error;
+
+            // RE-ANCORAGEM. project.progress é "% do CUSTO já vencido", e as fronteiras
+            // saem do % das etapas — mexer no % move as fronteiras debaixo de um número
+            // que ficou parado, e a obra troca de etapa sozinha (medido: com Estrutura
+            // 22%->35%, um progresso de 75 pulava de "Revestimentos" para "Instalações",
+            // andando para TRÁS sem ninguém pedir).
+            // Aqui o certo é o contrário: a etapa é o que o usuário afirmou, o número é
+            // derivado. Mantemos a etapa e recalculamos o número. Dizer "Estrutura custa
+            // 35%, não 22%" faz o início de Revestimentos valer 77% do custo em vez de
+            // 63% — então o progresso SOBE, e a obra continua onde está.
+            const macrosDepois = editMacros.map(m => (m.id === macro.id ? macro : m));
+            const stagesDepois = getProjectStages({ budget: { macros: macrosDepois } });
+            const novoProgress = stagesDepois[idxAntes]?.value;
+            // Obra concluída (>=100) não se re-ancora: getStageIndex devolve stages.length
+            // (fora da régua) e 100 não é fronteira de etapa, é o fim.
+            if (
+                onUpdate &&
+                project.progress < 100 &&
+                novoProgress !== undefined &&
+                novoProgress !== project.progress
+            ) {
+                onUpdate(
+                    project.id,
+                    { progress: novoProgress },
+                    `Régua do orçamento mudou: avanço reancorado ${project.progress}% -> ${novoProgress}% (obra segue em "${stagesDepois[idxAntes].name}")`
+                );
+            }
+
             fetchBudgetData(true);
             onBudgetUpdate?.();
         } catch (error) {
@@ -424,55 +471,9 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
         }));
     };
 
-    // 2. Add new macro
-    const handleAddMacro = async () => {
-        if (!budget) return;
-        try {
-            const { error } = await supabase
-                .from('project_macros')
-                .insert({
-                    budget_id: budget.id,
-                    name: 'Nova Categoria',
-                    percentage: 0,
-                    estimated_value: 0,
-                    spent_value: 0,
-                    display_order: editMacros.length + 1
-                });
-
-            if (error) throw error;
-            fetchBudgetData(true);
-            onBudgetUpdate?.();
-        } catch (error) {
-            console.error('Erro ao adicionar macro:', error);
-        }
-    };
-
-    // 3. Delete macro
-    const handleDeleteMacro = async (id: string) => {
-        if (!window.confirm('Tem certeza que deseja remover esta categoria? As despesas vinculadas ficarão "Sem Categoria".')) return;
-        try {
-            // 1. Desvincular despesas (setar macro_id e sub_macro_id = null)
-            const { error: updateError } = await supabase
-                .from('expenses')
-                .update({ macro_id: null, sub_macro_id: null })
-                .eq('macro_id', id);
-
-            if (updateError) throw updateError;
-
-            // 2. Deletar sub-macros vinculadas (opcional se tiver cascade, mas garantindo)
-            await supabase.from('project_sub_macros').delete().eq('project_macro_id', id);
-
-            // 3. Deletar a macro
-            const { error } = await supabase.from('project_macros').delete().eq('id', id);
-
-            if (error) throw error;
-            fetchBudgetData(true);
-            onBudgetUpdate?.();
-        } catch (error) {
-            console.error('Erro ao remover macro:', error);
-            alert('Erro ao remover categoria. Tente novamente.');
-        }
-    };
+    // handleAddMacro / handleDeleteMacro REMOVIDOS: a régua é fixa (ver a nota no topo).
+    // Ficariam como código morto convidando a religar o botão — e apagar uma etapa
+    // mudava o denominador da régua, movendo o avanço de todas as obras.
 
     const handleCreateBudget = async () => {
         if (totalEstimated <= 0) return;
@@ -492,23 +493,13 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
 
             if (budgetError) throw budgetError;
 
-            // 2. Criar as ETAPAS (macros) baseadas no template.
-            // O Previsto por item é semeado depois via seed_project_stage_items (fetchBudgetData).
-            for (const tm of templateMacros) {
-                const estimatedVal = (totalEstimated * tm.percentage) / 100;
-                const { error: macroError } = await supabase
-                    .from('project_macros')
-                    .insert({
-                        budget_id: newBudget.id,
-                        name: tm.name,
-                        percentage: tm.percentage,
-                        estimated_value: estimatedVal,
-                        spent_value: 0,
-                        display_order: tm.displayOrder
-                    });
-                if (macroError) throw macroError;
-            }
-
+            // NÃO semear as etapas aqui: o gatilho handle_new_project_budget roda dentro
+            // do INSERT acima e já as cria. Semear de novo dobrava tudo — 9 etapas viravam
+            // 18 e o Previsto saía em dobro. Era o mesmo defeito do e448f22, que consertou
+            // só o caminho de auto-criação (fetchBudgetData) e deixou este de fora; ele
+            // pega quem abre a obra SEM casas e vem configurar o orçamento por aqui.
+            // De quebra, o laço não copiava time_based e devolvia o Canteiro à régua do
+            // avanço. O Previsto por item é semeado por seed_project_stage_items abaixo.
             setShowSetupModal(false);
             fetchBudgetData(true);
             onBudgetUpdate?.();
@@ -850,21 +841,18 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                                 <div className="space-y-3">
                                     <div className="grid grid-cols-12 gap-3 items-center">
                                         <div className="col-span-1 flex justify-center">
-                                            <button
-                                                onClick={() => handleDeleteMacro(macro.id)}
-                                                className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 text-slate-400 hover:text-red-400 flex items-center justify-center transition"
-                                            >
-                                                <i className="fa-solid fa-trash text-xs"></i>
-                                            </button>
+                                            <i className="fa-solid fa-lock text-xs text-slate-600" title="Etapa fixa — igual em toda obra"></i>
                                         </div>
+                                        {/* Nome só de leitura: renomear etapa quebra a comparação entre obras
+                                            (e o casamento por nome com o template dos itens). */}
                                         <div className="col-span-11 md:col-span-5">
-                                            <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Nome da Categoria</label>
-                                            <input
-                                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm font-bold text-white outline-none focus:border-blue-500"
-                                                value={macro.name}
-                                                onChange={(e) => handleUpdateMacroLocal(macro.id, 'name', e.target.value)}
-                                                onBlur={() => handleSaveMacroUpdate(macro)}
-                                            />
+                                            <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Etapa</label>
+                                            <div className="w-full bg-slate-800/50 border border-slate-800 rounded-lg px-3 py-2 text-sm font-bold text-slate-300 flex items-center gap-2">
+                                                <span className="truncate">{macro.name}</span>
+                                                {macro.timeBased && (
+                                                    <span className="text-[9px] font-black text-amber-400/80 whitespace-nowrap">· corre a obra toda</span>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="col-span-6 md:col-span-2">
                                             <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Percentual (%)</label>
@@ -966,12 +954,17 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                             </div>
                         ))}
 
-                        <button
-                            onClick={handleAddMacro}
-                            className="w-full py-3 border-2 border-dashed border-slate-700 rounded-xl text-slate-400 font-bold hover:bg-slate-800 hover:text-white transition flex items-center justify-center gap-2"
-                        >
-                            <i className="fa-solid fa-plus-circle"></i> Adicionar Nova Categoria
-                        </button>
+                        {/* As 9 etapas são a régua fixa da obra — não se adiciona nem se
+                            remove etapa. O que varia de obra para obra é o % e os itens
+                            dentro dela. Ver a nota "RÉGUA FIXA" no topo do arquivo. */}
+                        <div className="flex items-start gap-2 text-[11px] text-slate-500 px-2 py-3 border-t border-slate-800">
+                            <i className="fa-solid fa-lock mt-0.5 text-slate-600"></i>
+                            <span>
+                                As etapas são fixas e iguais em toda obra — é o que deixa comparar uma obra com a outra
+                                e aprender o custo real para a próxima. Ajuste o <b className="text-slate-400">%</b> e os
+                                <b className="text-slate-400"> itens</b> de cada uma.
+                            </span>
+                        </div>
                     </div>
                 ) : (
                     macros.map(macro => {

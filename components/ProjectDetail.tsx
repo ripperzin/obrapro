@@ -2106,6 +2106,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
               project={project}
               isAdmin={isAdmin}
               onBudgetUpdate={onRefresh}
+              onUpdate={onUpdate}
             />
           </div>
         )}
