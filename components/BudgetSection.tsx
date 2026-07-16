@@ -382,7 +382,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
     // da obra, proporcional ao peso (%) de cada etapa — a mesma fonte do avanço.
     const handleGenerateSchedule = async () => {
         if (!project.startDate || !project.deliveryDate) {
-            alert('Defina a data de início e a de entrega da obra (na aba Gestão) para gerar o cronograma automaticamente.');
+            alert('Defina a data de início e a de entrega da obra para gerar o cronograma automaticamente.\n\nElas ficam no lápis (Editar) do card da obra, na tela Início.');
             return;
         }
         const updates = computeScheduleDates(macros, project.startDate, project.deliveryDate);
