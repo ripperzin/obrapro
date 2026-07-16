@@ -77,8 +77,11 @@ export async function updateProjectMutationFn(input: UpdateProjectInput) {
     // 1. Basic Fields Update
     const supabaseUpdates: any = {};
     if (updates.name !== undefined) supabaseUpdates.name = updates.name;
-    if (updates.startDate !== undefined) supabaseUpdates.start_date = updates.startDate;
-    if (updates.deliveryDate !== undefined) supabaseUpdates.delivery_date = updates.deliveryDate;
+    // '' || null: coluna de data recusa string vazia ("invalid input syntax for type
+    // date"). Limpar a data no formulário manda '' — sem isto, ou estoura ou (se o
+    // chamador trocar '' por undefined) o campo nunca chega aqui e a data nunca sai.
+    if (updates.startDate !== undefined) supabaseUpdates.start_date = updates.startDate || null;
+    if (updates.deliveryDate !== undefined) supabaseUpdates.delivery_date = updates.deliveryDate || null;
     if (updates.progress !== undefined) supabaseUpdates.progress = updates.progress;
     if (updates.unitCount !== undefined) supabaseUpdates.unit_count = updates.unitCount;
     if (updates.totalArea !== undefined) supabaseUpdates.total_area = updates.totalArea;

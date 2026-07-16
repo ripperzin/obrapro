@@ -93,10 +93,11 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingProject && onUpdate) {
+      // '' cru: mutationFunctions vira null e limpa a data (undefined pularia o campo).
       onUpdate(editingProject.id, {
         name: formData.name,
-        startDate: formData.startDate || undefined,
-        deliveryDate: formData.deliveryDate || undefined
+        startDate: formData.startDate,
+        deliveryDate: formData.deliveryDate
       }, `Projeto atualizado: ${formData.name}`);
     }
     setShowModal(false);

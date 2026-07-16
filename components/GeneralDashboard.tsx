@@ -260,10 +260,12 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
       e.preventDefault();
 
       if (editingProject && onUpdate) {
+         // Manda '' cru (não `|| undefined`): mutationFunctions converte para null e
+         // limpa a data. Com undefined o campo é pulado e apagar a data não faz nada.
          const updates: Partial<Project> = {
             name: formData.name,
-            startDate: formData.startDate || undefined,
-            deliveryDate: formData.deliveryDate || undefined
+            startDate: formData.startDate,
+            deliveryDate: formData.deliveryDate
          };
          onUpdate(editingProject.id, updates, `Obra atualizada: ${formData.name}`);
       } else if (onAddProject) {
@@ -585,6 +587,31 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">NOME DO PROJETO</label>
                         <input required type="text" className="w-full px-6 py-5 bg-slate-800/50 border border-slate-700/50 rounded-2xl outline-none focus:border-blue-500 transition-all font-bold text-white text-lg" placeholder="Ex: Residencial Aurora" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                      </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">INÍCIO</label>
+                           <DateInput
+                              value={formData.startDate}
+                              onChange={(val) => setFormData({ ...formData, startDate: val })}
+                              className="w-full px-4 py-5 bg-slate-800/50 border border-slate-700/50 rounded-2xl outline-none focus:border-blue-500 transition-all font-bold text-white text-center"
+                              placeholder="DD/MM/AAAA"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">ENTREGA</label>
+                           <DateInput
+                              value={formData.deliveryDate}
+                              onChange={(val) => setFormData({ ...formData, deliveryDate: val })}
+                              className="w-full px-4 py-5 bg-slate-800/50 border border-slate-700/50 rounded-2xl outline-none focus:border-blue-500 transition-all font-bold text-white text-center"
+                              placeholder="DD/MM/AAAA"
+                           />
+                        </div>
+                     </div>
+                     {/* O cronograma do Orçamento reparte o calendário entre estas duas datas. */}
+                     <p className="text-[11px] text-slate-500 leading-snug -mt-4 ml-2">
+                        <i className="fa-solid fa-circle-info mr-1 text-slate-600"></i>
+                        Sem estas duas datas o botão <b>Gerar cronograma</b> do Orçamento não funciona.
+                     </p>
                      <button type="submit" className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition shadow-xl shadow-blue-600/20 active:scale-95">SALVAR ALTERAÇÕES</button>
                   </form>
                </div>
