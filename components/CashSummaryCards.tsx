@@ -1,7 +1,7 @@
 import React from 'react';
 import { Project } from '../types';
 import { formatCurrency, formatCurrencyAbbrev } from '../utils';
-import { computeProjectFinance } from '../utils/projectFinance';
+import { computeProjectFinance, custoM2Realizado } from '../utils/projectFinance';
 
 interface Props {
   project: Project;
@@ -31,6 +31,13 @@ const CashSummaryCards: React.FC<Props> = ({ project }) => {
   const temAquisicao = totalAquisicaoPaga > 0;
   const temAporteViaDespesa = finance.aporteViaDespesa > 0;
 
+  // Custo REAL por m² = gasto ÷ área (0 quando não dá pra saber: sem metragem ou
+  // sem gasto). Enquanto a obra não fechou, é PARCIAL — sobe conforme gasta (ex.:
+  // a SORRISO a 81% mostra um /m² abaixo do estimado porque o acabamento ainda
+  // não entrou). O rótulo diz "parcial" pra ninguém tomar isso por custo final.
+  const m2Real = custoM2Realizado(project);
+  const obraConcluida = project.progress >= 100;
+
   const cardBase = 'glass rounded-xl md:rounded-2xl p-2.5 md:p-5 border border-slate-700 min-w-0';
   const label = 'text-[8px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest text-slate-400 truncate';
 
@@ -57,6 +64,12 @@ const CashSummaryCards: React.FC<Props> = ({ project }) => {
           <span className={label}>Gasto</span>
         </div>
         <Money value={totalGasto} className="text-white" />
+        {m2Real > 0 && (
+          <p className="hidden md:block text-[9px] text-slate-400 mt-1 font-bold uppercase tracking-wider whitespace-nowrap">
+            <i className="fa-solid fa-ruler-combined mr-1 text-slate-500"></i>
+            {formatCurrency(m2Real)}/m² real{obraConcluida ? '' : ' (parcial)'}
+          </p>
+        )}
       </div>
 
       {/* Aquisição (só quando paga pela obra) */}
