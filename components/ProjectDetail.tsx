@@ -792,6 +792,24 @@ const ExpensesSection: React.FC<{
     });
   };
 
+  // Editar o Item de uma despesa JÁ lançada, direto na tabela. O valor sentinela
+  // '__new__' significa "criar um item novo": pergunta o nome, reaproveita
+  // handleCreateItem (que dedupe e recarrega a lista) e vincula o id à despesa.
+  // Sem isto, a edição inline só escolhia entre itens já existentes — o modal de
+  // Nova Despesa deixava criar na hora, mas a edição não, e era onde o Victor
+  // caía ao reclassificar despesas antigas.
+  const NEW_ITEM = '__new__';
+  const handleEditExpenseItem = async (expId: string, value: string) => {
+    if (value === NEW_ITEM) {
+      const name = window.prompt('Nome do novo item (ex.: Cimento, Mão de obra, Frete):');
+      if (name === null) return;               // cancelou
+      const id = await handleCreateItem(name); // trata vazio/dedupe/erro
+      if (id) handleEditExpense(expId, { itemId: id });
+      return;
+    }
+    handleEditExpense(expId, { itemId: value || undefined });
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
@@ -1151,16 +1169,17 @@ const ExpensesSection: React.FC<{
                     {/* Coluna Item (lista plana da obra) — só no ObraPro */}
                     {ent.canUseItens && (
                     <td className="px-4 py-4">
-                      {isEditing && projectItems.length > 0 ? (
+                      {isEditing ? (
                         <select
                           className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs font-bold text-white w-full outline-none"
                           value={exp.itemId || ''}
-                          onChange={(e) => handleEditExpense(exp.id, { itemId: e.target.value || undefined })}
+                          onChange={(e) => handleEditExpenseItem(exp.id, e.target.value)}
                         >
                           <option value="">Sem item</option>
                           {projectItems.map(it => (
                             <option key={it.id} value={it.id}>{it.name}</option>
                           ))}
+                          <option value={NEW_ITEM}>➕ Criar novo item…</option>
                         </select>
                       ) : (
                         <span className="text-xs font-bold text-slate-400">
