@@ -1170,17 +1170,30 @@ const ExpensesSection: React.FC<{
                     {ent.canUseItens && (
                     <td className="px-4 py-4">
                       {isEditing ? (
-                        <select
-                          className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs font-bold text-white w-full outline-none"
-                          value={exp.itemId || ''}
-                          onChange={(e) => handleEditExpenseItem(exp.id, e.target.value)}
-                        >
-                          <option value="">Sem item</option>
-                          {projectItems.map(it => (
-                            <option key={it.id} value={it.id}>{it.name}</option>
-                          ))}
-                          <option value={NEW_ITEM}>➕ Criar novo item…</option>
-                        </select>
+                        // Botão "+" SEPARADO do select (não é mais a última opção da
+                        // lista): com ~43 itens semeados, "criar" no fim do dropdown ficava
+                        // impossível de achar — era a reclamação do Victor. O botão fica
+                        // sempre à vista e dispara o mesmo fluxo (handleEditExpenseItem).
+                        <div className="flex items-center gap-1">
+                          <select
+                            className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs font-bold text-white flex-1 min-w-0 outline-none"
+                            value={exp.itemId || ''}
+                            onChange={(e) => handleEditExpenseItem(exp.id, e.target.value)}
+                          >
+                            <option value="">Sem item</option>
+                            {projectItems.map(it => (
+                              <option key={it.id} value={it.id}>{it.name}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => handleEditExpenseItem(exp.id, NEW_ITEM)}
+                            title="Criar novo item"
+                            className="shrink-0 w-7 h-7 rounded bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white transition flex items-center justify-center"
+                          >
+                            <i className="fa-solid fa-plus text-xs"></i>
+                          </button>
+                        </div>
                       ) : (
                         <span className="text-xs font-bold text-slate-400">
                           {projectItems.find(it => it.id === exp.itemId)?.name || <span className="text-slate-700 opacity-50">—</span>}
