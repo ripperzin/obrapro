@@ -340,8 +340,11 @@ const UnitsSection: React.FC<{
         }}
       />
 
-      {/* Grid de Cards de Unidades - Dark Theme */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+      {/* Lista de Cards de Unidades — uma coluna, de canto a canto. Era uma grade
+          de 3 colunas em que o card expandido virava col-span-3 (largura total) e
+          reorganizava a grade a cada edição ("bagunça"). Uma coluna só cresce pra
+          baixo (acordeão) sem mexer nos vizinhos. */}
+      <div className="flex flex-col gap-4">
         {project.units.map(unit => {
           const isCompleted = project.progress === 100;
           const totalExpenses = project.expenses.reduce((sum, exp) => sum + exp.value, 0);
@@ -376,7 +379,7 @@ const UnitsSection: React.FC<{
           return (
             <div
               key={unit.id}
-              className={`glass rounded-2xl border transition-all ${isEditing ? 'border-orange-500' : 'border-slate-700 hover:border-blue-500/50'} ${expandedUnitIds.has(unit.id) ? 'p-6 shadow-xl md:col-span-2 lg:col-span-3' : 'p-4 cursor-pointer hover:bg-slate-800/30'}`}
+              className={`glass rounded-2xl border transition-all ${isEditing ? 'border-orange-500' : 'border-slate-700 hover:border-blue-500/50'} ${expandedUnitIds.has(unit.id) ? 'p-6 shadow-xl' : 'p-4 cursor-pointer hover:bg-slate-800/30'}`}
               onClick={() => {
                 if (!expandedUnitIds.has(unit.id)) {
                   toggleExpansion(unit.id);
