@@ -952,6 +952,50 @@ const ExpensesSection: React.FC<{
                               ))}
                             </select>
                           )}
+                          {/* Etapa e Item na edição MOBILE. Antes só apareciam como selo
+                              em leitura (mais abaixo) e sumiam ao editar — quem usa só o
+                              celular não tinha como classificar a despesa. Mesmos campos e
+                              mesmo botão "+" da tabela do desktop. */}
+                          {projectMacros.length > 0 && (
+                            <div>
+                              <span className="text-[9px] uppercase font-black text-blue-400 block mb-1 ml-1">Etapa</span>
+                              <select
+                                className="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-xs font-bold text-white w-full outline-none"
+                                value={exp.macroId || ''}
+                                onChange={(e) => handleEditExpense(exp.id, { macroId: e.target.value || undefined })}
+                              >
+                                <option value="">Sem categoria</option>
+                                {projectMacros.map(m => (
+                                  <option key={m.id} value={m.id}>{m.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                          {ent.canUseItens && (
+                            <div>
+                              <span className="text-[9px] uppercase font-black text-slate-400 block mb-1 ml-1">Item</span>
+                              <div className="flex items-center gap-1">
+                                <select
+                                  className="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-xs font-bold text-white flex-1 min-w-0 outline-none"
+                                  value={exp.itemId || ''}
+                                  onChange={(e) => handleEditExpenseItem(exp.id, e.target.value)}
+                                >
+                                  <option value="">Sem item</option>
+                                  {projectItems.map(it => (
+                                    <option key={it.id} value={it.id}>{it.name}</option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditExpenseItem(exp.id, NEW_ITEM)}
+                                  title="Criar novo item"
+                                  className="shrink-0 w-8 h-8 rounded bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white transition flex items-center justify-center"
+                                >
+                                  <i className="fa-solid fa-plus text-xs"></i>
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <h5 className="font-black text-white text-lg">{exp.description}</h5>
