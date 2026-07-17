@@ -345,7 +345,9 @@ const UnitsSection: React.FC<{
           reorganizava a grade a cada edição ("bagunça"). Uma coluna só cresce pra
           baixo (acordeão) sem mexer nos vizinhos. */}
       <div className="flex flex-col gap-4">
-        {project.units.map(unit => {
+        {[...project.units]
+          .sort((a, b) => (a.identifier || '').localeCompare(b.identifier || '', 'pt-BR', { numeric: true, sensitivity: 'base' }))
+          .map(unit => {
           const isCompleted = project.progress === 100;
           const totalExpenses = project.expenses.reduce((sum, exp) => sum + exp.value, 0);
           const terrenoTotal = (project.acquisitionCosts || []).reduce((sum, a) => sum + (a.value || 0), 0);

@@ -166,13 +166,19 @@ export const fetchProjects = async (): Promise<Project[]> => {
         splitMode: (p.split_mode as 'percent' | 'unit') || 'percent',
         archived: p.archived || false,
         progress: p.progress || 0,
+        // Ordena por identificador de forma NUMÉRICA (numeric:true → "CASA 2" antes
+        // de "CASA 10", não depois). Sem isto o Postgres devolve as unidades em ordem
+        // arbitrária e editar uma casa a fazia "pular" de posição na tela. Ordenar
+        // aqui vale para todos os consumidores (aba Unidades, dashboards, PDF, link).
         units: (p.units || []).map((u: any) => ({
             ...u,
             valorEstimadoVenda: u.valor_estimado_venda || 0,
             saleValue: u.sale_value,
             saleDate: u.sale_date,
             ownerInvestorId: u.owner_investor_id || undefined
-        })),
+        })).sort((a: any, b: any) =>
+            (a.identifier || '').localeCompare(b.identifier || '', 'pt-BR', { numeric: true, sensitivity: 'base' })
+        ),
         expenses: (p.expenses || []).map((e: any) => ({
             ...e,
             userId: e.user_id,
