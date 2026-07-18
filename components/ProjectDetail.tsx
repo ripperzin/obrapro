@@ -1555,23 +1555,29 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
     const oldName = getStageName(project.progress, project);
     const newName = getStageName(newStage, project);
 
-    // If going BACK to a previous stage, clear evidence from stages after the new stage
+    // Voltar de etapa: só re-ancora o progresso — NÃO apaga mais as fotos das etapas à frente.
     if (newStage < project.progress) {
-      const currentEvidences = project.stageEvidence || [];
-      // Keep only evidences for stages <= newStage
-      const filteredEvidences = currentEvidences.filter(e => e.stage <= newStage);
-
-      // Update progress AND clear future evidences
-      onUpdate(project.id, {
-        progress: newStage,
-        stageEvidence: filteredEvidences
-      }, `Retorno de etapa: ${oldName} -> ${newName} (evidências posteriores removidas)`);
+      onUpdate(project.id, { progress: newStage }, `Retorno de etapa: ${oldName} -> ${newName}`);
     } else {
-      // Going forward - update progress
-      onUpdate(project.id, { progress: newStage }, `Progresso: ${oldName} -> ${newName}`);
+      // Avançar: atualiza o progresso E carimba a DATA da evolução (mesmo sem foto),
+      // para que uma foto adicionada depois já venha com a data certa daquele avanço.
+      const jaTemEvidencia = (project.stageEvidence || []).some(e => e.stage === newStage);
+      const evidencias = jaTemEvidencia
+        ? (project.stageEvidence || [])
+        : [
+            ...(project.stageEvidence || []),
+            {
+              stage: newStage,
+              photos: [],
+              notes: '',
+              date: new Date().toISOString().split('T')[0],
+              user: user.login
+            }
+          ];
+      onUpdate(project.id, { progress: newStage, stageEvidence: evidencias }, `Progresso: ${oldName} -> ${newName}`);
 
-      // Prompt for evidence of the NEW CURRENT stage (the one we just advanced to)
-      const evidence = project.stageEvidence?.find(e => e.stage === newStage);
+      // Abre a janela de foto da etapa recém-avançada (opcional — pode fechar sem pôr foto).
+      const evidence = evidencias.find(e => e.stage === newStage);
       setEvidenceModal({
         isOpen: true,
         stage: newStage,
@@ -2117,6 +2123,18 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                           <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900 flex items-center justify-center text-white text-[8px] shadow-lg z-20">
                             <i className="fa-solid fa-check"></i>
                           </div>
+                        )}
+
+                        {/* Botão EDITAR foto/data da etapa — abre a janela direto, sem "voltar de etapa" nem mexer no progresso */}
+                        {i < projectStages.length && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setEvidenceModal({ isOpen: true, stage, evidence }); }}
+                            className="absolute -top-1 -left-1 w-5 h-5 md:w-6 md:h-6 bg-slate-700 hover:bg-blue-600 rounded-full border-2 border-slate-900 flex items-center justify-center text-white text-[9px] shadow-lg z-20 transition-colors"
+                            title={`Editar foto e data — ${st.name}`}
+                            aria-label={`Editar foto e data da etapa ${st.name}`}
+                          >
+                            <i className="fa-solid fa-pen"></i>
+                          </button>
                         )}
 
                       </div>
