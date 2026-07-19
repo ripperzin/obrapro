@@ -5,6 +5,7 @@
 
 export interface ReportOptions {
     foto: boolean;       // foto da etapa atual (topo)
+    itens: boolean;      // "Onde foi o dinheiro" (itens que mais gastaram)
     resultado: boolean;  // Resultado do empreendimento
     aportes: boolean;    // Acerto de aportes (Meta/Aportou/Falta por sócio)
     despesas: boolean;   // Extrato detalhado de despesas
@@ -12,6 +13,7 @@ export interface ReportOptions {
 
 export const DEFAULT_REPORT_OPTIONS: ReportOptions = {
     foto: true,
+    itens: true,
     resultado: true,
     aportes: true,
     despesas: true,
@@ -21,6 +23,7 @@ export const DEFAULT_REPORT_OPTIONS: ReportOptions = {
 // Orçamento por categoria e Caixa — são o núcleo e aparecem sempre).
 export const OPTIONAL_SECTIONS: { key: keyof ReportOptions; label: string; hint: string; icon: string }[] = [
     { key: 'foto', label: 'Foto da etapa atual', hint: 'Imagem mais recente da obra no topo', icon: 'fa-image' },
+    { key: 'itens', label: 'Onde foi o dinheiro', hint: 'Itens que mais gastaram na obra', icon: 'fa-coins' },
     { key: 'resultado', label: 'Resultado do empreendimento', hint: 'Lucro projetado e realizado', icon: 'fa-sack-dollar' },
     { key: 'aportes', label: 'Acerto de aportes', hint: 'Meta, aportado e o que falta por sócio', icon: 'fa-users' },
     { key: 'despesas', label: 'Extrato de despesas', hint: 'Lista item a item, com quem pagou', icon: 'fa-receipt' },
@@ -28,7 +31,7 @@ export const OPTIONAL_SECTIONS: { key: keyof ReportOptions; label: string; hint:
 
 // Seções que só existem no plano ObraPro. No Free o relatório é o NÚCLEO
 // (foto + Gasto × Avanço + Orçamento por etapa + Caixa) e sai com a marca.
-export const PAID_SECTIONS: (keyof ReportOptions)[] = ['resultado', 'despesas'];
+export const PAID_SECTIONS: (keyof ReportOptions)[] = ['itens', 'resultado', 'despesas'];
 
 /**
  * Corta do relatório o que o plano do dono não permite.
@@ -50,6 +53,7 @@ export const parseReportOptionsFromHash = (hash: string): ReportOptions => {
     const off = (params.get('off') || '').split(',').map((s) => s.trim()).filter(Boolean);
     return {
         foto: !off.includes('foto'),
+        itens: !off.includes('itens'),
         resultado: !off.includes('resultado'),
         aportes: !off.includes('aportes'),
         despesas: !off.includes('despesas'),

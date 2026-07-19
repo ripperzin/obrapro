@@ -346,6 +346,44 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         }
 
         // ══════════════════════════════════════════════════════════
+        // ONDE FOI O DINHEIRO (itens que mais gastaram) — seção paga (itens).
+        // Espelha o card do link; os nomes dos itens não vêm no objeto do
+        // projeto, então são buscados aqui por project_id.
+        // ══════════════════════════════════════════════════════════
+        if (options.itens) {
+            const byItem: Record<string, number> = {};
+            for (const e of project.expenses) {
+                const k = e.itemId || '__none__';
+                byItem[k] = (byItem[k] || 0) + (e.value || 0);
+            }
+            const itemRows = Object.entries(byItem).sort((a, b) => b[1] - a[1]).slice(0, 8);
+            if (itemRows.length > 0) {
+                const itemsById: Record<string, string> = {};
+                try {
+                    const { data } = await supabase.from('project_items').select('id, name').eq('project_id', project.id);
+                    (data || []).forEach((it: any) => { itemsById[it.id] = it.name; });
+                } catch { /* sem nomes: cai no fallback 'Item' */ }
+
+                y = pageBreak(16 + itemRows.length * 9, y);
+                doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
+                doc.text('ONDE FOI O DINHEIRO', M, y);
+                y += 6;
+                const maxItem = itemRows[0][1] || 1;
+                for (const [itemId, total] of itemRows) {
+                    y = pageBreak(9, y);
+                    const nome = itemId === '__none__' ? 'Sem item' : (itemsById[itemId] || 'Item');
+                    doc.setFontSize(7.5); setColor(C.text); doc.setFont('helvetica', 'bold');
+                    doc.text(nome, M + 2, y + 3);
+                    setColor(C.text);
+                    doc.text(fmtShort(total), pw - M - 2, y + 3, { align: 'right' });
+                    bar(doc, M + 2, y + 4.5, W - 4, 2, (total / maxItem) * 100, C.amber);
+                    y += 9;
+                }
+                y += 3;
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════
         // CAIXA DA OBRA (Aportado - Gasto - Aquisição = Saldo)
         // ══════════════════════════════════════════════════════════
         // A aquisição entra como card (e na legenda) só quando foi paga PELA OBRA
