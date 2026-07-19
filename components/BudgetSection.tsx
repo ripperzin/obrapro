@@ -38,6 +38,74 @@ const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
+/**
+ * Aprende o RITMO (duração de cada etapa) de uma obra concluída pelas datas das
+ * fotos (stage_evidences). Interpola linearmente a data em cada fronteira de etapa
+ * e usa a duração como PESO do cronograma — substituindo o % de custo (que hoje é
+ * usado como se fosse tempo). Assim o acabamento (barato mas lento) ganha o prazo
+ * real dele. Devolve { displayOrder: pesoDeDuração } das etapas de fase
+ * (não-timeBased), ou null se não há datas espalhadas o bastante.
+ */
+function learnStageDurations(source: Project): Record<number, number> | null {
+    const fases = (source.budget?.macros || [])
+        .filter(m => !m.timeBased)
+        .sort((a, b) => a.displayOrder - b.displayOrder);
+    if (fases.length === 0) return null;
+
+    // Fronteiras de progresso (0..100) de cada etapa de fase (renormalizadas).
+    const totalPct = fases.reduce((s, m) => s + (m.percentage || 0), 0);
+    const bounds: number[] = [0];
+    let acc = 0;
+    fases.forEach(m => {
+        acc += totalPct > 0 ? (m.percentage || 0) : (100 / fases.length);
+        bounds.push(totalPct > 0 ? (acc / totalPct) * 100 : acc);
+    });
+    bounds[bounds.length - 1] = 100;
+
+    // Âncoras (progresso, tempo em ms): início(0), cada foto datada, entrega(100).
+    const parseD = (s?: string): number | null =>
+        s && s.length >= 10 && s !== '1970-01-01' ? new Date(s + 'T00:00:00').getTime() : null;
+    const anchors: { p: number; t: number }[] = [];
+    const t0 = parseD(source.startDate);
+    if (t0 != null) anchors.push({ p: 0, t: t0 });
+    (source.stageEvidence || []).forEach(e => {
+        const t = parseD(e.date);
+        if (t != null && typeof e.stage === 'number') anchors.push({ p: e.stage, t });
+    });
+    const tEnd = parseD(source.deliveryDate);
+    if (tEnd != null) anchors.push({ p: 100, t: tEnd });
+
+    anchors.sort((a, b) => a.p - b.p || a.t - b.t);
+    const uniq: { p: number; t: number }[] = [];
+    anchors.forEach(a => { if (!uniq.length || uniq[uniq.length - 1].p !== a.p) uniq.push(a); });
+    if (uniq.length < 2 || uniq[uniq.length - 1].t - uniq[0].t <= 0) return null;
+
+    const dateAt = (p: number): number => {
+        if (p <= uniq[0].p) return uniq[0].t;
+        if (p >= uniq[uniq.length - 1].p) return uniq[uniq.length - 1].t;
+        for (let i = 0; i < uniq.length - 1; i++) {
+            const a = uniq[i], b = uniq[i + 1];
+            if (p >= a.p && p <= b.p) {
+                return b.p === a.p ? a.t : a.t + ((p - a.p) / (b.p - a.p)) * (b.t - a.t);
+            }
+        }
+        return uniq[uniq.length - 1].t;
+    };
+
+    const weights: Record<number, number> = {};
+    let total = 0;
+    fases.forEach((m, i) => {
+        const dur = Math.max(0, dateAt(bounds[i + 1]) - dateAt(bounds[i]));
+        weights[m.displayOrder] = dur;
+        total += dur;
+    });
+    if (total <= 0) return null;
+    // Etapa sem separação temporal ganha um mínimo pra não sumir do cronograma.
+    const minW = total * 0.005;
+    fases.forEach(m => { if (weights[m.displayOrder] <= 0) weights[m.displayOrder] = minW; });
+    return weights;
+}
+
 // Helper: cria as ETAPAS (macros) da obra a partir do template padrão.
 // O Previsto por item (project_stage_items) é semeado à parte via a RPC
 // seed_project_stage_items depois que as etapas existem (ver fetchBudgetData).
@@ -564,6 +632,55 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
         }
     };
 
+    // Obras que podem ensinar o RITMO: concluídas (100%) com fotos em ≥2 datas
+    // diferentes (senão não dá pra medir duração de etapa).
+    const obrasMoldeRitmo = (allProjects || []).filter(p => {
+        if (p.id === project.id || p.progress < 100) return false;
+        const datas = new Set((p.stageEvidence || [])
+            .map(e => e.date).filter(d => d && d.length >= 10 && d !== '1970-01-01'));
+        return datas.size >= 2;
+    });
+
+    // Gera o cronograma repartindo o prazo pelo TEMPO real aprendido (não pelo custo).
+    const handleGenerateScheduleFromObra = async (sourceId: string) => {
+        if (!project.startDate || !project.deliveryDate) {
+            alert('Defina a data de início e a de entrega desta obra para gerar o cronograma.\n\nElas ficam no lápis (Editar) do card da obra, na tela Início.');
+            return;
+        }
+        const source = (allProjects || []).find(p => p.id === sourceId);
+        if (!source) return;
+        const weights = learnStageDurations(source);
+        if (!weights) {
+            alert('A obra escolhida não tem fotos datadas suficientes para aprender o ritmo (precisa de datas espalhadas ao longo da obra).');
+            return;
+        }
+        // Substitui o peso das FASES pela duração real; o Canteiro (timeBased) segue
+        // atravessando a obra toda (o cronograma ignora o peso dele de qualquer forma).
+        const macrosRitmo = macros.map(m =>
+            m.timeBased ? m : { ...m, percentage: weights[m.displayOrder] ?? (m.percentage || 0) });
+        const updates = computeScheduleDates(macrosRitmo, project.startDate, project.deliveryDate);
+        if (updates.length === 0) {
+            alert('A data de entrega precisa ser posterior à data de início.');
+            return;
+        }
+        const fmt = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR');
+        if (!window.confirm(
+            `Gerar o cronograma usando o RITMO real da obra "${source.name}" — o tempo que cada etapa levou lá (pelas datas das fotos), não o % de custo — entre ${fmt(project.startDate)} e ${fmt(project.deliveryDate)}?\n\nIsto substitui as datas planejadas atuais.`
+        )) return;
+        try {
+            await Promise.all(updates.map(u =>
+                supabase.from('project_macros')
+                    .update({ planned_start_date: u.planned_start_date, planned_end_date: u.planned_end_date })
+                    .eq('id', u.id)
+            ));
+            fetchBudgetData(true);
+            onBudgetUpdate?.();
+            alert(`Cronograma gerado pelo ritmo da obra "${source.name}"! Veja no botão "Cronograma" da obra; ajuste as datas se precisar.`);
+        } catch (e: any) {
+            alert('Erro ao gerar cronograma: ' + (e.message || e));
+        }
+    };
+
     const handleUpdateMacroLocal = (id: string, field: keyof ProjectMacro, value: any) => {
         setEditMacros(prev => prev.map(m => {
             if (m.id === id) {
@@ -908,6 +1025,28 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                         </div>
                     )}
                 </div>
+                )}
+
+                {viewMode === 'stage' && isAdmin && obrasMoldeRitmo.length > 0 && (
+                    <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-3 mx-2 space-y-1 animate-fade-in">
+                        <div className="flex items-center gap-2">
+                            <i className="fa-solid fa-graduation-cap text-blue-400 text-xs"></i>
+                            <span className="text-[11px] font-black text-blue-400 uppercase tracking-wider">Cronograma pelo ritmo de uma obra concluída</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                            Em vez de repartir o prazo pelo <b className="text-slate-400">% de custo</b>, usa o <b className="text-slate-400">tempo real</b> que cada etapa levou numa obra sua já terminada (pelas datas das fotos). O acabamento ganha o prazo real dele.
+                        </p>
+                        <select
+                            value=""
+                            onChange={(e) => { if (e.target.value) handleGenerateScheduleFromObra(e.target.value); }}
+                            className="w-full mt-1 px-3 py-2 bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-xl outline-none font-bold text-blue-400 text-[11px] cursor-pointer"
+                        >
+                            <option value="">↧ gerar cronograma pelo ritmo de uma obra concluída…</option>
+                            {obrasMoldeRitmo.map(o => (
+                                <option key={o.id} value={o.id}>{o.name} — ritmo real</option>
+                            ))}
+                        </select>
+                    </div>
                 )}
 
                 {viewMode === 'stage' ? (
