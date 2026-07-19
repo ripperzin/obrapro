@@ -406,8 +406,9 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     </div>
                 </div>
 
-                {/* 3b) ONDE FOI O DINHEIRO — itens que mais gastaram (gasto por item, ranqueado) */}
-                {(() => {
+                {/* 3b) ONDE FOI O DINHEIRO — itens que mais gastaram (gasto por item, ranqueado).
+                       "Por item" é recurso pago: só aparece se o DONO da obra tiver o plano com itens. */}
+                {ownerEnt.canUseItens && (() => {
                     const byItem: Record<string, number> = {};
                     for (const e of expenses) {
                         const k = e.item_id || '__none__';
