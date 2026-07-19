@@ -8,6 +8,7 @@ import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import { usePlan } from './PlanProvider';
 import { computeScheduleDates } from '../utils/schedule';
+import { useProjects } from '../hooks/useProjects';
 
 /**
  * RÉGUA FIXA — por que não se adiciona, remove nem renomeia etapa aqui.
@@ -205,6 +206,107 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             await reloadStageItems();
         } catch (e) {
             console.error('Erro ao remover item da etapa:', e);
+        }
+    };
+
+    // ── APRENDER DE OBRA CONCLUÍDA: previsto por item ────────────────────────────
+    // Molde de itens: puxa a distribuição REAL por (etapa, item) de uma obra já
+    // concluída e reescreve o Previsto por item desta obra. Casa etapa e item por
+    // display_order (as duas obras nascem do mesmo template → mesma ordem).
+    const { data: allProjects } = useProjects();
+    const [moldeItensSource, setMoldeItensSource] = useState<string | null>(null);
+    const [aplicandoMolde, setAplicandoMolde] = useState(false);
+
+    // Obras que podem servir de molde de itens: concluídas (100%) E com despesa
+    // classificada por etapa+item (senão o molde viria vazio).
+    const obrasMoldeItens = (allProjects || []).filter(p =>
+        p.id !== project.id &&
+        p.progress >= 100 &&
+        (p.expenses || []).some(e => e.itemId && e.macroId)
+    );
+
+    const aplicarMoldeItens = async (sourceId: string) => {
+        const source = (allProjects || []).find(p => p.id === sourceId);
+        if (!source) return;
+        const sourceName = source.name;
+        if (!window.confirm(
+            `Isso substitui o Previsto por item desta obra pela distribuição REAL da obra "${sourceName}" (o que ela gastou de verdade em cada item, por etapa). Os valores continuam editáveis. Continuar?`
+        )) return;
+
+        setAplicandoMolde(true);
+        try {
+            // 1. Ordem dos itens da obra-fonte (não vem no objeto do projeto).
+            const { data: srcItems } = await supabase
+                .from('project_items').select('id, display_order').eq('project_id', sourceId);
+            const srcItemOrder: Record<string, number> = {};
+            (srcItems || []).forEach((it: any) => { srcItemOrder[it.id] = it.display_order; });
+            const srcMacroOrder: Record<string, number> = {};
+            (source.budget?.macros || []).forEach(m => { srcMacroOrder[m.id] = m.displayOrder; });
+
+            // 2. Gasto por (ordem da etapa, ordem do item) — só despesas itemizadas.
+            const perStageItem: Record<string, number> = {};
+            const perStageTotal: Record<number, number> = {};
+            (source.expenses || []).forEach(e => {
+                if (!e.macroId || !e.itemId) return;
+                const mOrd = srcMacroOrder[e.macroId];
+                const iOrd = srcItemOrder[e.itemId];
+                if (mOrd == null || iOrd == null) return;
+                perStageItem[`${mOrd}|${iOrd}`] = (perStageItem[`${mOrd}|${iOrd}`] || 0) + (e.value || 0);
+                perStageTotal[mOrd] = (perStageTotal[mOrd] || 0) + (e.value || 0);
+            });
+
+            // 3. Mapear pra ESTA obra (ordem → id) e montar % dentro da etapa.
+            const tgtMacroByOrder: Record<number, string> = {};
+            macros.forEach(m => { tgtMacroByOrder[m.displayOrder] = m.id; });
+            const tgtItemByOrder: Record<number, string> = {};
+            projectItems.forEach(it => { tgtItemByOrder[it.displayOrder] = it.id; });
+
+            const byStage: Record<number, { macroId: string; itemId: string; pct: number }[]> = {};
+            Object.entries(perStageItem).forEach(([key, spend]) => {
+                const [mOrd, iOrd] = key.split('|').map(Number);
+                const total = perStageTotal[mOrd];
+                const macroId = tgtMacroByOrder[mOrd];
+                const itemId = tgtItemByOrder[iOrd];
+                if (!total || !macroId || !itemId) return;
+                (byStage[mOrd] ||= []).push({ macroId, itemId, pct: (spend / total) * 100 });
+            });
+
+            // 4. Arredonda por etapa e joga a sobra na maior pra fechar 100%.
+            const rows: { project_id: string; macro_id: string; item_id: string; percentage: number; display_order: number }[] = [];
+            Object.values(byStage).forEach(list => {
+                const rounded = list.map(r => ({ ...r, pct: Math.round(r.pct * 10) / 10 }));
+                const sum = rounded.reduce((s, r) => s + r.pct, 0);
+                const diff = Math.round((100 - sum) * 10) / 10;
+                if (diff !== 0 && rounded.length) {
+                    let mi = 0;
+                    rounded.forEach((r, i) => { if (r.pct > rounded[mi].pct) mi = i; });
+                    rounded[mi].pct = Math.round((rounded[mi].pct + diff) * 10) / 10;
+                }
+                rounded.sort((a, b) => b.pct - a.pct);
+                rounded.forEach((r, i) => rows.push({
+                    project_id: project.id, macro_id: r.macroId, item_id: r.itemId,
+                    percentage: r.pct, display_order: i,
+                }));
+            });
+
+            if (rows.length === 0) {
+                alert('A obra escolhida não tem gasto por item suficiente para virar molde.');
+                return;
+            }
+
+            // 5. Substitui: apaga o previsto atual e grava o aprendido.
+            const { error: delErr } = await supabase
+                .from('project_stage_items').delete().eq('project_id', project.id);
+            if (delErr) throw delErr;
+            const { error: insErr } = await supabase.from('project_stage_items').insert(rows);
+            if (insErr) throw insErr;
+            await reloadStageItems();
+            setMoldeItensSource(sourceName);
+        } catch (e: any) {
+            console.error('Erro ao aplicar molde de itens:', e);
+            alert('Erro ao puxar o previsto por item da obra escolhida.');
+        } finally {
+            setAplicandoMolde(false);
         }
     };
 
@@ -831,6 +933,34 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {isEditing && ent.canUseItens && obrasMoldeItens.length > 0 && (
+                    <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-3 mb-4 space-y-1 animate-fade-in">
+                        <div className="flex items-center gap-2">
+                            <i className="fa-solid fa-graduation-cap text-blue-400 text-xs"></i>
+                            <span className="text-[11px] font-black text-blue-400 uppercase tracking-wider">Aprender de uma obra concluída</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                            Puxa o <b className="text-slate-400">previsto por item</b> de uma obra que você já terminou (o que ela gastou de verdade em cada item, por etapa). Continua editável.
+                        </p>
+                        <select
+                            value=""
+                            disabled={aplicandoMolde}
+                            onChange={(e) => { if (e.target.value) aplicarMoldeItens(e.target.value); }}
+                            className="w-full mt-1 px-3 py-2 bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-xl outline-none font-bold text-blue-400 text-[11px] cursor-pointer disabled:opacity-50"
+                        >
+                            <option value="">{aplicandoMolde ? 'Aplicando…' : '↧ puxar o previsto por item de uma obra concluída…'}</option>
+                            {obrasMoldeItens.map(o => (
+                                <option key={o.id} value={o.id}>{o.name} — como ela gastou de verdade</option>
+                            ))}
+                        </select>
+                        {moldeItensSource && (
+                            <p className="text-[10px] text-blue-400/80 font-bold">
+                                <i className="fa-solid fa-check"></i> previsto por item veio da obra “{moldeItensSource}” — ajuste à vontade
+                            </p>
+                        )}
                     </div>
                 )}
 
