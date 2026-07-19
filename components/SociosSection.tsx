@@ -33,6 +33,7 @@ interface SocioView {
     falta: number | null;   // null = não aporta / sem base
     naoAporta: boolean;
     lucro: number;
+    margem: number | null;   // margem de lucro estimada (lucro ÷ venda atribuída ao sócio)
     temLucro: boolean;
     real: boolean;          // true = número já realizado (obra concluída / casa vendida)
     badge: string;          // 'vendido' | 'real' | 'estimado'
@@ -196,6 +197,8 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
         sociosView = donos.map((inv) => {
             const suas = units.filter((u) => u.ownerInvestorId === inv.id);
             const lucro = suas.reduce((s, u) => s + computeUnitResult(project, u).resultado, 0);
+            const vendaSocio = suas.reduce((s, u) => s + computeUnitResult(project, u).venda, 0);
+            const margem = vendaSocio > 0 ? (lucro / vendaSocio) * 100 : null;
             const vendido = suas.length > 0 && suas.every((u) => u.status === 'Sold');
             const acc = acertoDe(inv.id);
             const real = vendido && isCompleted;
@@ -209,6 +212,7 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                 falta: acc ? acc.falta : null,
                 naoAporta: false,
                 lucro,
+                margem,
                 temLucro: true,
                 real,
                 badge: real ? 'vendido' : 'estimado',
@@ -218,6 +222,7 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
         sociosView = saved.map((s) => {
             const pct = (s.percentage || 0) / 100;
             const lucro = isCompleted ? f.lucroReal * pct : f.lucroProjetado * pct;
+            const margem = isCompleted ? f.margemRealPct : f.margemPct;
             const acc = acertoDe(s.investorId);
             return {
                 key: s.id,
@@ -229,6 +234,7 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                 falta: s.naoAporta ? null : acc ? acc.falta : null,
                 naoAporta: !!s.naoAporta,
                 lucro,
+                margem,
                 temLucro: f.vendasEstimadasTotais > 0,
                 real: isCompleted,
                 badge: isCompleted ? 'real' : 'estimado',
@@ -467,6 +473,9 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                                         <p className={`text-sm font-black ${!s.temLucro ? 'text-slate-500' : s.lucro < 0 ? 'text-rose-400' : s.real ? 'text-emerald-400' : 'text-cyan-400'}`}>
                                             {s.temLucro ? formatCurrency(s.lucro) : '—'}
                                         </p>
+                                        {s.temLucro && s.margem !== null && (
+                                            <p className="text-[8px] font-bold text-slate-500 mt-0.5">margem {s.margem.toFixed(1)}%</p>
+                                        )}
                                     </div>
                                 </div>
                                 {s.apDespesa > 0 && (
