@@ -360,7 +360,7 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
                                             )}
                                         </span>
                                         <div className="relative shrink-0">
-                                            <input type="number" min="0" max="100" step="0.5" inputMode="decimal"
+                                            <input type="number" min="0" max="100" step="any" inputMode="decimal"
                                                 value={s.percentage}
                                                 onChange={e => updateStagePct(idx, e.target.value)}
                                                 className="w-16 pl-2 pr-5 py-1.5 bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-lg outline-none font-bold text-white text-xs text-right" />

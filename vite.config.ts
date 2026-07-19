@@ -14,7 +14,10 @@ export default defineConfig(() => {
       // basicSsl(),
       react(),
       VitePWA({
-        registerType: 'autoUpdate', // FORCE update to ensure users get the new SW and cache fixes instanty
+        // 'prompt' (não 'autoUpdate'): a nova versão NÃO recarrega a página sozinha.
+        // O usuário vê o aviso "Atualizar Agora" (ReloadPrompt) e escolhe a hora —
+        // assim não perde o que está digitando quando publicamos uma atualização.
+        registerType: 'prompt',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
         manifest: {
           name: 'Obra Pro - Gestão de Obras',
