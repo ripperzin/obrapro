@@ -187,7 +187,7 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
     const acerto = computeAporteShares(project);
     const acertoDe = (investorId?: string) => acerto.shares.find((x) => x.investorId === investorId);
     const faltaTone = (v: number) => (v > 0.5 ? 'text-amber-400' : v < -0.5 ? 'text-emerald-400' : 'text-slate-500');
-    const faltaLabel = (v: number) => (v > 0.5 ? formatCurrency(v) : v < -0.5 ? `+${formatCurrency(-v)}` : 'Em dia');
+    const faltaLabel = (v: number) => (v > 0.5 ? `~${formatCurrency(v)}` : v < -0.5 ? `+${formatCurrency(-v)}` : 'Em dia');
 
     const units = project.units || [];
     let sociosView: SocioView[] = [];
@@ -482,7 +482,7 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                 {acerto.totalFalta > 0.5 && (
                     <p className="text-[11px] text-amber-400 font-bold mt-4 text-center">
                         <i className="fa-solid fa-circle-arrow-up mr-1"></i>
-                        Falta aportar no total: {formatCurrency(acerto.totalFalta)}
+                        Falta aportar no total (estimado): ~{formatCurrency(acerto.totalFalta)}
                     </p>
                 )}
                 {semDono.length > 0 && (
@@ -495,6 +495,7 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                     {splitMode === 'unit'
                         ? 'Lucro e aporte saem do custo da casa de cada sócio (obra + terreno rateado por área).'
                         : 'Lucro e aporte saem da % de cada sócio. Quem "não aporta" (ex.: admin) só entra no lucro.'}
+                    {' '}A coluna <b>Falta</b> é uma estimativa: a parte de cada sócio no <b>custo previsto</b> da obra menos o que já aportou.
                     {!isCompleted && ' Números estimados até a obra concluir.'}
                 </p>
             </div>

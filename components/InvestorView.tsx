@@ -55,7 +55,6 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [expenses, setExpenses] = useState<any[]>([]);
-    const [expandedMacroId, setExpandedMacroId] = useState<string | null>(null);
     // Mapa { path -> signed URL } gerado pela edge function (service role).
     // O portal é anon e não acessa o Storage diretamente.
     const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
@@ -367,10 +366,9 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                 const isOver = percent > 100;
 
                                 return (
-                                    <div key={macro.id} className="glass rounded-2xl p-4 transition-all hover:bg-slate-800/30 cursor-pointer" onClick={() => setExpandedMacroId(expandedMacroId === macro.id ? null : macro.id)}>
+                                    <div key={macro.id} className="glass rounded-2xl p-4">
                                         <div className="flex justify-between items-center mb-2">
                                             <div className="flex items-center gap-2">
-                                                <i className={`fa-solid fa-chevron-${expandedMacroId === macro.id ? 'down' : 'right'} text-xs text-slate-500`}></i>
                                                 <span className="text-white font-bold">{macro.name}</span>
                                             </div>
                                             <span className={`text-sm font-bold ${isOver ? 'text-red-400' : 'text-green-400'}`}>
@@ -393,34 +391,6 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                             <span>Meta: {formatCurrencyAbbrev(macro.estimatedValue)}</span>
                                         </div>
 
-                                        {/* Submacros */}
-                                        {expandedMacroId === macro.id && (
-                                            <div className="mt-4 pl-4 border-l-2 border-slate-700 space-y-3 animate-fade-in">
-                                                {macro.subMacros && macro.subMacros.length > 0 ? (
-                                                    macro.subMacros.sort((a: any, b: any) => a.displayOrder - b.displayOrder).map((sub: any) => {
-                                                        const subProgress = sub.estimatedValue > 0 ? (sub.spentValue / sub.estimatedValue) * 100 : 0;
-                                                        return (
-                                                            <div key={sub.id} className="text-xs">
-                                                                <div className="flex justify-between items-center mb-1">
-                                                                    <span className="text-slate-300 font-bold">{sub.name}</span>
-                                                                    <span className={`${subProgress > 100 ? 'text-red-400' : 'text-slate-400'}`}>
-                                                                        {formatCurrencyAbbrev(sub.spentValue)} / {formatCurrencyAbbrev(sub.estimatedValue)}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="w-full h-1 bg-slate-700/50 rounded-full overflow-hidden">
-                                                                    <div
-                                                                        className={`h-full rounded-full ${subProgress > 100 ? 'bg-red-500' : 'bg-blue-400'}`}
-                                                                        style={{ width: `${Math.min(subProgress, 100)}%` }}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })
-                                                ) : (
-                                                    <p className="text-xs text-slate-600 italic">Nenhum detalhe disponível.</p>
-                                                )}
-                                            </div>
-                                        )}
                                     </div>
                                 );
                             })
