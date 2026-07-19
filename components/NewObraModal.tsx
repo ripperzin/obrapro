@@ -76,6 +76,7 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
     // e o usuário pode ajustar aqui mesmo. `null` = ainda não mexeu.
     const { data: templateStages } = useTemplateStages();
     const [editedStages, setEditedStages] = useState<TemplateStage[] | null>(null);
+    const [moldeSource, setMoldeSource] = useState<string | null>(null); // nome da obra da qual a régua foi puxada
     const stages = editedStages ?? templateStages ?? [];
     const pctDirty = editedStages !== null;
 
@@ -84,7 +85,7 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
         const pct = Math.max(0, Math.min(100, parseFloat(value) || 0));
         setEditedStages(base.map((s, i) => (i === idx ? { ...s, percentage: pct } : s)));
     };
-    const resetStages = () => setEditedStages(null);
+    const resetStages = () => { setEditedStages(null); setMoldeSource(null); };
 
     const soma = stages.reduce((s, x) => s + (x.percentage || 0), 0);
     const somaOk = Math.abs(soma - 100) < 0.05;
@@ -101,6 +102,42 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
             return { id: p.id, name: p.name, valor: real || (p.custoM2 || 0), ehReal: real > 0 };
         })
         .filter(o => o.valor > 0);
+
+    // MOLDE de obra concluída: a régua REAL por etapa (quanto cada etapa custou
+    // de verdade ÷ total gasto). Só entram obras 100% E que têm gasto por etapa —
+    // senão o molde viria zerado (obras antigas com a despesa lançada "num monte
+    // só", sem etapa). É o "aprender da obra concluída pra alimentar a próxima".
+    const obrasMolde = [...(projects || [])]
+        .reverse()
+        .filter(p => p.progress >= 100)
+        .map(p => {
+            const macros = p.budget?.macros || [];
+            const totalSpent = macros.reduce((s, m) => s + (m.spentValue || 0), 0);
+            if (totalSpent <= 0) return null;
+            const reguaByOrder: Record<number, number> = {};
+            macros.forEach(m => { reguaByOrder[m.displayOrder] = (m.spentValue || 0) / totalSpent * 100; });
+            const etapasComGasto = macros.filter(m => (m.spentValue || 0) > 0).length;
+            return { id: p.id, name: p.name, reguaByOrder, etapasComGasto };
+        })
+        .filter((o): o is { id: string; name: string; reguaByOrder: Record<number, number>; etapasComGasto: number } => o !== null);
+
+    // Aplica a régua real da obra escolhida sobre as etapas do preset (casa por
+    // displayOrder). Joga a sobra do arredondamento na maior etapa pra fechar 100%.
+    const applyMolde = (obraId: string) => {
+        const o = obrasMolde.find(x => x.id === obraId);
+        const base = templateStages ?? [];
+        if (!o || base.length === 0) return;
+        const rounded = base.map(s => ({ ...s, percentage: Math.round((o.reguaByOrder[s.displayOrder] ?? 0) * 10) / 10 }));
+        const sum = rounded.reduce((a, s) => a + s.percentage, 0);
+        const diff = Math.round((100 - sum) * 10) / 10;
+        if (diff !== 0) {
+            let maxI = 0;
+            rounded.forEach((s, i) => { if (s.percentage > rounded[maxI].percentage) maxI = i; });
+            rounded[maxI] = { ...rounded[maxI], percentage: Math.round((rounded[maxI].percentage + diff) * 10) / 10 };
+        }
+        setEditedStages(rounded);
+        setMoldeSource(o.name);
+    };
 
     const totalUnits = unitTypes.reduce((s, t) => s + (parseInt(t.quantidade) || 0), 0);
     const totalArea = unitTypes.reduce((s, t) => s + (parseInt(t.quantidade) || 0) * (parseFloat(t.area) || 0), 0);
@@ -286,12 +323,30 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
                         a mesma que a obra vai receber — e é ajustável já na criação. */}
                     {budgetTotal > 0 && stages.length > 0 && (
                         <Section icon="fa-list-check" color="text-blue-400" title="Orçamento por etapa"
-                            hint={pctDirty ? 'ajustado por você' : 'sugestão, ajustável'}
+                            hint={moldeSource ? `da obra ${moldeSource}` : (pctDirty ? 'ajustado por você' : 'sugestão, ajustável')}
                             open={showEtapas} onToggle={() => setShowEtapas(v => !v)}>
                             <p className="text-[11px] text-slate-500 -mt-1">
                                 Distribuição <b className="text-slate-400">sugerida</b> com base em obras residenciais econômicas.
                                 Ajuste conforme seu projeto, região e método construtivo — dá pra mudar depois também, no Orçamento da obra.
                             </p>
+
+                            {/* Aprender de uma obra concluída: puxa a régua REAL por etapa */}
+                            {obrasMolde.length > 0 && (
+                                <div className="space-y-1">
+                                    <select value="" onChange={e => { if (e.target.value) applyMolde(e.target.value); }}
+                                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-xl outline-none font-bold text-blue-400 text-[11px] cursor-pointer">
+                                        <option value="">↧ puxar a régua real de uma obra concluída…</option>
+                                        {obrasMolde.map(o => (
+                                            <option key={o.id} value={o.id}>{o.name} — como ela gastou de verdade</option>
+                                        ))}
+                                    </select>
+                                    {moldeSource && (
+                                        <p className="text-[10px] text-blue-400/80 font-bold ml-1">
+                                            <i className="fa-solid fa-graduation-cap"></i> régua real da obra “{moldeSource}” — ajuste à vontade
+                                        </p>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="space-y-1.5">
                                 {stages.map((s, idx) => (
