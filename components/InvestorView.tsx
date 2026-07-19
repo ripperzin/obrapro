@@ -39,7 +39,34 @@ const formatCurrencyAbbrev = (value: number): string => {
     return formatCurrency(value);
 };
 
-
+// Card recolhível do link do sócio: cabeçalho clicável (título + chevron) e corpo
+// que abre/fecha. Só os cards secundários usam isto — Gasto×Avanço e Caixa ficam
+// sempre abertos (são o que o sócio quer ver de cara).
+const Collapsible: React.FC<{
+    title: string;
+    icon?: string;
+    iconColor?: string;
+    defaultOpen?: boolean;
+    children: React.ReactNode;
+}> = ({ title, icon, iconColor = 'text-green-400', defaultOpen = false, children }) => {
+    const [open, setOpen] = useState(defaultOpen);
+    return (
+        <div className="bg-slate-800/50 backdrop-blur rounded-3xl border border-slate-700 mb-8 overflow-hidden">
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className="w-full flex items-center justify-between gap-3 p-6 md:p-8 text-left hover:bg-slate-800/30 transition"
+            >
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    {icon && <i className={`fa-solid ${icon} ${iconColor}`}></i>}
+                    {title}
+                </h2>
+                <i className={`fa-solid fa-chevron-${open ? 'up' : 'down'} text-slate-500 shrink-0`}></i>
+            </button>
+            {open && <div className="px-6 md:px-8 pb-6 md:pb-8">{children}</div>}
+        </div>
+    );
+};
 
 const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
     // Opções do relatório vindas da URL (?off=despesas,resultado). Link e PDF
@@ -357,101 +384,8 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     )}
                 </div>
 
-                {/* 3) ORÇAMENTO POR CATEGORIA (só a lista — a barra/totais já estão no Gasto × Avanço) */}
-                <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8">
-                    <h2 className="text-lg font-bold text-white mb-6">
-                        <i className="fa-solid fa-scale-balanced mr-2 text-green-400"></i>
-                        Orçamento por categoria
-                    </h2>
-                    <div className="space-y-6">
-                        {project.budget && project.budget.macros && project.budget.macros.length > 0 ? (
-                            project.budget.macros.sort((a, b) => a.displayOrder - b.displayOrder).map(macro => {
-                                const percent = macro.estimatedValue > 0 ? (macro.spentValue / macro.estimatedValue) * 100 : 0;
-                                const isOver = percent > 100;
-
-                                return (
-                                    <div key={macro.id} className="glass rounded-2xl p-4">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-white font-bold">{macro.name}</span>
-                                            </div>
-                                            <span className={`text-sm font-bold ${isOver ? 'text-red-400' : 'text-green-400'}`}>
-                                                {isOver && <i className="fa-solid fa-triangle-exclamation mr-1"></i>}
-                                                {percent.toFixed(0)}%
-                                            </span>
-                                        </div>
-
-                                        {/* Bar */}
-                                        <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden mb-2">
-                                            <div
-                                                className={`h-full rounded-full transition-all ${isOver ? 'bg-red-500' : 'bg-blue-500'}`}
-                                                style={{ width: `${Math.min(percent, 100)}%` }}
-                                            ></div>
-                                        </div>
-
-                                        {/* Values */}
-                                        <div className="flex justify-between text-xs text-slate-400 font-medium">
-                                            <span>Gasto: {formatCurrencyAbbrev(macro.spentValue)}</span>
-                                            <span>Meta: {formatCurrencyAbbrev(macro.estimatedValue)}</span>
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <div className="text-center py-6">
-                                <i className="fa-solid fa-clipboard-list text-slate-600 text-3xl mb-2"></i>
-                                <p className="text-slate-500 text-sm">Detalhamento por categorias não disponível.</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* 3b) ONDE FOI O DINHEIRO — itens que mais gastaram (gasto por item, ranqueado).
-                       "Por item" é recurso pago: só aparece se o DONO da obra tiver o plano com itens. */}
-                {ownerEnt.canUseItens && (() => {
-                    const byItem: Record<string, number> = {};
-                    for (const e of expenses) {
-                        const k = e.item_id || '__none__';
-                        byItem[k] = (byItem[k] || 0) + (e.value || 0);
-                    }
-                    const rows = Object.entries(byItem).sort((a, b) => b[1] - a[1]);
-                    if (rows.length === 0) return null;
-                    const max = rows[0][1] || 1;
-                    const top = rows.slice(0, 8);
-                    return (
-                        <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8">
-                            <h2 className="text-lg font-bold text-white mb-1">
-                                <i className="fa-solid fa-coins mr-2 text-amber-400"></i>
-                                Onde foi o dinheiro
-                            </h2>
-                            <p className="text-xs text-slate-500 mb-6">Itens que mais consumiram, do maior pro menor.</p>
-                            <div className="space-y-4">
-                                {top.map(([itemId, total]) => (
-                                    <div key={itemId}>
-                                        <div className="flex justify-between text-sm mb-1">
-                                            <span className="text-slate-200 font-medium">{itemId === '__none__' ? 'Sem item' : (itemsById[itemId] || 'Item')}</span>
-                                            <span className="text-white font-bold">{formatCurrencyAbbrev(total)}</span>
-                                        </div>
-                                        <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
-                                            <div className="h-full rounded-full bg-amber-500" style={{ width: `${(total / max) * 100}%` }} />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            {rows.length > top.length && (
-                                <p className="text-[11px] text-slate-500 mt-4 text-center">+{rows.length - top.length} outros itens</p>
-                            )}
-                        </div>
-                    );
-                })()}
-
-                {/* 4) CAIXA DA OBRA: Aportado - Gasto - Aquisição = Saldo em caixa.
-                       O card de Aquisição só aparece quando o terreno/aquisição foi pago
-                       PELA OBRA (saiu do caixa) — mesma regra do app (CashSummaryCards).
-                       Sem ele, o sócio fazia Aportado - Gasto e não chegava no Saldo:
-                       faltava justamente a aquisição, que o saldo desconta. Caso real:
-                       OBRA MONTE CASTELO, R$ 215.000 pagos pela obra — a conta do link
-                       fechava R$ 215.000 a mais. */}
+                {/* 4) CAIXA DA OBRA — sempre aberto (o sócio quer ver de cara). O card de
+                       Aquisição só aparece quando o terreno foi pago PELA OBRA (saiu do caixa). */}
                 <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8">
                     <h2 className="text-lg font-bold text-white mb-6">
                         <i className="fa-solid fa-hand-holding-dollar mr-2 text-emerald-400"></i>
@@ -499,6 +433,86 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     </div>
                 </div>
 
+                {/* 3) ORÇAMENTO POR CATEGORIA (recolhível) */}
+                <Collapsible title="Orçamento por categoria" icon="fa-scale-balanced">
+                    <div className="space-y-6">
+                        {project.budget && project.budget.macros && project.budget.macros.length > 0 ? (
+                            project.budget.macros.sort((a, b) => a.displayOrder - b.displayOrder).map(macro => {
+                                const percent = macro.estimatedValue > 0 ? (macro.spentValue / macro.estimatedValue) * 100 : 0;
+                                const isOver = percent > 100;
+
+                                return (
+                                    <div key={macro.id} className="glass rounded-2xl p-4">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-white font-bold">{macro.name}</span>
+                                            </div>
+                                            <span className={`text-sm font-bold ${isOver ? 'text-red-400' : 'text-green-400'}`}>
+                                                {isOver && <i className="fa-solid fa-triangle-exclamation mr-1"></i>}
+                                                {percent.toFixed(0)}%
+                                            </span>
+                                        </div>
+
+                                        {/* Bar */}
+                                        <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden mb-2">
+                                            <div
+                                                className={`h-full rounded-full transition-all ${isOver ? 'bg-red-500' : 'bg-blue-500'}`}
+                                                style={{ width: `${Math.min(percent, 100)}%` }}
+                                            ></div>
+                                        </div>
+
+                                        {/* Values */}
+                                        <div className="flex justify-between text-xs text-slate-400 font-medium">
+                                            <span>Gasto: {formatCurrencyAbbrev(macro.spentValue)}</span>
+                                            <span>Meta: {formatCurrencyAbbrev(macro.estimatedValue)}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div className="text-center py-6">
+                                <i className="fa-solid fa-clipboard-list text-slate-600 text-3xl mb-2"></i>
+                                <p className="text-slate-500 text-sm">Detalhamento por categorias não disponível.</p>
+                            </div>
+                        )}
+                    </div>
+                </Collapsible>
+
+                {/* 3b) ONDE FOI O DINHEIRO — itens que mais gastaram (gasto por item, ranqueado).
+                       "Por item" é recurso pago: só aparece se o DONO da obra tiver o plano com itens. */}
+                {ownerEnt.canUseItens && (() => {
+                    const byItem: Record<string, number> = {};
+                    for (const e of expenses) {
+                        const k = e.item_id || '__none__';
+                        byItem[k] = (byItem[k] || 0) + (e.value || 0);
+                    }
+                    const rows = Object.entries(byItem).sort((a, b) => b[1] - a[1]);
+                    if (rows.length === 0) return null;
+                    const max = rows[0][1] || 1;
+                    const top = rows.slice(0, 8);
+                    return (
+                        <Collapsible title="Onde foi o dinheiro" icon="fa-coins" iconColor="text-amber-400">
+                            <p className="text-xs text-slate-500 mb-6 -mt-2">Itens que mais consumiram, do maior pro menor.</p>
+                            <div className="space-y-4">
+                                {top.map(([itemId, total]) => (
+                                    <div key={itemId}>
+                                        <div className="flex justify-between text-sm mb-1">
+                                            <span className="text-slate-200 font-medium">{itemId === '__none__' ? 'Sem item' : (itemsById[itemId] || 'Item')}</span>
+                                            <span className="text-white font-bold">{formatCurrencyAbbrev(total)}</span>
+                                        </div>
+                                        <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                                            <div className="h-full rounded-full bg-amber-500" style={{ width: `${(total / max) * 100}%` }} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            {rows.length > top.length && (
+                                <p className="text-[11px] text-slate-500 mt-4 text-center">+{rows.length - top.length} outros itens</p>
+                            )}
+                        </Collapsible>
+                    );
+                })()}
+
                 {/* 5) ACERTO DE APORTES (Meta · Aportou · Falta por sócio — fonte única do app).
                        Sem base pra calcular meta (sem % / sem casas com dono) → cai na lista
                        simples "Aportes por sócio" (nome + total), sem regressão. */}
@@ -516,11 +530,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         if (linhas.length === 0) return null;
                         const totalGeral = linhas.reduce((s, l) => s + l.total, 0);
                         return (
-                            <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8">
-                                <h2 className="text-lg font-bold text-white mb-6">
-                                    <i className="fa-solid fa-users mr-2 text-fuchsia-400"></i>
-                                    Aportes por sócio
-                                </h2>
+                            <Collapsible title="Aportes por sócio" icon="fa-users" iconColor="text-fuchsia-400">
                                 <div className="space-y-1">
                                     {linhas.map((l, i) => (
                                         <div key={i} className="flex items-center justify-between py-2.5 border-b border-slate-700/60">
@@ -538,7 +548,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                         <span className="text-white font-black text-lg whitespace-nowrap">{formatCurrency(totalGeral)}</span>
                                     </div>
                                 </div>
-                            </div>
+                            </Collapsible>
                         );
                     }
 
@@ -550,16 +560,10 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     const pctDe = (id?: string) => (project.profitShares || []).find(s => s.investorId === id)?.percentage;
 
                     return (
-                        <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8">
-                            <div className="flex items-center justify-between gap-2 mb-6">
-                                <h2 className="text-lg font-bold text-white">
-                                    <i className="fa-solid fa-scale-unbalanced mr-2 text-fuchsia-400"></i>
-                                    Acerto de aportes
-                                </h2>
-                                <span className="text-[11px] text-slate-500 font-bold whitespace-nowrap">
-                                    {acerto.mode === 'unit' ? 'Divisão por casa' : 'Divisão por porcentagem'}
-                                </span>
-                            </div>
+                        <Collapsible title="Acerto de aportes" icon="fa-scale-unbalanced" iconColor="text-fuchsia-400">
+                            <p className="text-[11px] text-slate-500 font-bold mb-4 -mt-2">
+                                {acerto.mode === 'unit' ? 'Divisão por casa' : 'Divisão por porcentagem'}
+                            </p>
                             <div className="space-y-3">
                                 {shares.map((s, i) => (
                                     <div key={i} className="bg-slate-800/40 rounded-xl border border-slate-700/60 p-4">
@@ -598,20 +602,20 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                     Falta aportar no total: {formatCurrency(acerto.totalFalta)}
                                 </p>
                             )}
-                        </div>
+                        </Collapsible>
                     );
                 })()}
 
-                {/* 6) RESULTADO DO EMPREENDIMENTO — MESMO componente do app */}
-                {options.resultado && <ResultadoEmpreendimento project={project} />}
+                {/* 6) RESULTADO DO EMPREENDIMENTO — MESMO componente do app (recolhível, sem moldura própria) */}
+                {options.resultado && (
+                    <Collapsible title="Resultado do Empreendimento" icon="fa-scale-balanced" iconColor="text-blue-400">
+                        <ResultadoEmpreendimento project={project} bare />
+                    </Collapsible>
+                )}
 
-                {/* 7) EXTRATO DE DESPESAS (com "Pago por") */}
+                {/* 7) EXTRATO DE DESPESAS (com "Pago por") — recolhível */}
                 {options.despesas && project.expenses.length > 0 && (
-                    <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8 overflow-hidden">
-                        <h2 className="text-lg font-bold text-white mb-6">
-                            <i className="fa-solid fa-receipt mr-2 text-slate-400"></i>
-                            Extrato de Despesas
-                        </h2>
+                    <Collapsible title="Extrato de Despesas" icon="fa-receipt" iconColor="text-slate-400">
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead>
@@ -666,7 +670,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                 </tbody>
                             </table>
                         </div>
-                    </div>
+                    </Collapsible>
                 )}
 
                 {/* Footer. No Free o relatório leva a marca (e ela é o convite:

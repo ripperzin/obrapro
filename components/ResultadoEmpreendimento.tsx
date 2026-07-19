@@ -5,9 +5,10 @@ import { computeProjectFinance } from '../utils/projectFinance';
 
 interface Props {
     project: Project;
+    bare?: boolean;   // true = sem moldura/título próprios (ex.: dentro de um card recolhível)
 }
 
-const ResultadoEmpreendimento: React.FC<Props> = ({ project }) => {
+const ResultadoEmpreendimento: React.FC<Props> = ({ project, bare = false }) => {
     const f = computeProjectFinance(project);
 
     const isCompleted = project.progress >= 100;
@@ -19,12 +20,8 @@ const ResultadoEmpreendimento: React.FC<Props> = ({ project }) => {
     // Sem valor de venda estimado não há o que projetar (evita "lucro" negativo sem sentido).
     const temProjecao = f.vendasEstimadasTotais > 0;
 
-    return (
-        <div className="glass rounded-2xl border border-slate-700 p-5 mb-8">
-            <h3 className="text-white font-black text-xs uppercase tracking-widest mb-5 flex items-center gap-2">
-                <i className="fa-solid fa-scale-balanced text-blue-400"></i> Resultado do Empreendimento
-            </h3>
-
+    const inner = (
+        <>
             {/* Projetado vs Realizado, lado a lado */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* PROJETADO */}
@@ -123,7 +120,17 @@ const ResultadoEmpreendimento: React.FC<Props> = ({ project }) => {
                     A vender: {formatCurrency(f.vendasPotencial)} · {disponiveis} casa{disponiveis > 1 ? 's' : ''} disponíve{disponiveis > 1 ? 'is' : 'l'}
                 </p>
             )}
+        </>
+    );
 
+    if (bare) return inner;
+
+    return (
+        <div className="glass rounded-2xl border border-slate-700 p-5 mb-8">
+            <h3 className="text-white font-black text-xs uppercase tracking-widest mb-5 flex items-center gap-2">
+                <i className="fa-solid fa-scale-balanced text-blue-400"></i> Resultado do Empreendimento
+            </h3>
+            {inner}
         </div>
     );
 };
