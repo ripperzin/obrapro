@@ -477,6 +477,27 @@ const UnitsSection: React.FC<{
                     </div>
                   )}
 
+                  {/* ÁREA (m²) — editável; alimenta o rateio de custo entre as casas e o custo/m² real */}
+                  {isEditing && (
+                    <div className="sm:col-span-2 flex items-center justify-between gap-2 bg-slate-800/40 rounded-xl border border-slate-700/60 px-4 py-2.5">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">
+                        <i className="fa-solid fa-ruler-combined mr-1"></i> Área (m²)
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        defaultValue={unit.area || ''}
+                        onBlur={(e) => {
+                          const val = Number(e.target.value) || 0;
+                          if (val !== (unit.area || 0)) handleUpdateUnit(unit.id, { area: val });
+                        }}
+                        placeholder="0"
+                        className="w-28 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-right text-xs font-bold text-white outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  )}
+
                   {/* PROJETADO */}
                   <div className="bg-slate-800/40 rounded-xl border border-slate-700/60 p-4">
                     <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400 mb-3">
