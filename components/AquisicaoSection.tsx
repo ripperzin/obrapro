@@ -21,27 +21,34 @@ const AquisicaoSection: React.FC<Props> = ({ project, user }) => {
 
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center">
-                <h3 className="font-black text-white text-lg uppercase tracking-tight flex items-center gap-3">
-                    <i className="fa-solid fa-map-location-dot text-amber-400"></i>
-                    Terreno
-                </h3>
+            {costs.length === 0 ? (
                 <button
                     onClick={() => setShowModal(true)}
-                    className="bg-amber-600 text-white px-4 py-2.5 rounded-full font-black text-sm hover:bg-amber-700 transition shadow-lg shadow-amber-600/30 flex items-center gap-2"
+                    className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-amber-400 text-xs font-bold py-2 transition"
                 >
-                    <i className="fa-solid fa-plus"></i> <span className="hidden sm:inline">Adicionar</span>
+                    <i className="fa-solid fa-map-location-dot"></i>
+                    Terreno <span className="text-slate-600">(opcional)</span>
+                    <span className="text-amber-400/80">— adicionar</span>
                 </button>
-            </div>
-
-            <p className="text-[11px] text-slate-500">
-                Terreno e custos iniciais (escritura, registro, impostos). Não entram no orçamento de obra nem no progresso — contam no caixa (quando pagos pela obra) e no custo total do empreendimento.
-            </p>
-
-            {costs.length === 0 ? (
-                <p className="text-slate-500 text-sm">Nenhum custo de terreno lançado.</p>
             ) : (
                 <>
+                    <div className="flex justify-between items-center">
+                        <h3 className="font-black text-white text-lg uppercase tracking-tight flex items-center gap-3">
+                            <i className="fa-solid fa-map-location-dot text-amber-400"></i>
+                            Terreno
+                        </h3>
+                        <button
+                            onClick={() => setShowModal(true)}
+                            className="bg-amber-600 text-white px-4 py-2.5 rounded-full font-black text-sm hover:bg-amber-700 transition shadow-lg shadow-amber-600/30 flex items-center gap-2"
+                        >
+                            <i className="fa-solid fa-plus"></i> <span className="hidden sm:inline">Adicionar</span>
+                        </button>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500">
+                        Terreno e custos iniciais (escritura, registro, impostos). Não entram no orçamento de obra nem no progresso — contam no caixa (quando pagos pela obra) e no custo total do empreendimento.
+                    </p>
+
                     {/* Card do total — mesmo padrão do "Total Desembolsado" das despesas */}
                     <div className="glass p-6 rounded-2xl border border-slate-700">
                         <p className="text-[10px] text-slate-500 font-black uppercase mb-1">Total do Terreno</p>
