@@ -44,6 +44,10 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true); // Nova flag de carregamento
   const [debugError, setDebugError] = useState<string | null>(null);
+  // Qual usuário JÁ teve o perfil carregado. O Supabase re-emite SIGNED_IN a cada
+  // foco de aba; sem isso, o app remontava a árvore inteira (fechava modal, perdia
+  // digitação e rolagem) toda vez que se voltava pra aba.
+  const loadedUserIdRef = useRef<string | null>(null);
 
   // 0. URL State Initialization
   const initialParams = new URLSearchParams(window.location.search);
@@ -138,12 +142,17 @@ const App: React.FC = () => {
       console.log('[Auth] Event:', event);
 
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        // O Supabase re-emite SIGNED_IN a cada foco de aba. Só é login NOVO quando o
+        // usuário realmente muda — senão invalidávamos o cache e remontávamos à toa.
+        const incomingUserId = session?.user?.id ?? null;
+        const isNewLogin = event === 'SIGNED_IN' && !!session && incomingUserId !== loadedUserIdRef.current;
         setSession(session);
-        if (event === 'SIGNED_IN' && session) {
+        if (isNewLogin) {
           // Force refresh all cached data on new login to clear stale IndexedDB cache
           queryClient.invalidateQueries();
         }
         if (!session) {
+          loadedUserIdRef.current = null;
           setCurrentUser(null);
           setAuthLoading(false);
         }
@@ -168,7 +177,10 @@ const App: React.FC = () => {
 
     const fetchProfile = async () => {
       if (session?.user) {
-        setAuthLoading(true);
+        // Só mostra a tela de "carregando" (que DESMONTA o app) quando é um usuário
+        // DIFERENTE. Voltar pra aba com o mesmo usuário não deve piscar nem remontar.
+        if (loadedUserIdRef.current !== session.user.id) setAuthLoading(true);
+        loadedUserIdRef.current = session.user.id;
         try {
           const { data: profile, error } = await supabase
             .from('profiles')
@@ -269,7 +281,10 @@ const App: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [session]);
+    // Depende do ID do usuário, NÃO do objeto `session`: o Supabase troca o objeto
+    // session a cada renovação de token/foco de aba, mas o usuário é o mesmo — não
+    // há por que recarregar o perfil (e remontar o app) nesses casos.
+  }, [session?.user?.id]);
 
   // 2.1 Notificações (Restored)
   const { requestPermission } = useNotifications(projects);
