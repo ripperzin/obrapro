@@ -1,9 +1,15 @@
 ---
 name: subir-app
-description: Sobe o ambiente de desenvolvimento do ObraPro (Docker Desktop → Supabase local → Vite) e explica o acesso no PC e no celular. Use quando o usuário pedir para "rodar", "subir", "iniciar", "abrir" o app localmente, ou quando der "Failed to fetch"/"Load failed" ao entrar.
+description: Sobe o ambiente LOCAL/legado do ObraPro (Docker Desktop → Supabase local → Vite). Use SÓ quando o usuário pedir explicitamente o `npm run dev`/ambiente local. Para o trabalho do dia a dia (ler/escrever prod, subir código, deploy), use a skill `obrapro-prod` — NÃO esta.
 ---
 
-# Subir o ObraPro em desenvolvimento
+# Subir o ObraPro em desenvolvimento (LOCAL/Docker — fluxo legado)
+
+> 🛑 **LEIA ANTES:** desde a reescrita (16/07) o trabalho do dia a dia é **DIRETO em
+> PRODUÇÃO** (Vercel + Supabase `plqafaprugrzhuhaggfs`), não neste ambiente local. Para ler/
+> escrever o banco de prod, subir código (git push→Vercel) ou deployar edge function, use a
+> skill **`obrapro-prod`**. Este passo a passo Docker/local só vale se o usuário pedir o
+> `npm run dev` de propósito (ex.: testar algo isolado sem tocar prod). Não assuma "é local".
 
 App: Vite + React (frontend) com backend no **Supabase local** (Docker). O app de dev
 aponta para o Supabase local via `.env.development.local` (`VITE_SUPABASE_URL=http://127.0.0.1:54321`).
