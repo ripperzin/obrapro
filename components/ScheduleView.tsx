@@ -1,5 +1,6 @@
 
 import React, { useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import { Project, ProjectMacro } from '../types';
 import { formatCurrency, formatCurrencyAbbrev } from '../utils';
 import SCurveChart from './SCurveChart';
@@ -98,7 +99,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ project, onClose }) => {
     }, [scheduleData, months]);
 
     if (!effectiveDates.start || !effectiveDates.end) {
-        return (
+        return ReactDOM.createPortal(
             <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
                 <div className="glass p-8 rounded-3xl max-w-md text-center">
                     <i className="fa-solid fa-calendar-xmark text-4xl text-blue-400 mb-4"></i>
@@ -110,11 +111,12 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ project, onClose }) => {
                     </p>
                     <button onClick={onClose} className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20">Entendido</button>
                 </div>
-            </div>
+            </div>,
+            document.getElementById('modal-root') || document.body
         );
     }
 
-    return (
+    return ReactDOM.createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[100] flex flex-col animate-fade-in">
             {/* Header */}
             <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-900/50">
@@ -219,7 +221,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ project, onClose }) => {
                     * Os valores acima são planejados. O acompanhamento real é feito na aba de Despesas.
                 </p>
             </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root') || document.body
     );
 };
 

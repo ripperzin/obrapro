@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 
 // WhatsApp que recebe os pedidos de upgrade (DDI+DDD, só números).
 // Enquanto o checkout do Mercado Pago não existe (Fase 2 do lançamento), o
@@ -103,7 +104,7 @@ const UpgradeModal: React.FC<Props> = ({ feature, onClose }) => {
     window.open(`https://wa.me/${UPGRADE_WHATSAPP}?text=${msg}`, '_blank', 'noopener');
   };
 
-  return (
+  return ReactDOM.createPortal(
     <div
       className="fixed inset-0 z-[110] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={onClose}
@@ -172,7 +173,8 @@ const UpgradeModal: React.FC<Props> = ({ feature, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.getElementById('modal-root') || document.body
   );
 };
 

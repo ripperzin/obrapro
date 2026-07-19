@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
 import { Project } from '../types';
 import { generateProjectPDF } from '../utils/pdfGenerator';
 import { ReportOptions, DEFAULT_REPORT_OPTIONS, OPTIONAL_SECTIONS, PAID_SECTIONS, buildInvestorUrl, clampReportOptions } from '../utils/reportOptions';
@@ -56,7 +57,7 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ project, userName, 
         }
     };
 
-    return (
+    return ReactDOM.createPortal(
         <div
             className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
             onClick={onClose}
@@ -163,7 +164,8 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ project, userName, 
                     </p>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root') || document.body
     );
 };
 
