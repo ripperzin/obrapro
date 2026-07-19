@@ -55,6 +55,8 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [expenses, setExpenses] = useState<any[]>([]);
+    const [expandedMacroId, setExpandedMacroId] = useState<string | null>(null);
+    const [itemsById, setItemsById] = useState<Record<string, string>>({});
     // Mapa { path -> signed URL } gerado pela edge function (service role).
     // O portal é anon e não acessa o Storage diretamente.
     const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
@@ -95,6 +97,9 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
 
                 setSignedUrls(data.signedUrls || {});
                 setExpenses(expensesData || []);
+                const itemMap: Record<string, string> = {};
+                for (const it of (data.items || [])) itemMap[it.id] = it.name;
+                setItemsById(itemMap);
 
                 const mappedProject: Project = {
                     id: projectData.id,
@@ -364,11 +369,17 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                             project.budget.macros.sort((a, b) => a.displayOrder - b.displayOrder).map(macro => {
                                 const percent = macro.estimatedValue > 0 ? (macro.spentValue / macro.estimatedValue) * 100 : 0;
                                 const isOver = percent > 100;
+                                const temItens = expenses.some((e: any) => e.macro_id === macro.id);
 
                                 return (
-                                    <div key={macro.id} className="glass rounded-2xl p-4">
+                                    <div
+                                        key={macro.id}
+                                        className={`glass rounded-2xl p-4${temItens ? ' transition-all hover:bg-slate-800/30 cursor-pointer' : ''}`}
+                                        onClick={temItens ? () => setExpandedMacroId(expandedMacroId === macro.id ? null : macro.id) : undefined}
+                                    >
                                         <div className="flex justify-between items-center mb-2">
                                             <div className="flex items-center gap-2">
+                                                {temItens && <i className={`fa-solid fa-chevron-${expandedMacroId === macro.id ? 'down' : 'right'} text-xs text-slate-500`}></i>}
                                                 <span className="text-white font-bold">{macro.name}</span>
                                             </div>
                                             <span className={`text-sm font-bold ${isOver ? 'text-red-400' : 'text-green-400'}`}>
@@ -390,6 +401,30 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                             <span>Gasto: {formatCurrencyAbbrev(macro.spentValue)}</span>
                                             <span>Meta: {formatCurrencyAbbrev(macro.estimatedValue)}</span>
                                         </div>
+
+                                        {/* Itens da etapa: gasto por item (agrupado das despesas) */}
+                                        {expandedMacroId === macro.id && (
+                                            <div className="mt-4 pl-4 border-l-2 border-slate-700 space-y-2 animate-fade-in">
+                                                {(() => {
+                                                    const byItem: Record<string, number> = {};
+                                                    for (const e of expenses) {
+                                                        if (e.macro_id !== macro.id) continue;
+                                                        const k = e.item_id || '__none__';
+                                                        byItem[k] = (byItem[k] || 0) + (e.value || 0);
+                                                    }
+                                                    const rows = Object.entries(byItem).sort((a, b) => b[1] - a[1]);
+                                                    if (rows.length === 0) {
+                                                        return <p className="text-xs text-slate-600 italic">Sem despesas nesta etapa.</p>;
+                                                    }
+                                                    return rows.map(([itemId, total]) => (
+                                                        <div key={itemId} className="flex justify-between text-xs">
+                                                            <span className="text-slate-300">{itemId === '__none__' ? 'Sem item' : (itemsById[itemId] || 'Item')}</span>
+                                                            <span className="text-slate-400 font-bold">{formatCurrencyAbbrev(total)}</span>
+                                                        </div>
+                                                    ));
+                                                })()}
+                                            </div>
+                                        )}
 
                                     </div>
                                 );

@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
         const ownerPlan = rawPlan === "pro" || rawPlan === "business" ? rawPlan : "free";
 
         // Busca paralela das tabelas-filhas, sempre filtrando por project_id.
-        const [unitsRes, evidenceRes, expensesRes, budgetRes, contributionsRes, acquisitionRes, investorsRes, profitSharesRes] = await Promise.all([
+        const [unitsRes, evidenceRes, expensesRes, budgetRes, contributionsRes, acquisitionRes, investorsRes, profitSharesRes, itemsRes] = await Promise.all([
             admin.from("units").select("*").eq("project_id", projectId),
             admin.from("stage_evidences").select("*").eq("project_id", projectId),
             admin.from("expenses").select("*").eq("project_id", projectId),
@@ -82,6 +82,8 @@ Deno.serve(async (req) => {
             admin.from("investors").select("id, name").eq("project_id", projectId),
             // Participação/aporte por sócio (Acerto de aportes): % + flag "não aporta".
             admin.from("profit_shares").select("id, investor_id, name, percentage, nao_aporta").eq("project_id", projectId),
+            // Itens do orçamento (id + nome): o link mostra o gasto por item ao abrir a etapa.
+            admin.from("project_items").select("id, name").eq("project_id", projectId),
         ]);
 
         const budget = budgetRes.data ?? null;
@@ -165,6 +167,7 @@ Deno.serve(async (req) => {
             acquisitionCosts: acquisitionRes.data ?? [],
             investors: investorsRes.data ?? [],
             profitShares: profitSharesRes.data ?? [],
+            items: itemsRes.data ?? [],
             budget,
             macros,
             subMacros,
