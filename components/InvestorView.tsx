@@ -387,45 +387,45 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                 {/* 4) CAIXA DA OBRA — sempre aberto (o sócio quer ver de cara). O card de
                        Aquisição só aparece quando o terreno foi pago PELA OBRA (saiu do caixa). */}
                 <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8">
-                    <h2 className="text-lg font-bold text-white mb-6">
+                    <h2 className="text-lg font-bold text-white mb-4">
                         <i className="fa-solid fa-hand-holding-dollar mr-2 text-emerald-400"></i>
                         Caixa da Obra
                     </h2>
                     <div className={`grid ${finance.aquisicaoPaga > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-2 md:gap-4`}>
-                        <div className="bg-slate-800/50 rounded-xl p-4 md:p-6 text-center">
+                        <div className="bg-slate-800/50 rounded-xl p-2 md:p-3 text-center">
                             <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Aportado</p>
                             <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
                                 <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
-                                <span className="text-emerald-400 font-black text-xl md:text-3xl leading-none">
+                                <span className="text-emerald-400 font-black text-sm md:text-lg leading-none">
                                     {formatCurrencyAbbrev(finance.aportadoTotal).replace('R$', '').trim()}
                                 </span>
                             </div>
                         </div>
-                        <div className="bg-slate-800/50 rounded-xl p-4 md:p-6 text-center">
+                        <div className="bg-slate-800/50 rounded-xl p-2 md:p-3 text-center">
                             <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Gasto</p>
                             <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
                                 <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
-                                <span className="text-rose-400 font-black text-xl md:text-3xl leading-none">
+                                <span className="text-rose-400 font-black text-sm md:text-lg leading-none">
                                     {formatCurrencyAbbrev(finance.gasto).replace('R$', '').trim()}
                                 </span>
                             </div>
                         </div>
                         {finance.aquisicaoPaga > 0 && (
-                            <div className="bg-slate-800/50 rounded-xl p-4 md:p-6 text-center">
+                            <div className="bg-slate-800/50 rounded-xl p-2 md:p-3 text-center">
                                 <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Aquisição</p>
                                 <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
                                     <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
-                                    <span className="text-amber-400 font-black text-xl md:text-3xl leading-none">
+                                    <span className="text-amber-400 font-black text-sm md:text-lg leading-none">
                                         {formatCurrencyAbbrev(finance.aquisicaoPaga).replace('R$', '').trim()}
                                     </span>
                                 </div>
                             </div>
                         )}
-                        <div className="bg-slate-800/50 rounded-xl p-4 md:p-6 text-center">
+                        <div className="bg-slate-800/50 rounded-xl p-2 md:p-3 text-center">
                             <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Saldo em caixa</p>
                             <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
                                 <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
-                                <span className={`font-black text-xl md:text-3xl leading-none ${finance.saldoCaixa >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                <span className={`font-black text-sm md:text-lg leading-none ${finance.saldoCaixa >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                     {formatCurrencyAbbrev(finance.saldoCaixa).replace('R$', '').trim()}
                                 </span>
                             </div>
