@@ -55,7 +55,6 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [expenses, setExpenses] = useState<any[]>([]);
-    const [expandedMacroId, setExpandedMacroId] = useState<string | null>(null);
     const [itemsById, setItemsById] = useState<Record<string, string>>({});
     // Mapa { path -> signed URL } gerado pela edge function (service role).
     // O portal é anon e não acessa o Storage diretamente.
@@ -369,17 +368,11 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                             project.budget.macros.sort((a, b) => a.displayOrder - b.displayOrder).map(macro => {
                                 const percent = macro.estimatedValue > 0 ? (macro.spentValue / macro.estimatedValue) * 100 : 0;
                                 const isOver = percent > 100;
-                                const temItens = expenses.some((e: any) => e.macro_id === macro.id);
 
                                 return (
-                                    <div
-                                        key={macro.id}
-                                        className={`glass rounded-2xl p-4${temItens ? ' transition-all hover:bg-slate-800/30 cursor-pointer' : ''}`}
-                                        onClick={temItens ? () => setExpandedMacroId(expandedMacroId === macro.id ? null : macro.id) : undefined}
-                                    >
+                                    <div key={macro.id} className="glass rounded-2xl p-4">
                                         <div className="flex justify-between items-center mb-2">
                                             <div className="flex items-center gap-2">
-                                                {temItens && <i className={`fa-solid fa-chevron-${expandedMacroId === macro.id ? 'down' : 'right'} text-xs text-slate-500`}></i>}
                                                 <span className="text-white font-bold">{macro.name}</span>
                                             </div>
                                             <span className={`text-sm font-bold ${isOver ? 'text-red-400' : 'text-green-400'}`}>
@@ -401,31 +394,6 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                             <span>Gasto: {formatCurrencyAbbrev(macro.spentValue)}</span>
                                             <span>Meta: {formatCurrencyAbbrev(macro.estimatedValue)}</span>
                                         </div>
-
-                                        {/* Itens da etapa: gasto por item (agrupado das despesas) */}
-                                        {expandedMacroId === macro.id && (
-                                            <div className="mt-4 pl-4 border-l-2 border-slate-700 space-y-2 animate-fade-in">
-                                                {(() => {
-                                                    const byItem: Record<string, number> = {};
-                                                    for (const e of expenses) {
-                                                        if (e.macro_id !== macro.id) continue;
-                                                        const k = e.item_id || '__none__';
-                                                        byItem[k] = (byItem[k] || 0) + (e.value || 0);
-                                                    }
-                                                    const rows = Object.entries(byItem).sort((a, b) => b[1] - a[1]);
-                                                    if (rows.length === 0) {
-                                                        return <p className="text-xs text-slate-600 italic">Sem despesas nesta etapa.</p>;
-                                                    }
-                                                    return rows.map(([itemId, total]) => (
-                                                        <div key={itemId} className="flex justify-between text-xs">
-                                                            <span className="text-slate-300">{itemId === '__none__' ? 'Sem item' : (itemsById[itemId] || 'Item')}</span>
-                                                            <span className="text-slate-400 font-bold">{formatCurrencyAbbrev(total)}</span>
-                                                        </div>
-                                                    ));
-                                                })()}
-                                            </div>
-                                        )}
-
                                     </div>
                                 );
                             })
@@ -437,6 +405,44 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         )}
                     </div>
                 </div>
+
+                {/* 3b) ONDE FOI O DINHEIRO — itens que mais gastaram (gasto por item, ranqueado) */}
+                {(() => {
+                    const byItem: Record<string, number> = {};
+                    for (const e of expenses) {
+                        const k = e.item_id || '__none__';
+                        byItem[k] = (byItem[k] || 0) + (e.value || 0);
+                    }
+                    const rows = Object.entries(byItem).sort((a, b) => b[1] - a[1]);
+                    if (rows.length === 0) return null;
+                    const max = rows[0][1] || 1;
+                    const top = rows.slice(0, 8);
+                    return (
+                        <div className="bg-slate-800/50 backdrop-blur rounded-3xl p-6 md:p-8 border border-slate-700 mb-8">
+                            <h2 className="text-lg font-bold text-white mb-1">
+                                <i className="fa-solid fa-coins mr-2 text-amber-400"></i>
+                                Onde foi o dinheiro
+                            </h2>
+                            <p className="text-xs text-slate-500 mb-6">Itens que mais consumiram, do maior pro menor.</p>
+                            <div className="space-y-4">
+                                {top.map(([itemId, total]) => (
+                                    <div key={itemId}>
+                                        <div className="flex justify-between text-sm mb-1">
+                                            <span className="text-slate-200 font-medium">{itemId === '__none__' ? 'Sem item' : (itemsById[itemId] || 'Item')}</span>
+                                            <span className="text-white font-bold">{formatCurrencyAbbrev(total)}</span>
+                                        </div>
+                                        <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                                            <div className="h-full rounded-full bg-amber-500" style={{ width: `${(total / max) * 100}%` }} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            {rows.length > top.length && (
+                                <p className="text-[11px] text-slate-500 mt-4 text-center">+{rows.length - top.length} outros itens</p>
+                            )}
+                        </div>
+                    );
+                })()}
 
                 {/* 4) CAIXA DA OBRA: Aportado - Gasto - Aquisição = Saldo em caixa.
                        O card de Aquisição só aparece quando o terreno/aquisição foi pago
