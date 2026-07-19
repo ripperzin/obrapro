@@ -364,7 +364,6 @@ const UnitsSection: React.FC<{
           // Custo total estimado da casa = obra orçada + terreno rateado
           const custoEstimadoTotal = unit.cost + terrenoRateio;
 
-          const perM2 = (v: number) => (unit.area > 0 ? v / unit.area : 0);
           const isEditing = editingUnitId === unit.id;
 
           // PROJETADO: venda estimada (ou a de venda, se não houver estimativa) − custo obra orçado − terreno.
@@ -543,7 +542,7 @@ const UnitsSection: React.FC<{
                         </div>
                         {temProjecao && (
                           <p className="text-right text-[11px] text-slate-500">
-                            margem {margemProj.toFixed(1)}%{unit.area > 0 ? ` · ${formatCurrency(perM2(lucroProj))}/m²` : ''}
+                            margem {margemProj.toFixed(1)}%
                           </p>
                         )}
                       </div>
