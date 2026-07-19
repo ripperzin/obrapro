@@ -52,7 +52,7 @@ const CashSummaryCards: React.FC<Props> = ({ project }) => {
         <Money value={totalAportado} className="text-white" />
         {temAporteViaDespesa && (
           <p className="hidden md:block text-[9px] text-emerald-400/70 mt-1 font-bold uppercase tracking-wider whitespace-nowrap">
-            +{formatCurrencyAbbrev(finance.aporteViaDespesa)} via despesas
+            {formatCurrencyAbbrev(finance.aportado)} dinheiro · {formatCurrencyAbbrev(finance.aporteViaDespesa)} despesas
           </p>
         )}
       </div>
@@ -77,7 +77,7 @@ const CashSummaryCards: React.FC<Props> = ({ project }) => {
         <div className={cardBase}>
           <div className="flex items-center gap-1.5 mb-1 md:mb-2">
             <i className="fa-solid fa-map-location-dot text-amber-400 text-xs hidden sm:inline"></i>
-            <span className={label}>Aquisição</span>
+            <span className={label}>Terreno</span>
           </div>
           <Money value={totalAquisicaoPaga} className="text-white" />
         </div>

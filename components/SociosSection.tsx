@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Project, User } from '../types';
-import { formatCurrency, generateId } from '../utils';
+import { formatCurrency, formatCurrencyAbbrev, generateId } from '../utils';
 import { openAttachment } from '../utils/storage';
 import { computeProjectFinance, computeUnitResult, computeAporteShares } from '../utils/projectFinance';
 import { useSaveProfitShares } from '../hooks/useProfitShares';
@@ -28,6 +28,8 @@ interface SocioView {
     name: string;
     participacao: string;
     aportado: number;
+    apDinheiro: number;     // parte do aportado que entrou em dinheiro (caixa)
+    apDespesa: number;      // parte do aportado paga direto em despesas
     falta: number | null;   // null = não aporta / sem base
     naoAporta: boolean;
     lucro: number;
@@ -202,6 +204,8 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                 name: inv.name,
                 participacao: suas.map((u) => u.identifier).join(', '),
                 aportado: aportadoTotal(inv.id),
+                apDinheiro: aportadoDinheiro(inv.id),
+                apDespesa: aportadoViaDespesa(inv.id),
                 falta: acc ? acc.falta : null,
                 naoAporta: false,
                 lucro,
@@ -220,6 +224,8 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                 name: s.name,
                 participacao: `${s.percentage || 0}%`,
                 aportado: aportadoTotal(s.investorId),
+                apDinheiro: s.investorId ? aportadoDinheiro(s.investorId) : 0,
+                apDespesa: s.investorId ? aportadoViaDespesa(s.investorId) : 0,
                 falta: s.naoAporta ? null : acc ? acc.falta : null,
                 naoAporta: !!s.naoAporta,
                 lucro,
@@ -463,6 +469,11 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                                         </p>
                                     </div>
                                 </div>
+                                {s.apDespesa > 0 && (
+                                    <p className="text-[9px] text-slate-500 font-bold text-center mt-2 leading-snug">
+                                        {formatCurrencyAbbrev(s.apDinheiro)} em dinheiro · {formatCurrencyAbbrev(s.apDespesa)} pago em despesa
+                                    </p>
+                                )}
                             </div>
                         ))}
                     </div>
