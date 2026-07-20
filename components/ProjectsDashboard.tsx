@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Project, ProgressStage, getStageName } from '../types';
+import { Project, ProgressStage, getStageName, getCurrentStagePhoto } from '../types';
 import StageThumbnail from './StageThumbnail';
 import DateInput from './DateInput';
 import ConfirmModal from './ConfirmModal';
@@ -155,12 +155,9 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
               >
                 <div className="flex justify-between items-start mb-8">
                   {(() => {
-                    const evidencesWithPhotos = (p.stageEvidence || [])
-                      .filter(e => e.photos && e.photos.length > 0)
-                      .sort((a, b) => b.stage - a.stage);
-
-                    const latestEvidence = evidencesWithPhotos[0];
-                    const photo = latestEvidence?.photos?.[0];
+                    // Foto da ETAPA ATUAL da obra. Sem foto na etapa atual => placeholder
+                    // (não puxa foto de etapa anterior). Igual ao herói da aba Gestão.
+                    const photo = getCurrentStagePhoto(p);
 
                     if (photo) {
                       return (

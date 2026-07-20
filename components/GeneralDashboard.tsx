@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { Project, ProgressStage, Expense } from '../types';
+import { Project, ProgressStage, Expense, getCurrentStagePhoto } from '../types';
 import { formatCurrency, calculateMonthsBetween, formatCurrencyAbbrev, getDeliveryStatus, DeliveryTone } from '../utils';
 
 // Classes do selo de prazo por tom.
@@ -504,11 +504,9 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                         >
                            <div className="h-48 relative overflow-hidden bg-slate-900">
                               {(() => {
-                                 const evidencesWithPhotos = (p.stageEvidence || [])
-                                    .filter(e => e.photos && e.photos.length > 0)
-                                    .sort((a, b) => b.stage - a.stage);
-                                 const latestEvidence = evidencesWithPhotos[0];
-                                 const photo = latestEvidence?.photos?.[0];
+                                 // Foto da ETAPA ATUAL da obra. Sem foto na etapa atual => placeholder
+                                 // (não puxa foto de etapa anterior). Igual ao herói da aba Gestão.
+                                 const photo = getCurrentStagePhoto(p);
 
                                  if (photo) {
                                     return <StageThumbnail photoPath={photo} className="w-full h-full" />;

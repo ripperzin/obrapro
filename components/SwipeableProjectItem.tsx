@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Project } from '../types';
+import { Project, getCurrentStagePhoto } from '../types';
 import StageThumbnail from './StageThumbnail';
 import { getDeliveryStatus, DeliveryTone } from '../utils';
 
@@ -94,11 +94,9 @@ const SwipeableProjectItem: React.FC<SwipeableProjectItemProps> = ({
         }
     };
 
-    const evidencesWithPhotos = (project.stageEvidence || [])
-        .filter(e => e.photos && e.photos.length > 0)
-        .sort((a, b) => b.stage - a.stage);
-    const latestEvidence = evidencesWithPhotos[0];
-    const photo = latestEvidence?.photos?.[0];
+    // Foto da ETAPA ATUAL da obra. Sem foto na etapa atual => sem foto
+    // (não puxa foto de etapa anterior). Igual ao herói da aba Gestão.
+    const photo = getCurrentStagePhoto(project);
 
     return (
         <div className="relative overflow-hidden rounded-2xl mb-4 bg-slate-900 border border-slate-800">
