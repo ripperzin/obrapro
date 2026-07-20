@@ -170,9 +170,9 @@ const SwipeableProjectItem: React.FC<SwipeableProjectItemProps> = ({
                     {(() => {
                         const st = getDeliveryStatus(project.deliveryDate, project.progress);
                         return (
-                            <p className="text-[11px] font-bold mt-0.5 flex items-center gap-1.5 truncate">
-                                <span className={prazoTextCls(st.tone)}>{st.label}</span>
-                                {st.detail && <span className="text-slate-500 truncate">· {st.detail}</span>}
+                            <p className="text-[11px] font-bold mt-0.5 flex flex-wrap items-center gap-x-1.5 leading-tight">
+                                <span className={`${prazoTextCls(st.tone)} whitespace-nowrap`}>{st.label}</span>
+                                {st.detail && <span className="text-slate-500">· {st.detail}</span>}
                             </p>
                         );
                     })()}

@@ -547,8 +547,8 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                                  const st = getDeliveryStatus(p.deliveryDate, p.progress);
                                  return (
                                     <div className="flex items-center justify-between gap-2 mt-5">
-                                       <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap ${prazoToneCls(st.tone)}`}>{st.label}</span>
-                                       <span className="text-slate-500 text-xs font-bold text-right truncate">
+                                       <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 ${prazoToneCls(st.tone)}`}>{st.label}</span>
+                                       <span className="text-slate-500 text-xs font-bold text-right leading-tight">
                                           {st.dateLabel && <>Entrega {st.dateLabel}</>}
                                           {st.dateLabel && st.detail && ' · '}
                                           {st.detail}
