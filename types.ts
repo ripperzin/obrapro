@@ -138,22 +138,28 @@ export const getStageName = (progress: number, project?: StageSource): string =>
   return stages[getStageIndex(stages, progress)]?.name || '—';
 };
 
-// Foto da ETAPA ATUAL da obra: a evidência cuja FAIXA [início, próximo) contém
-// o progresso. Se a etapa atual não tem foto, retorna undefined — o card mostra
-// o placeholder e NÃO puxa a foto de uma etapa anterior. Obra concluída => faixa
-// [100, 101), só entra foto marcada como 100. Mesma regra do herói da aba Gestão
-// (evidenceInRange em ProjectDetail), pra o card e a tela da obra baterem.
-export const getCurrentStagePhoto = (
-  project: StageSource & { progress: number; stageEvidence?: { stage: number; photos?: string[] }[] }
-): string | undefined => {
+// Evidência (foto) da ETAPA ATUAL da obra: dentro da FAIXA [início, próximo) que
+// contém o progresso, a evidência COM foto de maior stage. Se a etapa atual não
+// tem foto, retorna undefined — o card/link mostra placeholder e NÃO puxa a foto
+// de uma etapa anterior. Obra concluída => faixa [100, 101), só entra foto
+// marcada como 100. Mesma régua do herói da aba Gestão (evidenceInRange em
+// ProjectDetail), pra o card, a tela da obra e o link baterem.
+export const getCurrentStageEvidence = <E extends { stage: number; photos?: string[] }>(
+  project: StageSource & { progress: number; stageEvidence?: E[] }
+): E | undefined => {
   const stages = getProjectStages(project);
   const stageValues = [...stages.map((s) => s.value), 100];
   const idx = getStageIndex(stages, project.progress);
   const start = idx < stages.length ? stages[idx].value : 100;
   const end = stageValues[idx + 1] ?? 101;
-  const ev = project.stageEvidence?.find((e) => e.stage >= start && e.stage < end);
-  return ev?.photos?.[0];
+  return (project.stageEvidence || [])
+    .filter((e) => e.stage >= start && e.stage < end && (e.photos?.length ?? 0) > 0)
+    .sort((a, b) => b.stage - a.stage)[0];
 };
+
+export const getCurrentStagePhoto = (
+  project: StageSource & { progress: number; stageEvidence?: { stage: number; photos?: string[] }[] }
+): string | undefined => getCurrentStageEvidence(project)?.photos?.[0];
 
 export interface Unit {
   id: string;

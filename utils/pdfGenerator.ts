@@ -1,7 +1,7 @@
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Project, getStageName } from '../types';
+import { Project, getStageName, getCurrentStageEvidence } from '../types';
 import { supabase } from '../supabaseClient';
 import { computeProjectFinance, computeGastoAvancoVerdito, computeAporteShares } from './projectFinance';
 import { daysSince, lastUpdatedLabel, mostRecentDate } from '../utils';
@@ -259,7 +259,8 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         let y = 38;
 
         // ── HERO PHOTO ──
-        const latestEv = (project.stageEvidence || []).filter(e => e.photos?.length > 0).sort((a, b) => b.stage - a.stage)[0];
+        // Foto SÓ da etapa atual (sem foto na etapa atual => sem foto), igual ao link/app.
+        const latestEv = getCurrentStageEvidence(project);
         if (latestEv?.photos?.[0] && options.foto) {
             try {
                 const imgH = 100;

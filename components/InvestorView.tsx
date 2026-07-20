@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Project, getStageName, PlanId, isPlanId } from '../types';
+import { Project, getStageName, getCurrentStagePhoto, getCurrentStageEvidence, PlanId, isPlanId } from '../types';
 import { supabase } from '../supabaseClient';
 import StageThumbnail from './StageThumbnail';
 import ResultadoEmpreendimento from './ResultadoEmpreendimento';
@@ -283,8 +283,9 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
     const tone = TONE_CLASSES[verdito.tone];
     const investorName = (id?: string) => (project.investors || []).find(i => i.id === id)?.name;
     // A foto (quando aparece) já mostra a etapa atual; então só repetimos "Etapa atual"
-    // no Gasto × Avanço quando a foto NÃO está no relatório.
-    const heroPhoto = (project.stageEvidence || []).filter(e => e.photos && e.photos.length > 0).sort((a, b) => b.stage - a.stage)[0]?.photos?.[0];
+    // no Gasto × Avanço quando a foto NÃO está no relatório. Foto SÓ da etapa atual —
+    // sem foto na etapa atual, não puxa de etapa anterior (igual ao card e à Gestão).
+    const heroPhoto = getCurrentStagePhoto(project);
     const heroPhotoShown = options.foto && !!heroPhoto;
 
     return (
@@ -321,11 +322,8 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     })()}
 
                     {(() => {
-                        // Find latest photo from stage evidence
-                        const currentStageEvidence = (project.stageEvidence || [])
-                            .filter(e => e.photos && e.photos.length > 0)
-                            .sort((a, b) => b.stage - a.stage)[0];
-
+                        // Foto SÓ da etapa atual (sem foto na etapa atual => não mostra).
+                        const currentStageEvidence = getCurrentStageEvidence(project);
                         const photo = currentStageEvidence?.photos?.[0];
 
                         if (photo && options.foto) {
