@@ -14,6 +14,7 @@ import MobileNav from './components/MobileNav';
 
 import { SyncStatus } from './components/SyncStatus';
 import { PlanProvider } from './components/PlanProvider';
+import { entitlementsFor } from './hooks/useEntitlements';
 
 // Pages (Lazy - Deferred until after login)
 const ProjectsDashboard = lazy(() => import('./components/ProjectsDashboard'));
@@ -804,11 +805,16 @@ const App: React.FC = () => {
           onTriggerAI={() => setVoiceTrigger(prev => prev + 1)}
         />
 
-        <AICopilot
-          currentProjectId={selectedProjectId}
-          onAction={handleVoiceAction}
-          triggerVoice={voiceTrigger}
-        />
+        {/* Copiloto de IA: hoje só Business/admin vê (canUseCopilotoIA = false no
+            Free e no ObraPro). Está desalinhado com o modelo de Item — quando
+            virar prioridade, consertar useProjectBrain e reabrir por plano. */}
+        {entitlementsFor(currentUser.plan).canUseCopilotoIA && (
+          <AICopilot
+            currentProjectId={selectedProjectId}
+            onAction={handleVoiceAction}
+            triggerVoice={voiceTrigger}
+          />
+        )}
 
         <QuickExpenseModal
           isOpen={isQuickExpenseOpen}
