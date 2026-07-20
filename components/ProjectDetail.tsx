@@ -4,6 +4,7 @@ import { useInflation } from '../hooks/useInflation';
 import { PROGRESS_STAGES } from '../constants';
 import { formatCurrency, formatCurrencyAbbrev, generateId, calculateMonthsBetween } from '../utils';
 import { openAttachment } from '../utils/storage';
+import { exportExpensesToXlsx, formatDateBR, ExpenseExportRow } from '../utils/expenseExport';
 import MoneyInput from './MoneyInput';
 import ShareReportModal from './ShareReportModal';
 import DateInput from './DateInput';
@@ -698,6 +699,22 @@ const ExpensesSection: React.FC<{
     return inv ? inv.name : null;
   };
 
+  // Baixar as despesas da obra em Excel (.xlsx). Espelha a tela: resolve o nome
+  // da Etapa (macro), do Item e de quem pagou. Data mais recente no topo.
+  const handleExportExcel = () => {
+    const macroName = (id?: string) => projectMacros.find((m) => m.id === id)?.name || '';
+    const itemName = (id?: string) => projectItems.find((i) => i.id === id)?.name || '';
+    const rows: ExpenseExportRow[] = sortedExpenses.map((e) => ({
+      Data: formatDateBR(e.date),
+      Descrição: e.description || '',
+      Valor: e.value || 0,
+      Etapa: macroName(e.macroId),
+      Item: itemName(e.itemId),
+      'Pago por': payerName(e.paidByInvestorId) || 'Caixa da obra',
+    }));
+    exportExpensesToXlsx(rows, project.name);
+  };
+
   // Buscar macros do projeto
   useEffect(() => {
     const fetchMacros = async () => {
@@ -846,6 +863,9 @@ const ExpensesSection: React.FC<{
           <div className="flex items-center gap-2">
             <button onClick={() => setShowImport(true)} className="bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-full font-black text-sm hover:border-emerald-500 hover:text-white transition flex items-center gap-2">
               <i className="fa-solid fa-file-import text-emerald-400"></i> <span className="hidden sm:inline">Importar planilha</span>
+            </button>
+            <button onClick={handleExportExcel} disabled={sortedExpenses.length === 0} title={sortedExpenses.length === 0 ? 'Nenhuma despesa para exportar' : 'Baixar despesas em Excel'} className="bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-full font-black text-sm hover:border-emerald-500 hover:text-white transition flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-slate-700 disabled:hover:text-slate-200">
+              <i className="fa-solid fa-file-excel text-emerald-400"></i> <span className="hidden sm:inline">Exportar Excel</span>
             </button>
             <button onClick={() => handleSetShowAdd(true)} className="bg-green-600 text-white px-6 py-3 rounded-full font-black text-sm hover:bg-green-700 transition shadow-lg shadow-green-600/30 flex items-center gap-2">
               <i className="fa-solid fa-plus"></i> Nova Despesa
