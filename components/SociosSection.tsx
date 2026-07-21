@@ -3,6 +3,7 @@ import { Project, User } from '../types';
 import { formatCurrency, formatCurrencyAbbrev, generateId } from '../utils';
 import { openAttachment } from '../utils/storage';
 import { computeProjectFinance, computeUnitResult, computeAporteShares } from '../utils/projectFinance';
+import { computeAporteScheduleStatus } from '../utils/aportePlan';
 import { useSaveProfitShares } from '../hooks/useProfitShares';
 import { useAddInvestor, useUpdateInvestor, useDeleteContribution, useDeleteInvestor } from '../hooks/useAportes';
 import CashSummaryCards from './CashSummaryCards';
@@ -26,6 +27,7 @@ interface Props {
 
 interface SocioView {
     key: string;
+    investorId?: string;
     name: string;
     participacao: string;
     aportado: number;
@@ -188,6 +190,10 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
     // ---- Acerto de aportes (meta/falta por sócio) + montagem da visão única ----
     const acerto = computeAporteShares(project);
     const acertoDe = (investorId?: string) => acerto.shares.find((x) => x.investorId === investorId);
+    // Situação de cada sócio no cronograma de aportes (em dia / atrasado até hoje).
+    const temCronograma = (project.aportePlan?.parcelas?.length || 0) > 0;
+    const statusList = computeAporteScheduleStatus(project, project.aportePlan, new Date());
+    const statusDe = (investorId?: string) => statusList.find((x) => x.investorId === investorId);
     const faltaTone = (v: number) => (v > 0.5 ? 'text-amber-400' : v < -0.5 ? 'text-emerald-400' : 'text-slate-500');
     const faltaLabel = (v: number) => (v > 0.5 ? `~${formatCurrency(v)}` : v < -0.5 ? `+${formatCurrency(-v)}` : 'Em dia');
 
@@ -205,6 +211,7 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
             const real = vendido && isCompleted;
             return {
                 key: inv.id,
+                investorId: inv.id,
                 name: inv.name,
                 participacao: suas.map((u) => u.identifier).join(', '),
                 aportado: aportadoTotal(inv.id),
@@ -227,6 +234,7 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
             const acc = acertoDe(s.investorId);
             return {
                 key: s.id,
+                investorId: s.investorId,
                 name: s.name,
                 participacao: `${s.percentage || 0}%`,
                 aportado: aportadoTotal(s.investorId),
@@ -245,9 +253,9 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
     const semDono = splitMode === 'unit' ? units.filter((u) => !u.ownerInvestorId) : [];
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="flex flex-col gap-6 animate-fade-in">
             {/* Cabeçalho + seletor de modo */}
-            <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="order-1 flex items-center justify-between gap-3 flex-wrap">
                 <h3 className="font-black text-white text-xl uppercase tracking-tight flex items-center gap-3">
                     <i className="fa-solid fa-users-gear text-blue-400"></i>
                     Sócios
@@ -269,10 +277,10 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
             </div>
 
             {/* Caixa da obra */}
-            <CashSummaryCards project={project} />
+            <div className="order-2"><CashSummaryCards project={project} /></div>
 
-            {/* ▸ Gerenciar sócios (cadastro + % + pagador padrão) */}
-            <div className="glass rounded-2xl border border-slate-700 overflow-hidden">
+            {/* ▸ Gerenciar sócios (cadastro + % + pagador padrão) — vai pro FIM (order-6) */}
+            <div className="order-6 glass rounded-2xl border border-slate-700 overflow-hidden">
                 <button
                     onClick={() => setShowManage((v) => !v)}
                     className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-800/40 transition"
@@ -414,7 +422,7 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
             </div>
 
             {/* Cards por sócio: Aportou · Falta · Lucro */}
-            <div className="glass rounded-2xl border border-slate-700 p-5">
+            <div className="order-3 glass rounded-2xl border border-slate-700 p-5">
                 <div className="flex items-center justify-between mb-4">
                     <p className="text-[11px] text-slate-500 font-bold">
                         {splitMode === 'unit' ? 'Divisão por casa' : 'Divisão por porcentagem'}
@@ -484,6 +492,13 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                                         {formatCurrencyAbbrev(s.apDinheiro)} em dinheiro · {formatCurrencyAbbrev(s.apDespesa)} pago em despesa
                                     </p>
                                 )}
+                                {temCronograma && !s.naoAporta && (() => {
+                                    const st = statusDe(s.investorId);
+                                    if (!st || st.tone === 'sem_plano') return null;
+                                    if (st.tone === 'atrasado') return <p className="text-[10px] font-black text-rose-400 text-center mt-2"><i className="fa-solid fa-triangle-exclamation mr-1"></i>Atrasado no aporte — falta pôr {formatCurrency(-st.diferenca)} até hoje</p>;
+                                    if (st.tone === 'adiantado') return <p className="text-[10px] font-black text-blue-400 text-center mt-2"><i className="fa-solid fa-arrow-up mr-1"></i>Aporte adiantado {formatCurrency(st.diferenca)}</p>;
+                                    return <p className="text-[10px] font-black text-emerald-400 text-center mt-2"><i className="fa-solid fa-circle-check mr-1"></i>Em dia com o cronograma</p>;
+                                })()}
                             </div>
                         ))}
                     </div>
@@ -511,11 +526,11 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
             </div>
 
             {/* ▸ Cronograma de aportes (parcelas planejadas por sócio) */}
-            <AporteScheduleSection project={project} onUpdate={onUpdate} />
+            <div className="order-4"><AporteScheduleSection project={project} onUpdate={onUpdate} /></div>
 
             {/* ▸ Extrato de aportes (lançamentos em caixa) */}
             {contributions.length > 0 && (
-                <div className="glass rounded-2xl border border-slate-700 overflow-hidden">
+                <div className="order-5 glass rounded-2xl border border-slate-700 overflow-hidden">
                     <button
                         onClick={() => setShowExtrato((v) => !v)}
                         className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-800/40 transition"

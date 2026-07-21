@@ -10,96 +10,73 @@ const DAY = 24 * 60 * 60 * 1000;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const toISO = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
-// Distribui um total em n partes, jogando a sobra do arredondamento na última
-// (assim a soma das parcelas fecha EXATO com a meta, sem centavos perdidos).
-const splitEqual = (total: number, n: number): number[] => {
-  if (n <= 0) return [];
-  const per = round2(total / n);
-  const out = Array(n).fill(per);
-  out[n - 1] = round2(total - per * (n - 1));
-  return out;
+// Gasto PLANEJADO da obra numa janela de tempo [from, to), distribuindo o valor
+// de cada etapa LINEARMENTE pela sua duração planejada. Base do modo "ritmo" —
+// funciona pra qualquer intervalo (não só mês).
+const plannedSpendBetween = (project: Project, fromMs: number, toMs: number): number => {
+  let total = 0;
+  for (const m of project.budget?.macros || []) {
+    if (!m.plannedStartDate || !m.plannedEndDate || !((m.estimatedValue || 0) > 0)) continue;
+    const ms = new Date(m.plannedStartDate).getTime();
+    const me = new Date(m.plannedEndDate).getTime();
+    const dur = me - ms;
+    if (dur <= 0) { if (ms >= fromMs && ms < toMs) total += m.estimatedValue || 0; continue; }
+    const ov = Math.min(me, toMs) - Math.max(ms, fromMs);
+    if (ov > 0) total += (m.estimatedValue || 0) * (ov / dur);
+  }
+  return total;
 };
 
-// AUTOMÁTICO 1 — parcelas IGUAIS: cada sócio paga a meta dele em n parcelas
-// iguais, a partir de startDate, espaçadas de intervalDays (como a planilha do
-// Victor: total ÷ 10). O usuário edita depois (ex.: aporte antecipado).
-export const generateAporteScheduleEqual = (
+export interface AporteAutoOpts {
+  mode: 'iguais' | 'ritmo';
+  nParcelas: number;
+  startDate: string;
+  intervalDays: number;
+}
+
+// AUTOMÁTICO unificado: o ESQUELETO é o mesmo nos dois (nº de parcelas + intervalo
+// + início). Muda só COMO reparte a meta de cada sócio:
+//   - 'iguais': mesmo valor em cada parcela (como a planilha do Victor: total ÷ N).
+//   - 'ritmo' : cada parcela pesa conforme o gasto planejado da obra NA JANELA
+//               daquela parcela (respeita o intervalo escolhido, não mês fixo).
+// A 1ª parcela abraça o gasto anterior e a última o que resta, então a soma sempre
+// fecha a meta. Retorna null só se 'ritmo' e a obra não tem cronograma.
+export const generateAporteSchedule = (
   shares: AporteShare[],
-  opts: { nParcelas: number; startDate: string; intervalDays: number }
-): AportePlan => {
+  project: Project,
+  opts: AporteAutoOpts
+): AportePlan | null => {
   const n = Math.max(1, Math.floor(opts.nParcelas));
   const start = new Date(opts.startDate + 'T00:00:00').getTime();
-  const perShare = new Map<string, number[]>();
-  shares.forEach((s) => { if (s.investorId) perShare.set(s.investorId, splitEqual(s.meta, n)); });
+  const bounds = Array.from({ length: n }, (_, i) => start + i * opts.intervalDays * DAY);
 
-  const parcelas: AporteParcela[] = [];
-  for (let i = 0; i < n; i++) {
-    const values: { [id: string]: number } = {};
-    perShare.forEach((arr, id) => { values[id] = arr[i]; });
-    parcelas.push({ id: generateId(), date: toISO(start + i * opts.intervalDays * DAY), values });
+  let weights: number[];
+  if (opts.mode === 'ritmo') {
+    weights = bounds.map((b, i) => {
+      const from = i === 0 ? 0 : b;                                    // 1ª pega o gasto anterior
+      const to = i < n - 1 ? bounds[i + 1] : Number.MAX_SAFE_INTEGER;  // última pega o que resta
+      return plannedSpendBetween(project, from, to);
+    });
+    if (weights.reduce((a, b) => a + b, 0) <= 0) return null; // sem cronograma → nada pra pesar
+  } else {
+    weights = bounds.map(() => 1);
   }
-  return { parcelas };
-};
+  const sumW = weights.reduce((a, b) => a + b, 0);
 
-// Gasto PLANEJADO por mês, a partir das datas do cronograma da obra (mesma conta
-// da tela Cronograma). Base do automático "pelo ritmo".
-const monthlyPlannedSpend = (project: Project): { date: string; total: number }[] => {
-  const macros = (project.budget?.macros || []).filter(
-    (m) => m.plannedStartDate && m.plannedEndDate && (m.estimatedValue || 0) > 0
-  );
-  if (macros.length === 0) return [];
-  const starts = macros.map((m) => new Date(m.plannedStartDate as string).getTime());
-  const ends = macros.map((m) => new Date(m.plannedEndDate as string).getTime());
-  const min = new Date(Math.min(...starts)), max = new Date(Math.max(...ends));
-
-  const out: { date: string; total: number }[] = [];
-  let cur = new Date(min.getFullYear(), min.getMonth(), 1);
-  const limit = new Date(max.getFullYear(), max.getMonth(), 1);
-  while (cur <= limit) {
-    let total = 0;
-    for (const m of macros) {
-      const s = new Date(m.plannedStartDate as string), e = new Date(m.plannedEndDate as string);
-      const sc = new Date(s.getFullYear(), s.getMonth(), 1), ec = new Date(e.getFullYear(), e.getMonth(), 1);
-      if (cur >= sc && cur <= ec) {
-        let dur = (e.getFullYear() - s.getFullYear()) * 12 - s.getMonth() + e.getMonth() + 1;
-        if (dur <= 0) dur = 1;
-        total += (m.estimatedValue || 0) / dur;
-      }
-    }
-    const ym = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`;
-    out.push({ date: `${ym}-05`, total });
-    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
-  }
-  return out;
-};
-
-// AUTOMÁTICO 2 — pelo RITMO da obra: uma parcela por mês, e cada sócio põe a
-// fatia da meta dele proporcional ao que a obra gasta naquele mês (mês que gasta
-// mais pede mais aporte). Retorna null se a obra não tem cronograma gerado.
-export const generateAporteScheduleByRitmo = (
-  project: Project,
-  shares: AporteShare[]
-): AportePlan | null => {
-  const months = monthlyPlannedSpend(project);
-  const totalSpend = months.reduce((s, m) => s + m.total, 0);
-  if (months.length === 0 || totalSpend <= 0) return null;
-
-  // Para cada sócio, reparte a meta pelos pesos mensais (soma fecha a meta).
+  // Reparte a meta de cada sócio pelos pesos; fecha o arredondamento na última.
   const perShare = new Map<string, number[]>();
   shares.forEach((s) => {
     if (!s.investorId) return;
-    const raw = months.map((m) => (m.total / totalSpend) * s.meta);
-    // fecha o arredondamento na última parcela
-    const rounded = raw.map(round2);
+    const rounded = weights.map((w) => round2((w / sumW) * s.meta));
     const drift = round2(s.meta - rounded.reduce((a, b) => a + b, 0));
-    rounded[rounded.length - 1] = round2(rounded[rounded.length - 1] + drift);
+    rounded[n - 1] = round2(rounded[n - 1] + drift);
     perShare.set(s.investorId, rounded);
   });
 
-  const parcelas: AporteParcela[] = months.map((m, i) => {
+  const parcelas: AporteParcela[] = bounds.map((b, i) => {
     const values: { [id: string]: number } = {};
     perShare.forEach((arr, id) => { values[id] = arr[i]; });
-    return { id: generateId(), date: m.date, values };
+    return { id: generateId(), date: toISO(b), values };
   });
   return { parcelas };
 };

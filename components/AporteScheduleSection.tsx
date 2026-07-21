@@ -2,12 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Project, AportePlan, AporteParcela } from '../types';
 import { formatCurrency, generateId } from '../utils';
 import { computeAporteShares } from '../utils/projectFinance';
-import {
-    generateAporteScheduleEqual,
-    generateAporteScheduleByRitmo,
-    computeAporteScheduleStatus,
-    parcelaTotal,
-} from '../utils/aportePlan';
+import { generateAporteSchedule, parcelaTotal } from '../utils/aportePlan';
 
 interface Props {
     project: Project;
@@ -41,17 +36,12 @@ const AporteScheduleSection: React.FC<Props> = ({ project, onUpdate }) => {
     const [intervalo, setIntervalo] = useState(21); // dias entre parcelas
     const [inicio, setInicio] = useState(project.startDate || new Date().toISOString().slice(0, 10));
 
-    const status = useMemo(() => computeAporteScheduleStatus(project, plan, new Date()), [project, plan]);
     const parcelas = plan.parcelas || [];
 
     const setParcelas = (ps: AporteParcela[]) => { setPlan({ parcelas: ps }); dirtyRef.current = true; setDirty(true); };
 
-    const sugerirIguais = () => {
-        setParcelas(generateAporteScheduleEqual(socios, { nParcelas, startDate: inicio, intervalDays: intervalo }).parcelas);
-        setOpen(true);
-    };
-    const sugerirRitmo = () => {
-        const p = generateAporteScheduleByRitmo(project, socios);
+    const sugerir = (mode: 'iguais' | 'ritmo') => {
+        const p = generateAporteSchedule(socios, project, { mode, nParcelas, startDate: inicio, intervalDays: intervalo });
         if (!p) { alert('Gere o cronograma da obra primeiro (aba Orçamento → "Gerar cronograma"). Sem ele não dá pra distribuir os aportes pelo ritmo.'); return; }
         setParcelas(p.parcelas);
         setOpen(true);
@@ -81,13 +71,6 @@ const AporteScheduleSection: React.FC<Props> = ({ project, onUpdate }) => {
         );
     }
 
-    const toneCls: Record<string, string> = {
-        em_dia: 'text-emerald-400', atrasado: 'text-rose-400', adiantado: 'text-blue-400', sem_plano: 'text-slate-500',
-    };
-    const toneLabel: Record<string, string> = {
-        em_dia: 'em dia', atrasado: 'atrasado', adiantado: 'adiantado', sem_plano: '—',
-    };
-
     return (
         <div className="glass rounded-2xl border border-slate-700 overflow-hidden">
             <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between p-5 text-left">
@@ -100,23 +83,10 @@ const AporteScheduleSection: React.FC<Props> = ({ project, onUpdate }) => {
 
             {open && (
                 <div className="px-5 pb-5 space-y-4">
-                    {/* Cruzamento planejado × realizado por sócio */}
-                    {parcelas.length > 0 && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                            {status.map((s) => (
-                                <div key={s.investorId} className="bg-slate-800/60 border border-slate-700 rounded-xl p-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-white font-bold text-sm truncate">{s.name}</span>
-                                        <span className={`text-[11px] font-black uppercase ${toneCls[s.tone]}`}>{toneLabel[s.tone]}</span>
-                                    </div>
-                                    <p className="text-[11px] text-slate-400 mt-1">
-                                        Devia até hoje <b className="text-slate-300">{formatCurrency(s.planejadoAteHoje)}</b> · aportou <b className="text-slate-300">{formatCurrency(s.aportado)}</b>
-                                    </p>
-                                    {s.tone === 'atrasado' && <p className="text-[11px] text-rose-400 font-bold">falta pôr {formatCurrency(-s.diferenca)}</p>}
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                    <p className="text-[11px] text-slate-500 leading-snug">
+                        Planeje quando cada sócio deve aportar. A situação de cada um (em dia / atrasado)
+                        aparece no card do sócio acima. Sugira automático e ajuste à mão se precisar.
+                    </p>
 
                     {/* Sugestões automáticas */}
                     <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-3 flex flex-wrap items-end gap-3">
@@ -137,10 +107,10 @@ const AporteScheduleSection: React.FC<Props> = ({ project, onUpdate }) => {
                             <label className="text-[10px] font-black uppercase text-slate-500">A partir de</label>
                             <input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className={inputCls} />
                         </div>
-                        <button onClick={sugerirIguais} className="px-3 py-2 bg-blue-600/20 border border-blue-500/40 rounded-lg text-blue-300 hover:bg-blue-600/30 text-sm font-black">
+                        <button onClick={() => sugerir('iguais')} className="px-3 py-2 bg-blue-600/20 border border-blue-500/40 rounded-lg text-blue-300 hover:bg-blue-600/30 text-sm font-black">
                             <i className="fa-solid fa-wand-magic-sparkles mr-1"></i> Parcelas iguais
                         </button>
-                        <button onClick={sugerirRitmo} className="px-3 py-2 bg-purple-600/20 border border-purple-500/40 rounded-lg text-purple-300 hover:bg-purple-600/30 text-sm font-black">
+                        <button onClick={() => sugerir('ritmo')} className="px-3 py-2 bg-purple-600/20 border border-purple-500/40 rounded-lg text-purple-300 hover:bg-purple-600/30 text-sm font-black">
                             <i className="fa-solid fa-chart-line mr-1"></i> Pelo ritmo da obra
                         </button>
                     </div>
