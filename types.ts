@@ -382,6 +382,19 @@ export interface ProjectDocument {
 
 export const DOCUMENT_CATEGORIES: ProjectDocument['category'][] = ['Técnico', 'Legal', 'Financeiro', 'Outros'];
 
+// Cronograma de aportes: parcelas planejadas (data + quanto cada sócio põe).
+// Uma parcela guarda os valores por investidor num mapa investorId -> valor.
+// O "aporte antecipado" é só uma parcela com data anterior (label opcional).
+export interface AporteParcela {
+  id: string;
+  date: string;                          // 'YYYY-MM-DD'
+  label?: string;                        // ex.: "Aporte antecipado" (opcional)
+  values: { [investorId: string]: number }; // valor planejado por sócio nesta parcela
+}
+export interface AportePlan {
+  parcelas: AporteParcela[];
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -407,4 +420,5 @@ export interface Project {
   contributions?: Contribution[]; // Aportes (capital que entrou)
   acquisitionCosts?: AcquisitionCost[]; // Aquisição do empreendimento (terreno etc.)
   profitShares?: ProfitShare[];         // Participação nos lucros (sócios)
+  aportePlan?: AportePlan;              // Cronograma de aportes (parcelas planejadas por sócio)
 }

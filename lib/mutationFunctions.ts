@@ -91,6 +91,7 @@ export async function updateProjectMutationFn(input: UpdateProjectInput) {
     if (updates.financedByInvestorId !== undefined) supabaseUpdates.financed_by_investor_id = updates.financedByInvestorId || null;
     if (updates.archived !== undefined) supabaseUpdates.archived = updates.archived;
     if (updates.splitMode !== undefined) supabaseUpdates.split_mode = updates.splitMode;
+    if (updates.aportePlan !== undefined) supabaseUpdates.aporte_plan = updates.aportePlan;
 
     if (Object.keys(supabaseUpdates).length > 0) {
         const { error } = await supabase.from('projects').update(supabaseUpdates).eq('id', id);

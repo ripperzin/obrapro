@@ -164,6 +164,7 @@ export const fetchProjects = async (): Promise<Project[]> => {
         custoM2: p.custo_m2 || 0,
         financedByInvestorId: p.financed_by_investor_id || undefined,
         splitMode: (p.split_mode as 'percent' | 'unit') || 'percent',
+        aportePlan: p.aporte_plan || undefined,
         archived: p.archived || false,
         progress: p.progress || 0,
         // Ordena por identificador de forma NUMÉRICA (numeric:true → "CASA 2" antes

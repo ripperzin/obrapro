@@ -6,6 +6,7 @@ import { computeProjectFinance, computeUnitResult, computeAporteShares } from '.
 import { useSaveProfitShares } from '../hooks/useProfitShares';
 import { useAddInvestor, useUpdateInvestor, useDeleteContribution, useDeleteInvestor } from '../hooks/useAportes';
 import CashSummaryCards from './CashSummaryCards';
+import AporteScheduleSection from './AporteScheduleSection';
 import AddContributionModal from './AddContributionModal';
 import { usePlan } from './PlanProvider';
 
@@ -508,6 +509,9 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                     {!isCompleted && ' Números estimados até a obra concluir.'}
                 </p>
             </div>
+
+            {/* ▸ Cronograma de aportes (parcelas planejadas por sócio) */}
+            <AporteScheduleSection project={project} onUpdate={onUpdate} />
 
             {/* ▸ Extrato de aportes (lançamentos em caixa) */}
             {contributions.length > 0 && (
