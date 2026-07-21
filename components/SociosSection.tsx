@@ -3,11 +3,10 @@ import { Project, User } from '../types';
 import { formatCurrency, formatCurrencyAbbrev, generateId } from '../utils';
 import { openAttachment } from '../utils/storage';
 import { computeProjectFinance, computeUnitResult, computeAporteShares } from '../utils/projectFinance';
-import { computeAporteScheduleStatus } from '../utils/aportePlan';
 import { useSaveProfitShares } from '../hooks/useProfitShares';
 import { useAddInvestor, useUpdateInvestor, useDeleteContribution, useDeleteInvestor } from '../hooks/useAportes';
 import CashSummaryCards from './CashSummaryCards';
-import AporteScheduleSection from './AporteScheduleSection';
+import AporteScheduleSection, { SocioCol } from './AporteScheduleSection';
 import AddContributionModal from './AddContributionModal';
 import { usePlan } from './PlanProvider';
 
@@ -190,12 +189,6 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
     // ---- Acerto de aportes (meta/falta por sócio) + montagem da visão única ----
     const acerto = computeAporteShares(project);
     const acertoDe = (investorId?: string) => acerto.shares.find((x) => x.investorId === investorId);
-    // Situação de cada sócio no cronograma de aportes (em dia / atrasado até hoje).
-    const temCronograma = (project.aportePlan?.parcelas?.length || 0) > 0;
-    const statusList = computeAporteScheduleStatus(project, project.aportePlan, new Date());
-    const statusDe = (investorId?: string) => statusList.find((x) => x.investorId === investorId);
-    const faltaTone = (v: number) => (v > 0.5 ? 'text-amber-400' : v < -0.5 ? 'text-emerald-400' : 'text-slate-500');
-    const faltaLabel = (v: number) => (v > 0.5 ? `~${formatCurrency(v)}` : v < -0.5 ? `+${formatCurrency(-v)}` : 'Em dia');
 
     const units = project.units || [];
     let sociosView: SocioView[] = [];
@@ -252,6 +245,22 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
     }
     const semDono = splitMode === 'unit' ? units.filter((u) => !u.ownerInvestorId) : [];
 
+    // Colunas da matriz de aportes: sócios que aportam (meta/aportado do acerto,
+    // lucro/cota do sociosView). Naoaportantes já saem do acerto.shares.
+    const socioCols: SocioCol[] = acerto.shares.filter((x) => x.investorId).map((x) => {
+        const sv = sociosView.find((s) => s.investorId === x.investorId);
+        return {
+            investorId: x.investorId!,
+            name: x.name,
+            cota: sv?.participacao || '',
+            aportado: x.aportado,
+            meta: x.meta,
+            lucro: sv?.lucro ?? 0,
+            temLucro: sv?.temLucro ?? false,
+            badge: sv?.badge ?? 'estimado',
+        };
+    });
+
     return (
         <div className="flex flex-col gap-6 animate-fade-in">
             {/* Cabeçalho + seletor de modo */}
@@ -279,14 +288,14 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
             {/* Caixa da obra */}
             <div className="order-2"><CashSummaryCards project={project} /></div>
 
-            {/* ▸ Gerenciar sócios (cadastro + % + pagador padrão) — vai pro FIM (order-6) */}
+            {/* ▸ Configurar sócios (cadastro + cotas/%) — vai pro FIM (order-6) */}
             <div className="order-6 glass rounded-2xl border border-slate-700 overflow-hidden">
                 <button
                     onClick={() => setShowManage((v) => !v)}
                     className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-800/40 transition"
                 >
                     <span className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-2">
-                        <i className="fa-solid fa-user-gear text-blue-400"></i> Gerenciar sócios
+                        <i className="fa-solid fa-user-gear text-blue-400"></i> Configurar sócios
                     </span>
                     <i className={`fa-solid fa-chevron-down text-slate-500 text-xs transition-transform ${showManage ? 'rotate-180' : ''}`}></i>
                 </button>
@@ -395,138 +404,20 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                             </button>
                         </div>
 
-                        {/* Pagador padrão */}
-                        {investors.length > 0 && onUpdate && (
-                            <div className="pt-4 border-t border-slate-700/60">
-                                <p className="text-white font-black text-[11px] uppercase tracking-widest mb-2 flex items-center gap-2">
-                                    <i className="fa-solid fa-hand-holding-dollar text-amber-400"></i> Pagador padrão
-                                </p>
-                                <p className="text-[11px] text-slate-500 mb-3 leading-snug">
-                                    Se um sócio banca a obra do próprio bolso, toda <b>nova despesa</b> já nasce marcada como paga por ele (vira aporte dele). Pode mudar em cada despesa.
-                                </p>
-                                <select
-                                    value={project.financedByInvestorId || ''}
-                                    onChange={(e) => onUpdate(project.id, { financedByInvestorId: e.target.value || undefined })}
-                                    className={`${inputClass} w-full`}
-                                >
-                                    <option value="">Caixa da obra (padrão)</option>
-                                    {investors.map((i) => (
-                                        <option key={i.id} value={i.id}>{i.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-
                     </div>
                 )}
             </div>
 
-            {/* Cards por sócio: Aportou · Falta · Lucro */}
-            <div className="order-3 glass rounded-2xl border border-slate-700 p-5">
-                <div className="flex items-center justify-between mb-4">
-                    <p className="text-[11px] text-slate-500 font-bold">
-                        {splitMode === 'unit' ? 'Divisão por casa' : 'Divisão por porcentagem'}
-                    </p>
-                    <button
-                        onClick={() => setShowAporte(true)}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-2 rounded-xl flex items-center gap-2 transition text-xs"
-                    >
-                        <i className="fa-solid fa-plus"></i> Registrar aporte
-                    </button>
-                </div>
-
-                {sociosView.length === 0 ? (
-                    <div className="text-center py-8">
-                        <i className="fa-solid fa-user-plus text-slate-600 text-2xl mb-2"></i>
-                        <p className="text-slate-400 text-sm font-bold">Nenhum sócio ainda.</p>
-                        <p className="text-slate-600 text-[11px] mt-1">
-                            {splitMode === 'unit' ? 'Defina o dono de cada casa na aba Unidades.' : 'Cadastre em "Gerenciar sócios" abaixo.'}
-                        </p>
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        {sociosView.map((s) => (
-                            <div key={s.key} className="bg-slate-800/40 rounded-xl border border-slate-700/60 p-4">
-                                <div className="flex items-start justify-between gap-2 mb-3">
-                                    <div className="min-w-0">
-                                        <p className="text-white font-black truncate">{s.name}</p>
-                                        <p className="text-[11px] text-slate-500 font-bold truncate">
-                                            {splitMode === 'unit'
-                                                ? <><i className="fa-solid fa-house mr-1 text-fuchsia-400"></i>{s.participacao}</>
-                                                : <>{s.participacao}{s.naoAporta && <span className="text-amber-400/80"> · não aporta</span>}</>}
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() => setShowAporte(true)}
-                                        className="text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 shrink-0"
-                                    >
-                                        <i className="fa-solid fa-plus mr-1"></i>Aporte
-                                    </button>
-                                </div>
-
-                                <div className="grid grid-cols-3 gap-2 text-center">
-                                    <div>
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Aportou</p>
-                                        <p className="text-sm font-black text-emerald-400">{formatCurrency(s.aportado)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Falta</p>
-                                        <p className={`text-sm font-black ${s.naoAporta || s.falta === null ? 'text-slate-500' : faltaTone(s.falta)}`}>
-                                            {s.naoAporta ? '—' : s.falta === null ? '—' : faltaLabel(s.falta)}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-0.5">
-                                            Lucro <span className={s.real ? 'text-emerald-400' : 'text-cyan-400'}>· {s.badge}</span>
-                                        </p>
-                                        <p className={`text-sm font-black ${!s.temLucro ? 'text-slate-500' : s.lucro < 0 ? 'text-rose-400' : s.real ? 'text-emerald-400' : 'text-cyan-400'}`}>
-                                            {s.temLucro ? formatCurrency(s.lucro) : '—'}
-                                        </p>
-                                        {s.temLucro && s.margem !== null && (
-                                            <p className="text-[8px] font-bold text-slate-500 mt-0.5">margem {s.margem.toFixed(1)}%</p>
-                                        )}
-                                    </div>
-                                </div>
-                                {s.apDespesa > 0 && (
-                                    <p className="text-[9px] text-slate-500 font-bold text-center mt-2 leading-snug">
-                                        {formatCurrencyAbbrev(s.apDinheiro)} em dinheiro · {formatCurrencyAbbrev(s.apDespesa)} pago em despesa
-                                    </p>
-                                )}
-                                {temCronograma && !s.naoAporta && (() => {
-                                    const st = statusDe(s.investorId);
-                                    if (!st || st.tone === 'sem_plano') return null;
-                                    if (st.tone === 'atrasado') return <p className="text-[10px] font-black text-rose-400 text-center mt-2"><i className="fa-solid fa-triangle-exclamation mr-1"></i>Atrasado no aporte — falta pôr {formatCurrency(-st.diferenca)} até hoje</p>;
-                                    if (st.tone === 'adiantado') return <p className="text-[10px] font-black text-blue-400 text-center mt-2"><i className="fa-solid fa-arrow-up mr-1"></i>Aporte adiantado {formatCurrency(st.diferenca)}</p>;
-                                    return <p className="text-[10px] font-black text-emerald-400 text-center mt-2"><i className="fa-solid fa-circle-check mr-1"></i>Em dia com o cronograma</p>;
-                                })()}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {acerto.totalFalta > 0.5 && (
-                    <p className="text-[11px] text-amber-400 font-bold mt-4 text-center">
-                        <i className="fa-solid fa-circle-arrow-up mr-1"></i>
-                        Falta aportar no total (estimado): ~{formatCurrency(acerto.totalFalta)}
-                    </p>
-                )}
+            {/* ▸ Sócios: a matriz (plano de aportes + aportes reais + resumo por sócio) */}
+            <div className="order-3">
+                <AporteScheduleSection project={project} socios={socioCols} onUpdate={onUpdate} onRegisterAporte={() => setShowAporte(true)} />
                 {semDono.length > 0 && (
-                    <p className="text-[10px] text-slate-500 mt-3 leading-snug text-center">
+                    <p className="text-[10px] text-slate-500 mt-2 leading-snug text-center">
                         <i className="fa-solid fa-circle-info mr-1"></i>
                         {semDono.length} casa{semDono.length > 1 ? 's' : ''} sem dono. Defina na aba <b>Unidades</b>.
                     </p>
                 )}
-                <p className="text-[10px] text-slate-500 mt-3 leading-snug text-center">
-                    {splitMode === 'unit'
-                        ? 'Lucro e aporte saem do custo da casa de cada sócio (obra + terreno rateado por área).'
-                        : 'Lucro e aporte saem da % de cada sócio. Quem "não aporta" (ex.: admin) só entra no lucro.'}
-                    {' '}A coluna <b>Falta</b> é uma estimativa: a parte de cada sócio no <b>custo previsto</b> da obra menos o que já aportou.
-                    {!isCompleted && ' Números estimados até a obra concluir.'}
-                </p>
             </div>
-
-            {/* ▸ Cronograma de aportes (parcelas planejadas por sócio) */}
-            <div className="order-4"><AporteScheduleSection project={project} onUpdate={onUpdate} /></div>
 
             {/* ▸ Extrato de aportes (lançamentos em caixa) */}
             {contributions.length > 0 && (

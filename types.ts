@@ -390,6 +390,9 @@ export interface AporteParcela {
   date: string;                          // 'YYYY-MM-DD'
   label?: string;                        // ex.: "Aporte antecipado" (opcional)
   values: { [investorId: string]: number }; // valor planejado por sócio nesta parcela
+  // Quando um sócio marca a parcela como PAGA, cria-se um aporte real (contribution)
+  // e guarda-se o id dele aqui. Célula paga = tem id neste mapa. Desmarcar apaga o aporte.
+  paidContrib?: { [investorId: string]: string };
 }
 export interface AportePlan {
   parcelas: AporteParcela[];
