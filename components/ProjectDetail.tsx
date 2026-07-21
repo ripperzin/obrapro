@@ -1808,7 +1808,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
             {/* 1. GESTÃO — full-width no mobile, botão normal no desktop */}
             <button
               onClick={() => setActiveTab('info')}
-              className={`col-span-2 lg:col-span-1 h-16 md:h-24 flex flex-row lg:flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'info'
+              className={`col-span-2 lg:col-span-1 h-12 lg:h-24 flex flex-row lg:flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'info'
                 ? 'bg-blue-600/20 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
                 : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:-translate-y-2'
                 }`}
@@ -1820,7 +1820,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
             {/* 2. SÓCIOS — aportes, saldo por sócio, divisão */}
             <button
               onClick={() => setActiveTab('socios')}
-              className={`h-16 md:h-24 flex flex-col items-center justify-center gap-1 md:gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'socios'
+              className={`h-12 lg:h-24 flex flex-row lg:flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'socios'
                 ? 'bg-emerald-600/20 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
                 : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:-translate-y-2'
                 }`}
@@ -1832,7 +1832,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
             {/* 3. DESPESAS — gastos + aquisição */}
             <button
               onClick={() => setActiveTab('expenses')}
-              className={`h-16 md:h-24 flex flex-col items-center justify-center gap-1 md:gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'expenses'
+              className={`h-12 lg:h-24 flex flex-row lg:flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'expenses'
                 ? 'bg-rose-600/20 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]'
                 : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:-translate-y-2'
                 }`}
@@ -1845,7 +1845,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
             {canSeeUnits && (
               <button
                 onClick={() => setActiveTab('units')}
-                className={`h-16 md:h-24 flex flex-col items-center justify-center gap-1 md:gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'units'
+                className={`h-12 lg:h-24 flex flex-row lg:flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'units'
                   ? 'bg-teal-600/20 border-teal-500 shadow-[0_0_15px_rgba(20,184,166,0.3)]'
                   : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:-translate-y-2'
                   }`}
@@ -1858,7 +1858,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
             {/* 5. ORÇAMENTO — por etapa / por item */}
             <button
               onClick={() => setActiveTab('budget')}
-              className={`h-16 md:h-24 flex flex-col items-center justify-center gap-1 md:gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'budget'
+              className={`h-12 lg:h-24 flex flex-row lg:flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'budget'
                 ? 'bg-purple-600/20 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]'
                 : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:-translate-y-2'
                 }`}
@@ -1870,7 +1870,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
             {/* 6. DOCS */}
             <button
               onClick={() => setActiveTab('documents')}
-              className={`h-16 md:h-24 flex flex-col items-center justify-center gap-1 md:gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'documents'
+              className={`h-12 lg:h-24 flex flex-row lg:flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'documents'
                 ? 'bg-amber-600/20 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
                 : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:-translate-y-2'
                 }`}
@@ -1882,7 +1882,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
             {/* 7. DIÁRIO — registro de fatos extraordinários */}
             <button
               onClick={() => setActiveTab('diary')}
-              className={`h-16 md:h-24 flex flex-col items-center justify-center gap-1 md:gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'diary'
+              className={`h-12 lg:h-24 flex flex-row lg:flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'diary'
                 ? 'bg-cyan-600/20 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]'
                 : 'glass border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 hover:-translate-y-2'
                 }`}
