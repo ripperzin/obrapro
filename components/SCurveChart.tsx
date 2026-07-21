@@ -33,8 +33,20 @@ const SCurveChart: React.FC<SCurveChartProps> = ({ projects }) => {
 
         if (allStartDates.length === 0) return [];
 
-        const minDate = new Date(Math.min(...allStartDates.map(d => new Date(d).getTime())));
-        // Use max delivery date or today + 3 months, whichever is further
+        // A linha do Realizado soma despesas por mês. Se a janela do gráfico
+        // começar só no início PLANEJADO, gastos feitos ANTES (terreno/projetos
+        // pagos cedo, ou obra concluída cujo cronograma foi gerado depois) caem
+        // fora e a linha Realizado some. Então a janela abraça também as datas
+        // das despesas — senão a curva mostra só o pontilhado do Planejado.
+        const expenseTimes = projects
+            .flatMap(p => (p.expenses || []).map(e => e.date))
+            .filter(Boolean)
+            .map(d => new Date(d as string).getTime())
+            .filter(t => !isNaN(t));
+
+        const plannedMin = Math.min(...allStartDates.map(d => new Date(d).getTime()));
+        const minDate = new Date(expenseTimes.length ? Math.min(plannedMin, ...expenseTimes) : plannedMin);
+        // Use max delivery date or today, whichever is further
         const maxDelivery = allEndDates.length > 0 ? Math.max(...allEndDates.map(d => new Date(d).getTime())) : 0;
         const maxDate = new Date(Math.max(Date.now(), maxDelivery));
 
