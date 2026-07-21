@@ -11,9 +11,6 @@ export interface SocioCol {
     cota: string;        // "40%" ou "Casa 01"
     aportado: number;    // já aportou (dinheiro + despesa)
     meta: number;        // quanto deve no total
-    lucro: number;
-    temLucro: boolean;
-    badge: string;       // 'real' | 'estimado' | 'vendido'
 }
 
 interface Props {
@@ -251,15 +248,6 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                             </td>
                                         );
                                     })}
-                                    <td></td>
-                                </tr>
-                                <tr className="text-[11px]">
-                                    <td className="px-2 py-1 text-[10px] uppercase text-slate-500 font-black">Lucro</td>
-                                    {socios.map((s) => (
-                                        <td key={s.investorId} className="px-2 py-1 text-right whitespace-nowrap">
-                                            {s.temLucro ? <span className={`${s.lucro < 0 ? 'text-rose-400' : 'text-cyan-400'} font-bold`}>{formatCurrencyAbbrev(s.lucro)} <span className="text-[8px] text-slate-500">· {s.badge}</span></span> : <span className="text-slate-600">—</span>}
-                                        </td>
-                                    ))}
                                     <td></td>
                                 </tr>
                             </tbody>

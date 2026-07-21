@@ -255,9 +255,6 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
             cota: sv?.participacao || '',
             aportado: x.aportado,
             meta: x.meta,
-            lucro: sv?.lucro ?? 0,
-            temLucro: sv?.temLucro ?? false,
-            badge: sv?.badge ?? 'estimado',
         };
     });
 
