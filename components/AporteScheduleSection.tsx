@@ -69,6 +69,12 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
     const parcelas = plan.parcelas || [];
     const setParcelas = (ps: AporteParcela[]) => { setPlan({ parcelas: ps }); dirtyRef.current = true; setDirty(true); };
 
+    // Barra de MONTAR o plano: só abre sozinha quando ainda não há plano nenhum
+    // (é o único caminho pra frente). Com plano feito, fica fora do caminho.
+    const [planejarAberto, setPlanejarAberto] = useState<boolean | null>(null);
+    const showPlanejar = planejarAberto ?? parcelas.length === 0;
+    const setShowPlanejar = (f: (v: boolean) => boolean) => setPlanejarAberto(f(showPlanejar));
+
     // Uma célula de aporte já realizado (avulso ou despesa do bolso).
     interface CellReal { value: number; contribIds: string[]; anexos: string[]; notas: string[] }
 
@@ -267,29 +273,46 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                     {/* Cadastro dos sócios: primeira coisa do card. */}
                     {configSlot && <div className="-mx-4 sm:-mx-5 border-b border-slate-700/60">{configSlot}</div>}
 
-                    {/* Sugestão / ações */}
-                    <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-3 flex flex-wrap items-end gap-3">
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-black uppercase text-slate-500">Parcelas</label>
-                            <input type="number" min={1} value={nParcelas} onChange={(e) => setNParcelas(Math.max(1, parseInt(e.target.value) || 1))} className={`${inputCls} w-16`} />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-black uppercase text-slate-500">A cada</label>
-                            <select value={intervalo} onChange={(e) => setIntervalo(parseInt(e.target.value))} className={inputCls}>
-                                <option value={7}>1 semana</option>
-                                <option value={14}>2 semanas</option>
-                                <option value={21}>3 semanas</option>
-                                <option value={30}>1 mês</option>
-                            </select>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-black uppercase text-slate-500">A partir de</label>
-                            <input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className={inputCls} />
-                        </div>
-                        <button onClick={() => sugerir('iguais')} className="px-3 py-2 bg-blue-600/20 border border-blue-500/40 rounded-lg text-blue-300 hover:bg-blue-600/30 text-sm font-black"><i className="fa-solid fa-wand-magic-sparkles mr-1"></i> Iguais</button>
-                        <button onClick={() => sugerir('ritmo')} className="px-3 py-2 bg-purple-600/20 border border-purple-500/40 rounded-lg text-purple-300 hover:bg-purple-600/30 text-sm font-black"><i className="fa-solid fa-chart-line mr-1"></i> Pelo ritmo</button>
-                        {onRegisterAporte && <button onClick={onRegisterAporte} className="px-3 py-2 bg-emerald-600/20 border border-emerald-500/40 rounded-lg text-emerald-300 hover:bg-emerald-600/30 text-sm font-black"><i className="fa-solid fa-plus mr-1"></i> Aporte avulso</button>}
+                    {/* Ação do dia a dia (lançar o que entrou) em destaque; MONTAR o plano
+                        é coisa de uma vez só e fica recolhida atrás de "Planejar aportes". */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        {onRegisterAporte && (
+                            <button onClick={onRegisterAporte} className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-black shadow-lg shadow-emerald-600/20">
+                                <i className="fa-solid fa-plus mr-1.5"></i> Registrar aporte
+                            </button>
+                        )}
+                        <div className="flex-1"></div>
+                        <button onClick={() => setShowPlanejar((v) => !v)} className="px-3 py-2 text-slate-400 hover:text-white text-xs font-black uppercase tracking-widest">
+                            <i className="fa-solid fa-calendar-days mr-1.5"></i>
+                            {parcelas.length > 0 ? 'Refazer o plano' : 'Planejar aportes'}
+                            <i className={`fa-solid fa-chevron-down ml-1.5 text-[10px] transition-transform ${showPlanejar ? 'rotate-180' : ''}`}></i>
+                        </button>
                     </div>
+
+                    {showPlanejar && (
+                        <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-3 flex flex-wrap items-end gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500">Parcelas</label>
+                                <input type="number" min={1} value={nParcelas} onChange={(e) => setNParcelas(Math.max(1, parseInt(e.target.value) || 1))} className={`${inputCls} w-16`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500">A cada</label>
+                                <select value={intervalo} onChange={(e) => setIntervalo(parseInt(e.target.value))} className={inputCls}>
+                                    <option value={7}>1 semana</option>
+                                    <option value={14}>2 semanas</option>
+                                    <option value={21}>3 semanas</option>
+                                    <option value={30}>1 mês</option>
+                                </select>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500">A partir de</label>
+                                <input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className={inputCls} />
+                            </div>
+                            <button onClick={() => sugerir('iguais')} className="px-3 py-2 bg-blue-600/20 border border-blue-500/40 rounded-lg text-blue-300 hover:bg-blue-600/30 text-sm font-black"><i className="fa-solid fa-wand-magic-sparkles mr-1"></i> Iguais</button>
+                            <button onClick={() => sugerir('ritmo')} className="px-3 py-2 bg-purple-600/20 border border-purple-500/40 rounded-lg text-purple-300 hover:bg-purple-600/30 text-sm font-black"><i className="fa-solid fa-chart-line mr-1"></i> Pelo ritmo</button>
+                            {parcelas.length > 0 && <p className="text-[10px] text-amber-400/90 font-bold w-full">Gerar de novo <b>substitui</b> as parcelas que estão na tabela (as já pagas você teria que remarcar).</p>}
+                        </div>
+                    )}
 
                     {/* A MATRIZ */}
                     <div className="overflow-x-auto">
@@ -307,7 +330,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                             </thead>
                             <tbody>
                                 {rows.length === 0 && (
-                                    <tr><td colSpan={socios.length + 2} className="px-2 py-6 text-center text-slate-500 text-sm">Nenhum aporte ainda. Use <b>Iguais</b>/<b>Pelo ritmo</b> pra planejar, ou <b>Aporte avulso</b> pra lançar um direto.</td></tr>
+                                    <tr><td colSpan={socios.length + 2} className="px-2 py-6 text-center text-slate-500 text-sm">Nenhum aporte ainda. Use <b>Registrar aporte</b> pra lançar o que já entrou, ou <b>Iguais</b>/<b>Pelo ritmo</b> pra montar o plano.</td></tr>
                                 )}
                                 {rows.map((row) => (
                                     <tr key={row.key} className="border-t border-slate-800">

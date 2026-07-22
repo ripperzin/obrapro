@@ -252,8 +252,8 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
         };
     });
 
-    // Cadastro dos sócios (nome, cota %, "não aporta"). Mora DENTRO do card "Sócios",
-    // no rodapé: é coisa de configurar uma vez, não do dia a dia.
+    // Cadastro dos sócios (como divide + quem são + cotas). Mora DENTRO do card
+    // "Sócios", no topo: é coisa de configurar uma vez, não do dia a dia.
     const configSlot = (
         <div className="bg-slate-900/20">
                     <button
@@ -262,13 +262,40 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                 >
                     <span className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-2">
                         <i className="fa-solid fa-user-gear text-blue-400"></i> Configurar sócios
+                        <span className={`font-bold normal-case tracking-normal ${splitMode === 'unit' ? 'text-fuchsia-400' : 'text-blue-400'}`}>
+                            · {splitMode === 'unit' ? 'por casa' : 'por %'}
+                        </span>
                     </span>
                     <i className={`fa-solid fa-chevron-down text-slate-500 text-xs transition-transform ${showManage ? 'rotate-180' : ''}`}></i>
                 </button>
 
                 {showManage && (
                     <div className="px-5 pb-5 pt-1 space-y-4 border-t border-slate-700/60">
-                        <p className="text-[11px] text-slate-500 leading-snug">
+                        {/* Como divide: escolha de uma vez na vida da obra (muda meta E lucro) */}
+                        <div className="pt-3">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Como divide entre os sócios</p>
+                            <div className="flex bg-slate-800 rounded-xl p-1">
+                                <button
+                                    onClick={() => setSplitMode('percent')}
+                                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${splitMode === 'percent' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                    Por %
+                                </button>
+                                <button
+                                    onClick={() => setSplitMode('unit')}
+                                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${splitMode === 'unit' ? 'bg-fuchsia-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                    Por casa
+                                </button>
+                            </div>
+                            <p className="text-[11px] text-slate-500 leading-snug mt-2">
+                                {splitMode === 'percent'
+                                    ? 'Cada sócio põe (e leva) a fatia que você definir do empreendimento inteiro.'
+                                    : 'Cada sócio é dono das casas dele: põe o custo dessas casas e leva o resultado da venda delas. A conta segue o tamanho de cada casa.'}
+                            </p>
+                        </div>
+
+                        <p className="text-[11px] text-slate-500 leading-snug border-t border-slate-700/60 pt-3">
                             {splitMode === 'percent'
                                 ? 'Quem divide o lucro e quanto. Marque "não aporta" para quem entra só no lucro (ex.: administrador).'
                                 : 'Cadastre os sócios. A divisão é por casa — defina o dono de cada unidade na aba Unidades.'}
@@ -377,33 +404,11 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
 
     return (
         <div className="flex flex-col gap-6 animate-fade-in">
-            {/* Cabeçalho + seletor de modo */}
-            <div className="order-1 flex items-center justify-between gap-3 flex-wrap">
-                <h3 className="font-black text-white text-xl uppercase tracking-tight flex items-center gap-3">
-                    <i className="fa-solid fa-users-gear text-blue-400"></i>
-                    Sócios
-                </h3>
-                <div className="flex bg-slate-800 rounded-xl p-1 shrink-0">
-                    <button
-                        onClick={() => setSplitMode('percent')}
-                        className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${splitMode === 'percent' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                    >
-                        Por %
-                    </button>
-                    <button
-                        onClick={() => setSplitMode('unit')}
-                        className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${splitMode === 'unit' ? 'bg-fuchsia-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                    >
-                        Por casa
-                    </button>
-                </div>
-            </div>
-
             {/* Caixa da obra */}
             <div className="order-2"><CashSummaryCards project={project} /></div>
 
             {/* ▸ Sócios: a matriz (plano de aportes + aportes reais + resumo por sócio).
-                   O cadastro ("Configurar sócios") vai DENTRO deste card, no rodapé. */}
+                   O cadastro ("Configurar sócios") vai DENTRO deste card, no topo. */}
             <div className="order-3">
                 <AporteScheduleSection
                     project={project}
