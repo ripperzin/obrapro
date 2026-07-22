@@ -75,7 +75,10 @@ Deno.serve(async (req) => {
             admin.from("expenses").select("*").eq("project_id", projectId),
             admin.from("project_budgets").select("*").eq("project_id", projectId).maybeSingle(),
             // Aportes por sócio: valor, data e o investidor (nomes vêm da tabela investors).
-            admin.from("contributions").select("value, date, investor_id").eq("project_id", projectId),
+            // O `id` é obrigatório: é ele que liga o aporte à parcela do cronograma
+            // (aporte_plan.paidContrib) — sem ele o link não sabe o que já foi pago.
+            // `description` vira a nota da célula. Anexo NÃO vai: comprovante é do dono.
+            admin.from("contributions").select("id, value, date, investor_id, description").eq("project_id", projectId),
             // Aquisição (terreno/custos iniciais): só valor/categoria -> para descontar do lucro.
             admin.from("acquisition_costs").select("value, category, date, paid_from_project").eq("project_id", projectId),
             // Sócios (id + nome) para exibir "aportes por sócio".

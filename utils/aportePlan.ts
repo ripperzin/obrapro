@@ -127,3 +127,131 @@ export const computeAporteScheduleStatus = (
     return { investorId: id, name: s.name, metaPlano: round2(metaPlano), planejadoAteHoje: round2(planejadoAteHoje), aportado: round2(aportado), diferenca, tone };
   });
 };
+
+// ============================================================================
+// MATRIZ de aportes — fonte ÚNICA das linhas usadas pelo app (AporteScheduleSection),
+// pelo link do sócio (InvestorView) e pelo PDF. Se cada um montasse as linhas por
+// conta, os três divergiriam com o tempo; aqui eles divergem só no visual.
+// ============================================================================
+export interface AporteMatrixCell {
+  value: number;          // valor da célula (planejado, ou real se pago/avulso/despesa)
+  planejado?: number;     // só em linha de plano: o que estava previsto (p/ mostrar "plan. X")
+  pago?: boolean;         // linha de plano: já virou aporte de verdade
+  anexos: string[];       // comprovantes
+  notas: string[];        // descrições dos lançamentos
+  contribIds: string[];   // aportes que formam a célula (o app usa p/ apagar avulso)
+}
+export interface AporteMatrixRow {
+  kind: 'plan' | 'avulso' | 'despesa';
+  key: string;
+  date: string;                       // 'YYYY-MM-DD' — chave de ordenação e exibição
+  ym?: string;                        // só 'despesa': o mês agrupado
+  qtd?: number;                       // só 'despesa': quantos lançamentos no mês
+  parcela?: AporteParcela;            // só 'plan': a parcela original (edição no app)
+  cells: { [investorId: string]: AporteMatrixCell };
+}
+export interface AporteMatrix {
+  rows: AporteMatrixRow[];
+  /** Dinheiro de quem NÃO tem coluna na matriz (sem cota / sem casa / "Recursos próprios"). */
+  foraDaMatriz: { total: number; nomes: string[] };
+}
+
+/**
+ * Monta as linhas da matriz Data × Sócios.
+ * `parcelas` vem de fora (e não de `project.aportePlan`) porque no app a tabela
+ * mostra o plano em EDIÇÃO, que ainda não foi salvo no projeto.
+ */
+export const buildAporteMatrix = (
+  project: Project,
+  parcelas: AporteParcela[],
+  colunas: string[]        // investorIds que têm coluna
+): AporteMatrix => {
+  const temColuna = new Set(colunas);
+  const novaCell = (): AporteMatrixCell => ({ value: 0, anexos: [], notas: [], contribIds: [] });
+
+  const contribById = new Map<string, any>();
+  (project.contributions || []).forEach((c: any) => { if (c.id) contribById.set(c.id, c); });
+
+  // --- linhas do PLANO (com o valor real quando a célula já foi paga)
+  const planRows: AporteMatrixRow[] = parcelas.map((p) => {
+    const cells: { [id: string]: AporteMatrixCell } = {};
+    for (const sid of colunas) {
+      const planejado = p.values?.[sid] || 0;
+      const contribId = p.paidContrib?.[sid];
+      const real = contribId ? contribById.get(contribId) : undefined;
+      if (!planejado && !real) continue;
+      cells[sid] = {
+        value: real ? real.value || 0 : planejado,
+        planejado,
+        pago: !!contribId,
+        anexos: (real?.attachments || []).filter(Boolean),
+        notas: real?.description ? [real.description] : [],
+        contribIds: contribId ? [contribId] : [],
+      };
+    }
+    return { kind: 'plan', key: p.id, date: p.date, parcela: p, cells };
+  });
+
+  // --- aportes AVULSOS (dinheiro que não está preso a nenhuma parcela), por data
+  const ligados = new Set<string>();
+  parcelas.forEach((p) => Object.values(p.paidContrib || {}).forEach((id) => id && ligados.add(id)));
+  const porData = new Map<string, { [id: string]: AporteMatrixCell }>();
+  (project.contributions || []).forEach((c: any) => {
+    if (!c.id || !c.investorId || ligados.has(c.id) || !temColuna.has(c.investorId)) return;
+    const d = (c.date || '').slice(0, 10) || '—';
+    if (!porData.has(d)) porData.set(d, {});
+    const linha = porData.get(d)!;
+    if (!linha[c.investorId]) linha[c.investorId] = novaCell();
+    linha[c.investorId].value += c.value || 0;
+    linha[c.investorId].contribIds.push(c.id);
+    (c.attachments || []).forEach((a: string) => a && linha[c.investorId].anexos.push(a));
+    if (c.description) linha[c.investorId].notas.push(c.description);
+  });
+  const avulsoRows: AporteMatrixRow[] = [...porData.entries()].map(([date, cells], i) => ({
+    kind: 'avulso', key: `av-${date}-${i}`, date, cells,
+  }));
+
+  // --- despesa que o sócio pagou do bolso: também é aporte. Agrupada por MÊS
+  //     (há obra com 151 lançamentos — uma linha por despesa afogaria a tabela).
+  const porMes = new Map<string, { cells: { [id: string]: AporteMatrixCell }; qtd: number }>();
+  (project.expenses || []).forEach((e: any) => {
+    const sid = e.paidByInvestorId;
+    if (!sid || !temColuna.has(sid)) return;
+    const ym = (e.date || '').slice(0, 7);
+    if (!ym) return;
+    if (!porMes.has(ym)) porMes.set(ym, { cells: {}, qtd: 0 });
+    const g = porMes.get(ym)!;
+    if (!g.cells[sid]) g.cells[sid] = novaCell();
+    g.cells[sid].value += e.value || 0;
+    g.qtd += 1;
+  });
+  const despesaRows: AporteMatrixRow[] = [...porMes.entries()].map(([ym, g]) => ({
+    kind: 'despesa', key: `ds-${ym}`, date: `${ym}-31`, ym, qtd: g.qtd, cells: g.cells,
+  }));
+
+  // --- rede de segurança: dinheiro de quem ficou de fora das colunas
+  const porSocioFora = new Map<string, number>();
+  (project.contributions || []).forEach((c: any) => {
+    if (!c.investorId || temColuna.has(c.investorId)) return;
+    porSocioFora.set(c.investorId, (porSocioFora.get(c.investorId) || 0) + (c.value || 0));
+  });
+  (project.expenses || []).forEach((e: any) => {
+    if (!e.paidByInvestorId || temColuna.has(e.paidByInvestorId)) return;
+    porSocioFora.set(e.paidByInvestorId, (porSocioFora.get(e.paidByInvestorId) || 0) + (e.value || 0));
+  });
+
+  return {
+    rows: [...planRows, ...avulsoRows, ...despesaRows].sort((a, b) => (a.date || '').localeCompare(b.date || '')),
+    foraDaMatriz: {
+      total: round2([...porSocioFora.values()].reduce((s, v) => s + v, 0)),
+      nomes: [...porSocioFora.keys()].map((id) => (project.investors || []).find((i) => i.id === id)?.name || 'sócio sem nome'),
+    },
+  };
+};
+
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+/** '2026-02' -> 'fev/26' */
+export const labelMesAporte = (ym: string): string => {
+  const [y, m] = (ym || '').split('-');
+  return `${MESES_CURTOS[(parseInt(m) || 1) - 1]}/${(y || '').slice(2)}`;
+};

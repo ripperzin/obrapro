@@ -5,6 +5,7 @@ import StageThumbnail from './StageThumbnail';
 import ResultadoEmpreendimento from './ResultadoEmpreendimento';
 import { daysSince, lastUpdatedLabel, mostRecentDate } from '../utils';
 import { computeProjectFinance, computeGastoAvancoVerdito, computeAporteShares } from '../utils/projectFinance';
+import { buildAporteMatrix, labelMesAporte } from '../utils/aportePlan';
 import { parseReportOptionsFromHash, clampReportOptions } from '../utils/reportOptions';
 import { entitlementsFor } from '../hooks/useEntitlements';
 
@@ -160,12 +161,14 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         attachments: e.attachments || [],
                         paidByInvestorId: e.paid_by_investor_id || undefined,
                     })),
+                    aportePlan: projectData.aporte_plan || undefined,
                     contributions: (contributionsData || []).map((c: any) => ({
-                        id: '',
+                        id: c.id || '',
                         projectId: projectData.id,
                         investorId: c.investor_id || '',
                         value: c.value,
                         date: c.date,
+                        description: c.description || undefined,
                     })),
                     investors: ((data.investors || []) as any[]).map((i: any) => ({
                         id: i.id,
@@ -558,40 +561,95 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     const donoUnidades = (id?: string) => (project.units || []).filter(u => u.ownerInvestorId === id).map(u => u.identifier).join(', ');
                     const pctDe = (id?: string) => (project.profitShares || []).find(s => s.investorId === id)?.percentage;
 
+                    // A MESMA matriz do app (mesma fonte: buildAporteMatrix), só leitura.
+                    // O sócio vê TODOS os aportes — dele e dos outros: é obra em sociedade.
+                    const colunas = shares.filter(s => s.investorId).map(s => s.investorId!);
+                    const { rows, foraDaMatriz } = buildAporteMatrix(project, project.aportePlan?.parcelas || [], colunas);
+                    const cotaDe = (id?: string) => acerto.mode === 'unit' ? donoUnidades(id) : `${pctDe(id) ?? 0}%`;
+                    const fmtDia = (d: string) => (d && d !== '—' ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : 'sem data');
+
                     return (
-                        <Collapsible title="Acerto de aportes" icon="fa-scale-unbalanced" iconColor="text-fuchsia-400">
+                        <Collapsible title="Aportes dos sócios" icon="fa-hand-holding-dollar" iconColor="text-fuchsia-400">
                             <p className="text-[11px] text-slate-500 font-bold mb-4 -mt-2">
                                 {acerto.mode === 'unit' ? 'Divisão por casa' : 'Divisão por porcentagem'}
                             </p>
-                            <div className="space-y-3">
-                                {shares.map((s, i) => (
-                                    <div key={i} className="bg-slate-800/40 rounded-xl border border-slate-700/60 p-4">
-                                        <div className="min-w-0 mb-3">
-                                            <p className="text-white font-black truncate">{s.name}</p>
-                                            <p className="text-[11px] text-slate-500 font-bold truncate">
-                                                {acerto.mode === 'unit'
-                                                    ? <><i className="fa-solid fa-house mr-1 text-fuchsia-400"></i>{donoUnidades(s.investorId)}</>
-                                                    : <>{pctDe(s.investorId) ?? 0}%</>}
-                                            </p>
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-2 text-center">
-                                            <div>
-                                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Meta</p>
-                                                <p className="text-sm font-black text-slate-200">{formatCurrency(s.meta)}</p>
+
+                            {rows.length > 0 && (
+                                <div className="overflow-x-auto -mx-1 mb-4">
+                                    <table className="w-full text-sm border-collapse min-w-[380px]">
+                                        <thead>
+                                            <tr className="text-[10px] font-black uppercase text-slate-500">
+                                                <th className="text-left px-2 py-2">Data</th>
+                                                {shares.map((s, i) => (
+                                                    <th key={i} className="text-right px-2 py-2 whitespace-nowrap">
+                                                        <span className="text-white">{s.name}</span> <span className="text-slate-500">{cotaDe(s.investorId)}</span>
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {rows.map(row => (
+                                                <tr key={row.key} className="border-t border-slate-800">
+                                                    <td className="px-2 py-1.5 whitespace-nowrap text-xs text-slate-400">
+                                                        {row.kind === 'despesa'
+                                                            ? <>{labelMesAporte(row.ym!)} <span className="text-amber-500/80">· em despesas ({row.qtd})</span></>
+                                                            : <>{fmtDia(row.date)}{row.kind === 'avulso' && <span className="text-emerald-500/70"> · avulso</span>}</>}
+                                                    </td>
+                                                    {shares.map((s, i) => {
+                                                        const cell = row.cells[s.investorId || ''];
+                                                        if (!cell) return <td key={i} className="px-2 py-1.5 text-right text-slate-600">—</td>;
+                                                        const pago = row.kind !== 'plan' || cell.pago;
+                                                        const cor = row.kind === 'despesa' ? 'text-amber-400/90' : pago ? 'text-emerald-400' : 'text-slate-400';
+                                                        return (
+                                                            <td key={i} className={`px-2 py-1.5 text-right font-bold whitespace-nowrap ${cor}`}>
+                                                                {formatCurrency(cell.value)}
+                                                                {pago && row.kind !== 'despesa' && <i className="fa-solid fa-check text-[10px] ml-1"></i>}
+                                                                {row.kind === 'plan' && !cell.pago && <span className="block text-[9px] font-normal text-slate-500">a pagar</span>}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+                                            ))}
+                                            <tr className="border-t-2 border-slate-700">
+                                                <td className="px-2 py-2 text-[10px] uppercase text-slate-400 font-black">Aportou / meta</td>
+                                                {shares.map((s, i) => (
+                                                    <td key={i} className="px-2 py-2 text-right whitespace-nowrap">
+                                                        <span className="text-emerald-400 font-black">{formatCurrency(s.aportado)}</span>
+                                                        <span className="block text-[10px] text-slate-500">de {formatCurrency(s.meta)}</span>
+                                                        {s.falta > 0.5 && <span className="block text-[9px] text-amber-400 font-bold">falta {formatCurrency(s.falta)}</span>}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {rows.some(r => r.kind === 'despesa') && (
+                                <p className="text-[10px] text-slate-500 leading-snug mb-3">
+                                    As linhas <span className="text-amber-500/90">em despesas</span> são compras que o sócio pagou do próprio bolso — também contam como aporte.
+                                </p>
+                            )}
+
+                            {/* Sem nenhuma linha (obra sem plano e sem aporte): mostra só o resumo */}
+                            {rows.length === 0 && (
+                                <div className="space-y-3">
+                                    {shares.map((s, i) => (
+                                        <div key={i} className="bg-slate-800/40 rounded-xl border border-slate-700/60 p-4 flex items-center justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="text-white font-black truncate">{s.name}</p>
+                                                <p className="text-[11px] text-slate-500 font-bold truncate">{cotaDe(s.investorId)}</p>
                                             </div>
-                                            <div>
-                                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Aportou</p>
+                                            <div className="text-right shrink-0">
                                                 <p className="text-sm font-black text-emerald-400">{formatCurrency(s.aportado)}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Falta</p>
-                                                <p className={`text-sm font-black ${faltaTone(s.falta)}`}>{faltaLabel(s.falta)}</p>
+                                                <p className={`text-[11px] font-bold ${faltaTone(s.falta)}`}>{faltaLabel(s.falta)}</p>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="flex items-center justify-between pt-4 mt-1">
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="flex items-center justify-between pt-3 mt-1 border-t border-slate-700/60">
                                 <span className="text-slate-400 text-xs font-black uppercase tracking-widest">Total aportado</span>
                                 <span className="text-white font-black text-lg whitespace-nowrap">{formatCurrency(acerto.totalAportado)}</span>
                             </div>
@@ -599,6 +657,11 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                 <p className="text-[11px] text-amber-400 font-bold mt-2 text-center">
                                     <i className="fa-solid fa-circle-arrow-up mr-1"></i>
                                     Falta aportar no total: {formatCurrency(acerto.totalFalta)}
+                                </p>
+                            )}
+                            {foraDaMatriz.total > 0.5 && (
+                                <p className="text-[11px] text-slate-500 mt-2 text-center">
+                                    + {formatCurrency(foraDaMatriz.total)} aportado por {foraDaMatriz.nomes.join(', ')} (fora da divisão).
                                 </p>
                             )}
                         </Collapsible>

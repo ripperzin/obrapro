@@ -4,6 +4,7 @@ import autoTable from 'jspdf-autotable';
 import { Project, getStageName, getCurrentStageEvidence } from '../types';
 import { supabase } from '../supabaseClient';
 import { computeProjectFinance, computeGastoAvancoVerdito, computeAporteShares } from './projectFinance';
+import { buildAporteMatrix, labelMesAporte } from './aportePlan';
 import { daysSince, lastUpdatedLabel, mostRecentDate } from '../utils';
 import { ReportOptions, DEFAULT_REPORT_OPTIONS } from './reportOptions';
 
@@ -165,6 +166,7 @@ const fetchData = async (id: string) => {
         progress: p.progress || 0, expectedTotalCost: p.expected_total_cost || 0,
         expectedTotalSales: p.expected_total_sales || 0,
         splitMode: (p.split_mode as 'percent' | 'unit') || 'percent',
+        aportePlan: p.aporte_plan || undefined,
         units: (units || []).map((u: any) => ({ id: u.id, identifier: u.identifier, area: u.area, cost: u.cost, status: u.status, valorEstimadoVenda: u.valor_estimado_venda, saleValue: u.sale_value, saleDate: u.sale_date, ownerInvestorId: u.owner_investor_id || undefined })),
         expenses: (exps || []).map((e: any) => ({ id: e.id, description: e.description, value: e.value, date: e.date, userId: e.user_id, userName: e.user_name, macroId: e.macro_id, subMacroId: e.sub_macro_id, attachmentUrl: e.attachment_url, attachments: e.attachments || [], paidByInvestorId: e.paid_by_investor_id || undefined })),
         acquisitionCosts: (acqs || []).map((a: any) => ({ id: a.id, projectId: a.project_id, category: a.category, description: a.description, value: a.value, date: a.date, paidFromProject: a.paid_from_project })),
@@ -457,44 +459,75 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
                     y += 10;
                 }
             } else {
+                // A MESMA matriz Data × Sócios do app e do link (buildAporteMatrix).
                 const shares = [...acerto.shares].sort((a, b) => b.meta - a.meta);
                 const pctDe = (id?: string) => (project.profitShares || []).find(s => s.investorId === id)?.percentage;
                 const donoUn = (id?: string) => (project.units || []).filter(u => u.ownerInvestorId === id).map(u => u.identifier).join(', ');
-                const colW = (W - 4) / 3;
+                const cotaDe = (id?: string) => acerto.mode === 'unit' ? donoUn(id) : `${pctDe(id) ?? 0}%`;
+                const { rows: mRows, foraDaMatriz } = buildAporteMatrix(project, project.aportePlan?.parcelas || [], shares.map(s => s.investorId || ''));
 
-                y = pageBreak(18 + shares.length * 12, y);
+                const dataW = 30;                                   // largura da coluna Data
+                const colW = (W - 4 - dataW) / Math.max(1, shares.length);
+                const colX = (i: number) => M + 2 + dataW + (i + 1) * colW;   // borda direita da coluna i
+
+                y = pageBreak(24 + Math.min(mRows.length, 6) * 6, y);
                 doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
-                doc.text('ACERTO DE APORTES', M, y);
+                doc.text('APORTES DOS SÓCIOS', M, y);
                 doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'normal');
                 doc.text(acerto.mode === 'unit' ? 'Divisão por casa' : 'Divisão por porcentagem', pw - M, y, { align: 'right' });
                 y += 6;
 
-                for (const s of shares) {
-                    y = pageBreak(14, y);
-                    // Nome + participação (%/casas)
-                    doc.setFontSize(8); setColor(C.text); doc.setFont('helvetica', 'bold');
-                    doc.text(s.name, M + 2, y);
-                    const sub = acerto.mode === 'unit' ? donoUn(s.investorId) : `${pctDe(s.investorId) ?? 0}%`;
-                    if (sub) { doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'normal'); doc.text(sub, pw - M - 2, y, { align: 'right' }); }
-                    y += 5;
-                    // Meta · Aportou · Falta
-                    const faltaColor = s.falta > 0.5 ? C.amber : s.falta < -0.5 ? C.emerald : C.muted2;
-                    const faltaTxt = s.falta > 0.5 ? fmtShort(s.falta) : s.falta < -0.5 ? `+${fmtShort(-s.falta)}` : 'Em dia';
-                    const cells = [
-                        { lbl: 'META', val: fmtShort(s.meta), c: C.text },
-                        { lbl: 'APORTOU', val: fmtShort(s.aportado), c: C.emerald },
-                        { lbl: 'FALTA', val: faltaTxt, c: faltaColor },
-                    ];
-                    cells.forEach((cell, i) => {
-                        const x = M + 2 + i * colW;
-                        doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'bold');
-                        doc.text(cell.lbl, x, y);
-                        doc.setFontSize(8.5); setColor(cell.c); doc.setFont('helvetica', 'bold');
-                        doc.text(cell.val, x, y + 4.5);
+                // Cabeçalho: nome + cota de cada sócio
+                const header = () => {
+                    doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'bold');
+                    doc.text('DATA', M + 2, y);
+                    shares.forEach((s, i) => {
+                        doc.setFontSize(7); setColor(C.text); doc.setFont('helvetica', 'bold');
+                        doc.text(s.name, colX(i), y, { align: 'right' });
+                        const cota = cotaDe(s.investorId);
+                        if (cota) { doc.setFontSize(5.5); setColor(C.muted); doc.setFont('helvetica', 'normal'); doc.text(cota, colX(i), y + 3, { align: 'right' }); }
                     });
-                    doc.setDrawColor(...BORDER); doc.setLineWidth(0.2); doc.line(M + 2, y + 8, pw - M - 2, y + 8);
-                    y += 12;
+                    y += 6;
+                    doc.setDrawColor(...BORDER); doc.setLineWidth(0.2); doc.line(M + 2, y - 1.5, pw - M - 2, y - 1.5);
+                };
+                header();
+
+                for (const row of mRows) {
+                    const antes = y;
+                    y = pageBreak(7, y);
+                    if (y < antes) header();   // quebrou página: repete o cabeçalho
+
+                    // Coluna Data
+                    doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'normal');
+                    const label = row.kind === 'despesa'
+                        ? `${labelMesAporte(row.ym || '')} · em despesas`
+                        : `${row.date && row.date !== '—' ? new Date(row.date + 'T00:00:00').toLocaleDateString('pt-BR') : 'sem data'}${row.kind === 'avulso' ? ' · avulso' : ''}`;
+                    doc.text(label, M + 2, y);
+
+                    shares.forEach((s, i) => {
+                        const cell = row.cells[s.investorId || ''];
+                        doc.setFontSize(7.5); doc.setFont('helvetica', 'bold');
+                        if (!cell) { setColor(C.muted2); doc.text('—', colX(i), y, { align: 'right' }); return; }
+                        const pago = row.kind !== 'plan' || cell.pago;
+                        setColor(row.kind === 'despesa' ? C.amber : pago ? C.emerald : C.muted);
+                        doc.text(fmtShort(cell.value) + (row.kind === 'plan' && !cell.pago ? ' (a pagar)' : ''), colX(i), y, { align: 'right' });
+                    });
+                    y += 6;
                 }
+
+                // Rodapé: aportou / meta por sócio
+                doc.setDrawColor(...BORDER); doc.setLineWidth(0.4); doc.line(M + 2, y - 1.5, pw - M - 2, y - 1.5);
+                y = pageBreak(12, y) + 2;
+                doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'bold');
+                doc.text('APORTOU / META', M + 2, y);
+                shares.forEach((s, i) => {
+                    doc.setFontSize(8); setColor(C.emerald); doc.setFont('helvetica', 'bold');
+                    doc.text(fmtShort(s.aportado), colX(i), y, { align: 'right' });
+                    doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'normal');
+                    doc.text(`de ${fmtShort(s.meta)}`, colX(i), y + 3.5, { align: 'right' });
+                    if (s.falta > 0.5) { setColor(C.amber); doc.setFont('helvetica', 'bold'); doc.text(`falta ${fmtShort(s.falta)}`, colX(i), y + 7, { align: 'right' }); }
+                });
+                y += 11;
 
                 doc.setFontSize(8); setColor(C.muted); doc.setFont('helvetica', 'bold');
                 doc.text('Total aportado', M + 2, y + 1);
@@ -504,6 +537,16 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
                 if (acerto.totalFalta > 0.5) {
                     doc.setFontSize(7); setColor(C.amber); doc.setFont('helvetica', 'normal');
                     doc.text(`Falta aportar no total: ${fmt(acerto.totalFalta)}`, M + 2, y + 1);
+                    y += 5;
+                }
+                if (mRows.some(r => r.kind === 'despesa')) {
+                    doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'normal');
+                    doc.text('"em despesas" = compras que o sócio pagou do próprio bolso (também contam como aporte).', M + 2, y + 1);
+                    y += 5;
+                }
+                if (foraDaMatriz.total > 0.5) {
+                    doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'normal');
+                    doc.text(`+ ${fmt(foraDaMatriz.total)} aportado por ${foraDaMatriz.nomes.join(', ')} (fora da divisão).`, M + 2, y + 1);
                     y += 5;
                 }
                 y += 5;

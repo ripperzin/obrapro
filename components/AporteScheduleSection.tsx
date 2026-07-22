@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Project, AportePlan, AporteParcela } from '../types';
 import { formatCurrency, formatCurrencyAbbrev, generateId } from '../utils';
-import { generateAporteSchedule } from '../utils/aportePlan';
+import { generateAporteSchedule, buildAporteMatrix, labelMesAporte } from '../utils/aportePlan';
 import { openAttachment } from '../utils/storage';
 import { useAddContribution, useDeleteContribution } from '../hooks/useAportes';
 import AttachmentUpload from './AttachmentUpload';
@@ -37,12 +37,6 @@ interface ConfirmCell {
     attachment?: string;   // comprovante do aporte (opcional)
 }
 
-const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-const labelMes = (ym: string) => {
-    const [y, m] = ym.split('-');
-    return `${MESES[(parseInt(m) || 1) - 1]}/${(y || '').slice(2)}`;
-};
-
 const inputCls = 'bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm focus:border-blue-500 focus:outline-none';
 
 // Card "Sócios": a matriz Data × Sócios serve de plano E de registro. Cada célula
@@ -75,73 +69,12 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
     const showPlanejar = planejarAberto ?? parcelas.length === 0;
     const setShowPlanejar = (f: (v: boolean) => boolean) => setPlanejarAberto(f(showPlanejar));
 
-    // Uma célula de aporte já realizado (avulso ou despesa do bolso).
-    interface CellReal { value: number; contribIds: string[]; anexos: string[]; notas: string[] }
-
-    // Aportes REAIS que não estão ligados a nenhuma parcela = avulsos (fora do plano).
-    const avulsoRows = useMemo(() => {
-        const linked = new Set<string>();
-        parcelas.forEach((p) => Object.values(p.paidContrib || {}).forEach((id) => id && linked.add(id)));
-        const byDate = new Map<string, { [id: string]: CellReal }>();
-        (project.contributions || []).forEach((c: any) => {
-            if (!c.id || !c.investorId || linked.has(c.id)) return;
-            const d = (c.date || '').slice(0, 10) || '—';
-            if (!byDate.has(d)) byDate.set(d, {});
-            const m = byDate.get(d)!;
-            if (!m[c.investorId]) m[c.investorId] = { value: 0, contribIds: [], anexos: [], notas: [] };
-            m[c.investorId].value += c.value || 0;
-            m[c.investorId].contribIds.push(c.id);
-            (c.attachments || []).forEach((a: string) => a && m[c.investorId].anexos.push(a));
-            if (c.description) m[c.investorId].notas.push(c.description);
-        });
-        return [...byDate.entries()].map(([date, vals]) => ({ date, vals }));
-    }, [project.contributions, parcelas]);
-
-    // Despesa que o sócio pagou do próprio bolso TAMBÉM é aporte (já entra no
-    // "aportou/meta"). Agrupada por MÊS para não afogar a tabela — há obra com 151.
-    const despesaRows = useMemo(() => {
-        const byMes = new Map<string, { vals: { [id: string]: CellReal }; qtd: number }>();
-        (project.expenses || []).forEach((e: any) => {
-            const sid = e.paidByInvestorId;
-            if (!sid) return;
-            const ym = (e.date || '').slice(0, 7);
-            if (!ym) return;
-            if (!byMes.has(ym)) byMes.set(ym, { vals: {}, qtd: 0 });
-            const g = byMes.get(ym)!;
-            if (!g.vals[sid]) g.vals[sid] = { value: 0, contribIds: [], anexos: [], notas: [] };
-            g.vals[sid].value += e.value || 0;
-            g.qtd += 1;
-        });
-        return [...byMes.entries()].map(([ym, g]) => ({ ym, vals: g.vals, qtd: g.qtd }));
-    }, [project.expenses]);
-
-    // Linhas da matriz: parcelas do plano + avulsos + despesas por mês, por data.
-    // A linha do mês usa dia 31 para FECHAR o mês (cai depois das parcelas dele).
-    const rows = useMemo(() => {
-        const planRows = parcelas.map((p) => ({ kind: 'plan' as const, key: p.id, date: p.date, parcela: p }));
-        const avRows = avulsoRows.map((a, i) => ({ kind: 'avulso' as const, key: `av-${a.date}-${i}`, date: a.date, vals: a.vals }));
-        const dsRows = despesaRows.map((d) => ({ kind: 'despesa' as const, key: `ds-${d.ym}`, date: `${d.ym}-31`, ym: d.ym, qtd: d.qtd, vals: d.vals }));
-        return [...planRows, ...avRows, ...dsRows].sort((x, y) => (x.date || '').localeCompare(y.date || ''));
-    }, [parcelas, avulsoRows, despesaRows]);
-
-    // Rede de segurança: dinheiro de quem NÃO tem coluna na matriz (sem cota, sem
-    // casa, marcado "não aporta", ou o "Recursos próprios" criado na abertura da
-    // obra). Sem isso, tirar o extrato faria esse aporte sumir da tela.
-    const foraDaMatriz = useMemo(() => {
-        const comColuna = new Set(socios.map((s) => s.investorId));
-        const porSocio = new Map<string, number>();
-        (project.contributions || []).forEach((c: any) => {
-            if (!c.investorId || comColuna.has(c.investorId)) return;
-            porSocio.set(c.investorId, (porSocio.get(c.investorId) || 0) + (c.value || 0));
-        });
-        (project.expenses || []).forEach((e: any) => {
-            if (!e.paidByInvestorId || comColuna.has(e.paidByInvestorId)) return;
-            porSocio.set(e.paidByInvestorId, (porSocio.get(e.paidByInvestorId) || 0) + (e.value || 0));
-        });
-        const total = [...porSocio.values()].reduce((s, v) => s + v, 0);
-        const nomes = [...porSocio.keys()].map((id) => (project.investors || []).find((i) => i.id === id)?.name || 'sócio sem nome');
-        return { total, nomes };
-    }, [project.contributions, project.expenses, project.investors, socios]);
+    // Linhas da matriz: MESMA fonte usada pelo link do sócio e pelo PDF.
+    const { rows, foraDaMatriz } = useMemo(
+        () => buildAporteMatrix(project, parcelas, socios.map((s) => s.investorId)),
+        [project, parcelas, socios]
+    );
+    const temDespesaRow = rows.some((r) => r.kind === 'despesa');
 
     const sugerir = (mode: 'iguais' | 'ritmo') => {
         const cols = socios.map((s) => ({ investorId: s.investorId, name: s.name, meta: s.meta, aportado: s.aportado, falta: s.meta - s.aportado }));
@@ -342,19 +275,18 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                                 <span className="text-slate-400 text-xs">{row.date !== '—' ? new Date(row.date + 'T00:00:00').toLocaleDateString('pt-BR') : 'sem data'} <span className="text-emerald-500/70">· avulso</span></span>
                                             )}
                                             {row.kind === 'despesa' && (
-                                                <span className="text-slate-400 text-xs">{labelMes(row.ym!)} <span className="text-amber-500/80">· em despesas ({row.qtd})</span></span>
+                                                <span className="text-slate-400 text-xs">{labelMesAporte(row.ym!)} <span className="text-amber-500/80">· em despesas ({row.qtd})</span></span>
                                             )}
                                         </td>
                                         {socios.map((s) => {
+                                            const cell = row.cells[s.investorId];
                                             if (row.kind === 'plan') {
                                                 const p = row.parcela!;
-                                                const contribId = p.paidContrib?.[s.investorId];
-                                                const paid = !!contribId;
+                                                const paid = !!cell?.pago;
                                                 const val = p.values?.[s.investorId] ?? 0;
                                                 // Pago mostra o valor REAL (pode ter sido corrigido na confirmação).
-                                                const real = contribId ? contribById.get(contribId) : undefined;
-                                                const mostrado = paid && real ? real.value : val;
-                                                const difere = paid && real && Math.abs(real.value - val) > 1;
+                                                const mostrado = cell?.value ?? 0;
+                                                const difere = paid && Math.abs(mostrado - val) > 1;
                                                 return (
                                                     <td key={s.investorId} className="px-2 py-1.5 text-right">
                                                         <div className="flex items-center justify-end gap-1.5">
@@ -366,8 +298,8 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                                                     {difere && <span className="block text-[9px] font-normal text-slate-500">plan. {formatCurrencyAbbrev(val)}</span>}
                                                                 </span>
                                                             )}
-                                                            {!dirty && paid && !!real?.anexos.length && (
-                                                                <button onClick={() => openAttachment(real.anexos[0])} title="Ver comprovante" className="text-blue-400 hover:text-blue-300 shrink-0">
+                                                            {!dirty && paid && !!cell?.anexos.length && (
+                                                                <button onClick={() => openAttachment(cell.anexos[0])} title="Ver comprovante" className="text-blue-400 hover:text-blue-300 shrink-0">
                                                                     <i className="fa-solid fa-paperclip text-xs"></i>
                                                                 </button>
                                                             )}
@@ -381,7 +313,6 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                                     </td>
                                                 );
                                             }
-                                            const cell: CellReal | undefined = (row.vals as any)[s.investorId];
                                             const despesa = row.kind === 'despesa';
                                             return (
                                                 <td key={s.investorId} className="px-2 py-1.5 text-right" title={cell?.notas.join(' · ') || undefined}>
@@ -401,7 +332,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                         })}
                                         <td className="px-2 py-1.5 text-center">
                                             {row.kind === 'plan' && <button onClick={() => removeParcela(row.parcela!.id)} className="text-slate-500 hover:text-rose-400" title="Remover parcela"><i className="fa-solid fa-trash text-xs"></i></button>}
-                                            {row.kind === 'avulso' && <button onClick={() => removeAvulso(Object.values(row.vals as any).flatMap((v: any) => v.contribIds))} className="text-slate-500 hover:text-rose-400" title="Apagar aporte"><i className="fa-solid fa-trash text-xs"></i></button>}
+                                            {row.kind === 'avulso' && <button onClick={() => removeAvulso(Object.values(row.cells).flatMap((c) => c.contribIds))} className="text-slate-500 hover:text-rose-400" title="Apagar aporte"><i className="fa-solid fa-trash text-xs"></i></button>}
                                         </td>
                                     </tr>
                                 ))}
@@ -434,7 +365,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                     {!dirty && (
                         <p className="text-[10px] text-slate-500 leading-snug">
                             {parcelas.length > 0 && <>Clique no ✓ de cada valor para dar como <b>pago</b> — isso registra o aporte de verdade (entra no caixa). Aportes fora do plano aparecem como linhas <span className="text-emerald-500">avulso</span>. </>}
-                            {despesaRows.length > 0 && <>As linhas <span className="text-amber-500/90">em despesas</span> são as compras que o sócio pagou do próprio bolso (também contam como aporte) — some o mês inteiro; para mexer nelas, vá na aba <b>Despesas</b>.</>}
+                            {temDespesaRow && <>As linhas <span className="text-amber-500/90">em despesas</span> são as compras que o sócio pagou do próprio bolso (também contam como aporte) — some o mês inteiro; para mexer nelas, vá na aba <b>Despesas</b>.</>}
                         </p>
                     )}
                     {foraDaMatriz.total > 0 && (
