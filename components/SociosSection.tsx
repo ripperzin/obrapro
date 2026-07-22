@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { Project, User } from '../types';
-import { formatCurrency, formatCurrencyAbbrev, generateId } from '../utils';
-import { openAttachment } from '../utils/storage';
+import { generateId } from '../utils';
 import { computeProjectFinance, computeUnitResult, computeAporteShares } from '../utils/projectFinance';
 import { useSaveProfitShares } from '../hooks/useProfitShares';
-import { useAddInvestor, useUpdateInvestor, useDeleteContribution, useDeleteInvestor } from '../hooks/useAportes';
+import { useAddInvestor, useUpdateInvestor, useDeleteInvestor } from '../hooks/useAportes';
 import CashSummaryCards from './CashSummaryCards';
 import AporteScheduleSection, { SocioCol } from './AporteScheduleSection';
 import AddContributionModal from './AddContributionModal';
@@ -54,7 +53,6 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
     const isCompleted = project.progress >= 100;
     const investors = project.investors || [];
     const saved = project.profitShares || [];
-    const contributions = [...(project.contributions || [])].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
     const [rows, setRows] = useState<Row[]>(
         saved.map((s) => ({ _key: s.id || generateId(), investorId: s.investorId, name: s.name, percentage: String(s.percentage ?? ''), naoAporta: s.naoAporta }))
@@ -73,11 +71,9 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
     const [saving, setSaving] = useState(false);
     const [showAporte, setShowAporte] = useState(false);
     const [showManage, setShowManage] = useState(false);
-    const [showExtrato, setShowExtrato] = useState(false);
     const save = useSaveProfitShares();
     const addInvestor = useAddInvestor();
     const updateInvestor = useUpdateInvestor();
-    const deleteContribution = useDeleteContribution();
     const deleteInvestor = useDeleteInvestor();
 
     const soma = rows.reduce((s, r) => s + (parseFloat(r.percentage) || 0), 0);
@@ -183,13 +179,6 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
     const aportadoDinheiro = (id: string) => (project.contributions || []).filter((c) => c.investorId === id).reduce((s, c) => s + (c.value || 0), 0);
     const aportadoViaDespesa = (id: string) => (project.expenses || []).filter((e) => e.paidByInvestorId === id).reduce((s, e) => s + (e.value || 0), 0);
     const aportadoTotal = (id?: string) => (id ? aportadoDinheiro(id) + aportadoViaDespesa(id) : 0);
-    const investorName = (id: string) => investors.find((i) => i.id === id)?.name || 'Sócio';
-    const fmtDate = (d?: string) => (d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '');
-
-    // Rodapé do extrato: o total dos lançamentos listados e o que foi aportado
-    // pagando despesa direto (não aparece no extrato, mas conta como aporte).
-    const totalExtrato = contributions.reduce((s, c) => s + (c.value || 0), 0);
-    const aportadoEmDespesas = (project.expenses || []).reduce((s, e) => s + (e.paidByInvestorId ? e.value || 0 : 0), 0);
 
     // ---- Acerto de aportes (meta/falta por sócio) + montagem da visão única ----
     const acerto = computeAporteShares(project);
@@ -430,89 +419,6 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                     </p>
                 )}
             </div>
-
-            {/* ▸ Extrato de aportes — Data · Sócio · Valor, com total e quanto falta */}
-            {contributions.length > 0 && (
-                <div className="order-5 glass rounded-2xl border border-slate-700 overflow-hidden">
-                    <button
-                        onClick={() => setShowExtrato((v) => !v)}
-                        className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-800/40 transition"
-                    >
-                        <span className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-2">
-                            <i className="fa-solid fa-receipt text-emerald-400"></i> Extrato de aportes ({contributions.length})
-                        </span>
-                        <i className={`fa-solid fa-chevron-down text-slate-500 text-xs transition-transform ${showExtrato ? 'rotate-180' : ''}`}></i>
-                    </button>
-
-                    {showExtrato && (
-                        <div className="px-4 sm:px-5 pb-5 pt-1 border-t border-slate-700/60 overflow-x-auto">
-                            <table className="w-full text-sm border-collapse">
-                                <thead>
-                                    <tr className="text-[10px] font-black uppercase text-slate-500">
-                                        <th className="text-left px-2 py-2">Data</th>
-                                        <th className="text-left px-2 py-2">Sócio</th>
-                                        <th className="text-right px-2 py-2">Valor</th>
-                                        <th className="px-2 py-2"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {contributions.map((c) => (
-                                        <tr key={c.id} className="border-t border-slate-800">
-                                            <td className="px-2 py-2 text-slate-400 whitespace-nowrap">{fmtDate(c.date) || '—'}</td>
-                                            <td className="px-2 py-2 min-w-0">
-                                                <span className="text-white font-bold">{investorName(c.investorId)}</span>
-                                                {c.description && <span className="block text-[10px] text-slate-500 truncate">{c.description}</span>}
-                                            </td>
-                                            <td className="px-2 py-2 text-right text-emerald-400 font-black whitespace-nowrap">{formatCurrency(c.value)}</td>
-                                            <td className="px-2 py-2 text-right whitespace-nowrap">
-                                                {c.attachments && c.attachments.length > 0 && (
-                                                    <button
-                                                        onClick={() => openAttachment(c.attachments![0])}
-                                                        className="text-blue-400 hover:text-blue-300 transition mr-2"
-                                                        title="Ver comprovante"
-                                                    >
-                                                        <i className="fa-solid fa-paperclip"></i>
-                                                    </button>
-                                                )}
-                                                <button
-                                                    onClick={() => { if (window.confirm('Excluir este aporte?')) deleteContribution.mutate(c.id); }}
-                                                    className="text-slate-500 hover:text-rose-400 transition"
-                                                    title="Excluir aporte"
-                                                >
-                                                    <i className="fa-solid fa-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                                <tfoot>
-                                    <tr className="border-t-2 border-slate-700">
-                                        <td colSpan={2} className="px-2 py-2 text-[10px] uppercase text-slate-400 font-black">Total do extrato</td>
-                                        <td className="px-2 py-2 text-right text-white font-black whitespace-nowrap">{formatCurrency(totalExtrato)}</td>
-                                        <td></td>
-                                    </tr>
-                                    {aportadoEmDespesas > 0.5 && (
-                                        <tr>
-                                            <td colSpan={2} className="px-2 py-1 text-[10px] uppercase text-slate-500 font-black">+ pago direto em despesas</td>
-                                            <td className="px-2 py-1 text-right text-slate-300 font-bold whitespace-nowrap">{formatCurrency(aportadoEmDespesas)}</td>
-                                            <td></td>
-                                        </tr>
-                                    )}
-                                    {!acerto.semBase && (
-                                        <tr>
-                                            <td colSpan={2} className="px-2 py-2 text-[10px] uppercase font-black text-slate-400">Falta aportar</td>
-                                            <td className={`px-2 py-2 text-right font-black whitespace-nowrap ${acerto.totalFalta > 0.5 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                                                {acerto.totalFalta > 0.5 ? formatCurrency(acerto.totalFalta) : 'Meta atingida'}
-                                            </td>
-                                            <td></td>
-                                        </tr>
-                                    )}
-                                </tfoot>
-                            </table>
-                        </div>
-                    )}
-                </div>
-            )}
 
             {showAporte && (
                 <AddContributionModal project={project} user={user} onClose={() => setShowAporte(false)} />

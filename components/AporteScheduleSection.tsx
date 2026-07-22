@@ -3,7 +3,9 @@ import ReactDOM from 'react-dom';
 import { Project, AportePlan, AporteParcela } from '../types';
 import { formatCurrency, formatCurrencyAbbrev, generateId } from '../utils';
 import { generateAporteSchedule } from '../utils/aportePlan';
+import { openAttachment } from '../utils/storage';
 import { useAddContribution, useDeleteContribution } from '../hooks/useAportes';
+import AttachmentUpload from './AttachmentUpload';
 
 // Uma coluna da matriz = um sócio que aporta.
 export interface SocioCol {
@@ -19,7 +21,7 @@ interface Props {
     socios: SocioCol[];
     onUpdate?: (projectId: string, updates: Partial<Project>) => void;
     onRegisterAporte?: () => void;
-    /** Bloco "Configurar sócios" (cadastro/cotas) — mora DENTRO deste card, no rodapé. */
+    /** Bloco "Configurar sócios" (cadastro/cotas) — mora DENTRO deste card, no topo. */
     configSlot?: React.ReactNode;
 }
 
@@ -32,7 +34,14 @@ interface ConfirmCell {
     value: string;
     date: string;
     planned: number;
+    attachment?: string;   // comprovante do aporte (opcional)
 }
+
+const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const labelMes = (ym: string) => {
+    const [y, m] = ym.split('-');
+    return `${MESES[(parseInt(m) || 1) - 1]}/${(y || '').slice(2)}`;
+};
 
 const inputCls = 'bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm focus:border-blue-500 focus:outline-none';
 
@@ -59,29 +68,73 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
     const parcelas = plan.parcelas || [];
     const setParcelas = (ps: AporteParcela[]) => { setPlan({ parcelas: ps }); dirtyRef.current = true; setDirty(true); };
 
+    // Uma célula de aporte já realizado (avulso ou despesa do bolso).
+    interface CellReal { value: number; contribIds: string[]; anexos: string[]; notas: string[] }
+
     // Aportes REAIS que não estão ligados a nenhuma parcela = avulsos (fora do plano).
     const avulsoRows = useMemo(() => {
         const linked = new Set<string>();
         parcelas.forEach((p) => Object.values(p.paidContrib || {}).forEach((id) => id && linked.add(id)));
-        const byDate = new Map<string, { [id: string]: { value: number; contribIds: string[] } }>();
+        const byDate = new Map<string, { [id: string]: CellReal }>();
         (project.contributions || []).forEach((c: any) => {
             if (!c.id || !c.investorId || linked.has(c.id)) return;
             const d = (c.date || '').slice(0, 10) || '—';
             if (!byDate.has(d)) byDate.set(d, {});
             const m = byDate.get(d)!;
-            if (!m[c.investorId]) m[c.investorId] = { value: 0, contribIds: [] };
+            if (!m[c.investorId]) m[c.investorId] = { value: 0, contribIds: [], anexos: [], notas: [] };
             m[c.investorId].value += c.value || 0;
             m[c.investorId].contribIds.push(c.id);
+            (c.attachments || []).forEach((a: string) => a && m[c.investorId].anexos.push(a));
+            if (c.description) m[c.investorId].notas.push(c.description);
         });
         return [...byDate.entries()].map(([date, vals]) => ({ date, vals }));
     }, [project.contributions, parcelas]);
 
-    // Linhas da matriz: parcelas do plano + avulsos, ordenadas por data.
+    // Despesa que o sócio pagou do próprio bolso TAMBÉM é aporte (já entra no
+    // "aportou/meta"). Agrupada por MÊS para não afogar a tabela — há obra com 151.
+    const despesaRows = useMemo(() => {
+        const byMes = new Map<string, { vals: { [id: string]: CellReal }; qtd: number }>();
+        (project.expenses || []).forEach((e: any) => {
+            const sid = e.paidByInvestorId;
+            if (!sid) return;
+            const ym = (e.date || '').slice(0, 7);
+            if (!ym) return;
+            if (!byMes.has(ym)) byMes.set(ym, { vals: {}, qtd: 0 });
+            const g = byMes.get(ym)!;
+            if (!g.vals[sid]) g.vals[sid] = { value: 0, contribIds: [], anexos: [], notas: [] };
+            g.vals[sid].value += e.value || 0;
+            g.qtd += 1;
+        });
+        return [...byMes.entries()].map(([ym, g]) => ({ ym, vals: g.vals, qtd: g.qtd }));
+    }, [project.expenses]);
+
+    // Linhas da matriz: parcelas do plano + avulsos + despesas por mês, por data.
+    // A linha do mês usa dia 31 para FECHAR o mês (cai depois das parcelas dele).
     const rows = useMemo(() => {
         const planRows = parcelas.map((p) => ({ kind: 'plan' as const, key: p.id, date: p.date, parcela: p }));
         const avRows = avulsoRows.map((a, i) => ({ kind: 'avulso' as const, key: `av-${a.date}-${i}`, date: a.date, vals: a.vals }));
-        return [...planRows, ...avRows].sort((x, y) => (x.date || '').localeCompare(y.date || ''));
-    }, [parcelas, avulsoRows]);
+        const dsRows = despesaRows.map((d) => ({ kind: 'despesa' as const, key: `ds-${d.ym}`, date: `${d.ym}-31`, ym: d.ym, qtd: d.qtd, vals: d.vals }));
+        return [...planRows, ...avRows, ...dsRows].sort((x, y) => (x.date || '').localeCompare(y.date || ''));
+    }, [parcelas, avulsoRows, despesaRows]);
+
+    // Rede de segurança: dinheiro de quem NÃO tem coluna na matriz (sem cota, sem
+    // casa, marcado "não aporta", ou o "Recursos próprios" criado na abertura da
+    // obra). Sem isso, tirar o extrato faria esse aporte sumir da tela.
+    const foraDaMatriz = useMemo(() => {
+        const comColuna = new Set(socios.map((s) => s.investorId));
+        const porSocio = new Map<string, number>();
+        (project.contributions || []).forEach((c: any) => {
+            if (!c.investorId || comColuna.has(c.investorId)) return;
+            porSocio.set(c.investorId, (porSocio.get(c.investorId) || 0) + (c.value || 0));
+        });
+        (project.expenses || []).forEach((e: any) => {
+            if (!e.paidByInvestorId || comColuna.has(e.paidByInvestorId)) return;
+            porSocio.set(e.paidByInvestorId, (porSocio.get(e.paidByInvestorId) || 0) + (e.value || 0));
+        });
+        const total = [...porSocio.values()].reduce((s, v) => s + v, 0);
+        const nomes = [...porSocio.keys()].map((id) => (project.investors || []).find((i) => i.id === id)?.name || 'sócio sem nome');
+        return { total, nomes };
+    }, [project.contributions, project.expenses, project.investors, socios]);
 
     const sugerir = (mode: 'iguais' | 'ritmo') => {
         const cols = socios.map((s) => ({ investorId: s.investorId, name: s.name, meta: s.meta, aportado: s.aportado, falta: s.meta - s.aportado }));
@@ -104,8 +157,11 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
     // Valor REALMENTE aportado numa célula paga (pode diferir do planejado, porque a
     // janela de confirmação deixa corrigir). Cai no planejado se o aporte sumiu do banco.
     const contribById = useMemo(() => {
-        const m = new Map<string, { value: number; date: string }>();
-        (project.contributions || []).forEach((c: any) => { if (c.id) m.set(c.id, { value: c.value || 0, date: (c.date || '').slice(0, 10) }); });
+        const m = new Map<string, { value: number; date: string; anexos: string[]; nota?: string }>();
+        (project.contributions || []).forEach((c: any) => {
+            if (!c.id) return;
+            m.set(c.id, { value: c.value || 0, date: (c.date || '').slice(0, 10), anexos: (c.attachments || []).filter(Boolean), nota: c.description || undefined });
+        });
         return m;
     }, [project.contributions]);
 
@@ -131,7 +187,14 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
         if (!confirmCell.date) { alert('Informe a data do aporte.'); return; }
         setBusy(true);
         try {
-            const c: any = await addContribution.mutateAsync({ projectId: project.id, investorId: confirmCell.investorId, value, date: confirmCell.date, description: 'Aporte do cronograma' });
+            const c: any = await addContribution.mutateAsync({
+                projectId: project.id,
+                investorId: confirmCell.investorId,
+                value,
+                date: confirmCell.date,
+                description: 'Aporte do cronograma',
+                attachments: confirmCell.attachment ? [confirmCell.attachment] : [],
+            });
             const next = parcelas.map((p) => p.id === confirmCell.parcelaId ? { ...p, paidContrib: { ...(p.paidContrib || {}), [confirmCell.investorId]: c.id } } : p);
             setPlan({ parcelas: next });   // sincroniza local (evita corrida entre cliques)
             onUpdate?.(project.id, { aportePlan: { parcelas: next } });
@@ -200,6 +263,9 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
 
             {open && (
                 <div className="px-4 sm:px-5 pb-5 space-y-4">
+                    {/* Cadastro dos sócios: primeira coisa do card. */}
+                    {configSlot && <div className="-mx-4 sm:-mx-5 border-b border-slate-700/60">{configSlot}</div>}
+
                     {/* Sugestão / ações */}
                     <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-3 flex flex-wrap items-end gap-3">
                         <div className="flex flex-col gap-1">
@@ -245,10 +311,14 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                 {rows.map((row) => (
                                     <tr key={row.key} className="border-t border-slate-800">
                                         <td className="px-2 py-1.5 whitespace-nowrap">
-                                            {row.kind === 'plan' ? (
+                                            {row.kind === 'plan' && (
                                                 <input type="date" value={row.parcela!.date} onChange={(e) => setDate(row.parcela!.id, e.target.value)} className={`${inputCls} w-32`} />
-                                            ) : (
+                                            )}
+                                            {row.kind === 'avulso' && (
                                                 <span className="text-slate-400 text-xs">{row.date !== '—' ? new Date(row.date + 'T00:00:00').toLocaleDateString('pt-BR') : 'sem data'} <span className="text-emerald-500/70">· avulso</span></span>
+                                            )}
+                                            {row.kind === 'despesa' && (
+                                                <span className="text-slate-400 text-xs">{labelMes(row.ym!)} <span className="text-amber-500/80">· em despesas ({row.qtd})</span></span>
                                             )}
                                         </td>
                                         {socios.map((s) => {
@@ -272,6 +342,11 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                                                     {difere && <span className="block text-[9px] font-normal text-slate-500">plan. {formatCurrencyAbbrev(val)}</span>}
                                                                 </span>
                                                             )}
+                                                            {!dirty && paid && !!real?.anexos.length && (
+                                                                <button onClick={() => openAttachment(real.anexos[0])} title="Ver comprovante" className="text-blue-400 hover:text-blue-300 shrink-0">
+                                                                    <i className="fa-solid fa-paperclip text-xs"></i>
+                                                                </button>
+                                                            )}
                                                             {!dirty && val > 0 && (
                                                                 <button onClick={() => paid ? desfazerPago(p, s) : pedirConfirmacao(p, s)} disabled={busy} title={paid ? 'Pago (clique pra desfazer)' : 'Dar como pago'}
                                                                     className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 ${paid ? 'bg-emerald-500 text-white' : 'border border-slate-600 text-slate-500 hover:border-emerald-400 hover:text-emerald-400'}`}>
@@ -282,17 +357,27 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                                     </td>
                                                 );
                                             }
-                                            const cell = (row.vals as any)[s.investorId];
+                                            const cell: CellReal | undefined = (row.vals as any)[s.investorId];
+                                            const despesa = row.kind === 'despesa';
                                             return (
-                                                <td key={s.investorId} className="px-2 py-1.5 text-right">
-                                                    {cell ? <span className="text-emerald-400 font-bold">{formatCurrencyAbbrev(cell.value)} <i className="fa-solid fa-check text-[10px]"></i></span> : <span className="text-slate-600">—</span>}
+                                                <td key={s.investorId} className="px-2 py-1.5 text-right" title={cell?.notas.join(' · ') || undefined}>
+                                                    {cell ? (
+                                                        <span className={`font-bold ${despesa ? 'text-amber-400/90' : 'text-emerald-400'}`}>
+                                                            {formatCurrencyAbbrev(cell.value)}
+                                                            {!despesa && <i className="fa-solid fa-check text-[10px] ml-1"></i>}
+                                                            {cell.anexos.length > 0 && (
+                                                                <button onClick={() => openAttachment(cell.anexos[0])} title="Ver comprovante" className="text-blue-400 hover:text-blue-300 ml-1.5">
+                                                                    <i className="fa-solid fa-paperclip text-xs"></i>
+                                                                </button>
+                                                            )}
+                                                        </span>
+                                                    ) : <span className="text-slate-600">—</span>}
                                                 </td>
                                             );
                                         })}
                                         <td className="px-2 py-1.5 text-center">
-                                            {row.kind === 'plan'
-                                                ? <button onClick={() => removeParcela(row.parcela!.id)} className="text-slate-500 hover:text-rose-400" title="Remover parcela"><i className="fa-solid fa-trash text-xs"></i></button>
-                                                : <button onClick={() => removeAvulso(Object.values(row.vals as any).flatMap((v: any) => v.contribIds))} className="text-slate-500 hover:text-rose-400" title="Apagar aporte"><i className="fa-solid fa-trash text-xs"></i></button>}
+                                            {row.kind === 'plan' && <button onClick={() => removeParcela(row.parcela!.id)} className="text-slate-500 hover:text-rose-400" title="Remover parcela"><i className="fa-solid fa-trash text-xs"></i></button>}
+                                            {row.kind === 'avulso' && <button onClick={() => removeAvulso(Object.values(row.vals as any).flatMap((v: any) => v.contribIds))} className="text-slate-500 hover:text-rose-400" title="Apagar aporte"><i className="fa-solid fa-trash text-xs"></i></button>}
                                         </td>
                                     </tr>
                                 ))}
@@ -322,10 +407,19 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                         {dirty && <button onClick={salvar} className="px-5 py-2 bg-green-600 text-white rounded-lg font-black text-sm hover:bg-green-700 shadow-lg shadow-green-600/30"><i className="fa-solid fa-check mr-1"></i> Salvar</button>}
                     </div>
                     {dirty && <p className="text-[11px] text-amber-400 font-bold text-right">Salve para poder dar baixa nos aportes.</p>}
-                    {!dirty && parcelas.length > 0 && <p className="text-[10px] text-slate-500 leading-snug">Clique no ✓ de cada valor para dar como <b>pago</b> — isso registra o aporte de verdade (entra no caixa e no extrato). Aportes fora do plano aparecem como linhas <span className="text-emerald-500">avulso</span>.</p>}
+                    {!dirty && (
+                        <p className="text-[10px] text-slate-500 leading-snug">
+                            {parcelas.length > 0 && <>Clique no ✓ de cada valor para dar como <b>pago</b> — isso registra o aporte de verdade (entra no caixa). Aportes fora do plano aparecem como linhas <span className="text-emerald-500">avulso</span>. </>}
+                            {despesaRows.length > 0 && <>As linhas <span className="text-amber-500/90">em despesas</span> são as compras que o sócio pagou do próprio bolso (também contam como aporte) — some o mês inteiro; para mexer nelas, vá na aba <b>Despesas</b>.</>}
+                        </p>
+                    )}
+                    {foraDaMatriz.total > 0 && (
+                        <p className="text-[11px] text-amber-400 font-bold leading-snug bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
+                            <i className="fa-solid fa-triangle-exclamation mr-1"></i>
+                            {formatCurrency(foraDaMatriz.total)} de aporte de <b>{foraDaMatriz.nomes.join(', ')}</b> não cabe na tabela: {foraDaMatriz.nomes.length > 1 ? 'esses sócios não têm' : 'esse sócio não tem'} cota {project.splitMode === 'unit' ? 'nem casa' : ''} definida. O dinheiro está no caixa. Ajuste em <b>Configurar sócios</b>{project.splitMode === 'unit' ? ' ou defina o dono da casa na aba Unidades' : ''}.
+                        </p>
+                    )}
 
-                    {/* Cadastro dos sócios: mora aqui dentro, no rodapé (é coisa de configurar uma vez). */}
-                    {configSlot && <div className="-mx-4 sm:-mx-5 -mb-5 border-t border-slate-700/60">{configSlot}</div>}
                 </div>
             )}
 
@@ -362,7 +456,15 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                 Diferente do planejado ({formatCurrency(confirmCell.planned)}). O plano continua igual; entra o valor real.
                             </p>
                         )}
-                        <p className="text-[11px] text-slate-500 leading-snug">Ao confirmar, o aporte entra no <b>caixa da obra</b> e no extrato.</p>
+                        <div>
+                            <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Comprovante (opcional)</label>
+                            <AttachmentUpload
+                                value={confirmCell.attachment}
+                                onChange={(url) => setConfirmCell((c) => (c ? { ...c, attachment: url } : c))}
+                                bucketName="expense-attachments"
+                            />
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-snug">Ao confirmar, o aporte entra no <b>caixa da obra</b>.</p>
                         <div className="flex gap-2">
                             <button onClick={() => setConfirmCell(null)} disabled={busy}
                                 className="flex-1 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-300 hover:text-white font-black text-sm">
