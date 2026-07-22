@@ -6,8 +6,8 @@ import { planLabel } from '../hooks/useEntitlements';
 
 interface SidebarProps {
   role: UserRole;
-  activeTab: 'projects' | 'general' | 'users' | 'audit';
-  setActiveTab: (tab: 'projects' | 'general' | 'users' | 'audit') => void;
+  activeTab: 'projects' | 'general' | 'users' | 'audit' | 'owner';
+  setActiveTab: (tab: 'projects' | 'general' | 'users' | 'audit' | 'owner') => void;
   onLogout: () => void;
   onTriggerAI?: () => void;
 }
@@ -47,6 +47,9 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
           <NavItem id="general" icon="fa-home" label="Início" />
           <NavItem id="audit" icon="fa-fingerprint" label="Auditoria" />
           {role === UserRole.ADMIN && <NavItem id="users" icon="fa-users" label="Usuários" />}
+          {/* Painel do DONO DO APP (o negócio) — só o admin vê. Não confundir com
+              "Usuários", que é o dono da obra liberando obra pra equipe dele. */}
+          {role === UserRole.ADMIN && <NavItem id="owner" icon="fa-chart-line" label="Negócio" />}
         </nav>
 
         {/* Selo do plano. 'business' é etiqueta interna (admin), não um plano

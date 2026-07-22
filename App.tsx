@@ -21,6 +21,7 @@ const ProjectsDashboard = lazy(() => import('./components/ProjectsDashboard'));
 const ProjectDetail = lazy(() => import('./components/ProjectDetail'));
 const GeneralDashboard = lazy(() => import('./components/GeneralDashboard'));
 const UserManagement = lazy(() => import('./components/UserManagement'));
+const OwnerPanel = lazy(() => import('./components/OwnerPanel'));
 const AuditPage = lazy(() => import('./components/AuditPage'));
 const InvestorView = lazy(() => import('./components/InvestorView'));
 const AICopilot = lazy(() => import('./components/AICopilot'));
@@ -52,7 +53,7 @@ const App: React.FC = () => {
 
   // 0. URL State Initialization
   const initialParams = new URLSearchParams(window.location.search);
-  const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users' | 'audit'>((initialParams.get('view') as any) || 'general');
+  const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users' | 'audit' | 'owner'>((initialParams.get('view') as any) || 'general');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialParams.get('project') || null);
   const mainRef = useRef<HTMLElement | null>(null);
 
@@ -671,6 +672,7 @@ const App: React.FC = () => {
                 {activeTab === 'projects' && (selectedProjectId && selectedProject ? selectedProject.name : 'Obras')}
                 {activeTab === 'general' && selectedProjectId && selectedProject ? selectedProject.name : ''}
                 {activeTab === 'users' && 'Gestão de Usuários'}
+                {activeTab === 'owner' && 'Negócio'}
               </h1>
               {selectedProject && selectedProjectId ? (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
@@ -792,6 +794,10 @@ const App: React.FC = () => {
                 currentUser={currentUser}
               />
             )}
+
+            {/* Painel do dono do app. A trava de verdade está no banco
+                (admin_overview() recusa quem não é admin); isto aqui só esconde. */}
+            {activeTab === 'owner' && currentUser.role === UserRole.ADMIN && <OwnerPanel />}
             {/* Mobile Bottom Spacer to clear fixed Nav */}
             <div className="w-full h-32 md:hidden shrink-0 from-transparent to-transparent pointer-events-none"></div>
           </div>
