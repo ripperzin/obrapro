@@ -55,7 +55,8 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
     const [plan, setPlan] = useState<AportePlan>(project.aportePlan || { parcelas: [] });
     const [dirty, setDirty] = useState(false);
     const dirtyRef = useRef(false);
-    const [open, setOpen] = useState(false);
+    // Nasce ABERTO: com o extrato fora, este card é o conteúdo da aba Sócios.
+    const [open, setOpen] = useState(true);
     const [busy, setBusy] = useState(false);
     const [confirmCell, setConfirmCell] = useState<ConfirmCell | null>(null);
 
