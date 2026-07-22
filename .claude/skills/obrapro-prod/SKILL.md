@@ -9,6 +9,15 @@ Depois da reescrita subir (16/07), **todo o trabalho do dia a dia é direto em p
 Não há modo de teste separado — até a obra de teste **ZZ TESTE** vive em prod ao lado das reais.
 O Docker/local (`npm run dev`) existe mas não é usado; ver a skill `subir-app` só se precisar dele.
 
+## ⭐ Norte do produto (Victor pediu pra SEMPRE seguir)
+**"Completo para quem quer, simples para quem precisa."** Toda decisão de produto passa por aqui:
+o **coração** (caixa entrou/gastou/sobra · Gasto×Avanço · despesa + foto · avançar etapa + foto ·
+link do sócio · unidades/custo-m²) fica visível por padrão; o **avançado** (orçamento por item ·
+cronograma/Curva S/ritmo · físico×financeiro · barra de tempo) fica escondido/opcional/pago —
+pra quem pede, nunca no caminho do básico, e escondido no celular. Ao propor feature, dizer onde
+ela cai (coração × avançado × cortar) e não engordar o fluxo básico. **Ir ponto a ponto,
+consultando o Victor antes de cada alteração.**
+
 > ⚠️ Já me confundi 2× no começo de sessões: (a) achei que era local; (b) achei que
 > precisava o Victor me passar um token. **Errado nas duas.** O token já está no Cofre do
 > Windows e o fluxo é o de baixo.

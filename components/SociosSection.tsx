@@ -186,6 +186,11 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
     const investorName = (id: string) => investors.find((i) => i.id === id)?.name || 'Sócio';
     const fmtDate = (d?: string) => (d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '');
 
+    // Rodapé do extrato: o total dos lançamentos listados e o que foi aportado
+    // pagando despesa direto (não aparece no extrato, mas conta como aporte).
+    const totalExtrato = contributions.reduce((s, c) => s + (c.value || 0), 0);
+    const aportadoEmDespesas = (project.expenses || []).reduce((s, e) => s + (e.paidByInvestorId ? e.value || 0 : 0), 0);
+
     // ---- Acerto de aportes (meta/falta por sócio) + montagem da visão única ----
     const acerto = computeAporteShares(project);
     const acertoDe = (investorId?: string) => acerto.shares.find((x) => x.investorId === investorId);
@@ -258,36 +263,11 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
         };
     });
 
-    return (
-        <div className="flex flex-col gap-6 animate-fade-in">
-            {/* Cabeçalho + seletor de modo */}
-            <div className="order-1 flex items-center justify-between gap-3 flex-wrap">
-                <h3 className="font-black text-white text-xl uppercase tracking-tight flex items-center gap-3">
-                    <i className="fa-solid fa-users-gear text-blue-400"></i>
-                    Sócios
-                </h3>
-                <div className="flex bg-slate-800 rounded-xl p-1 shrink-0">
+    // Cadastro dos sócios (nome, cota %, "não aporta"). Mora DENTRO do card "Sócios",
+    // no rodapé: é coisa de configurar uma vez, não do dia a dia.
+    const configSlot = (
+        <div className="bg-slate-900/20">
                     <button
-                        onClick={() => setSplitMode('percent')}
-                        className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${splitMode === 'percent' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                    >
-                        Por %
-                    </button>
-                    <button
-                        onClick={() => setSplitMode('unit')}
-                        className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${splitMode === 'unit' ? 'bg-fuchsia-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                    >
-                        Por casa
-                    </button>
-                </div>
-            </div>
-
-            {/* Caixa da obra */}
-            <div className="order-2"><CashSummaryCards project={project} /></div>
-
-            {/* ▸ Configurar sócios (cadastro + cotas/%) — vai pro FIM (order-6) */}
-            <div className="order-6 glass rounded-2xl border border-slate-700 overflow-hidden">
-                <button
                     onClick={() => setShowManage((v) => !v)}
                     className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-800/40 transition"
                 >
@@ -403,11 +383,46 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
 
                     </div>
                 )}
+        </div>
+    );
+
+    return (
+        <div className="flex flex-col gap-6 animate-fade-in">
+            {/* Cabeçalho + seletor de modo */}
+            <div className="order-1 flex items-center justify-between gap-3 flex-wrap">
+                <h3 className="font-black text-white text-xl uppercase tracking-tight flex items-center gap-3">
+                    <i className="fa-solid fa-users-gear text-blue-400"></i>
+                    Sócios
+                </h3>
+                <div className="flex bg-slate-800 rounded-xl p-1 shrink-0">
+                    <button
+                        onClick={() => setSplitMode('percent')}
+                        className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${splitMode === 'percent' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        Por %
+                    </button>
+                    <button
+                        onClick={() => setSplitMode('unit')}
+                        className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${splitMode === 'unit' ? 'bg-fuchsia-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        Por casa
+                    </button>
+                </div>
             </div>
 
-            {/* ▸ Sócios: a matriz (plano de aportes + aportes reais + resumo por sócio) */}
+            {/* Caixa da obra */}
+            <div className="order-2"><CashSummaryCards project={project} /></div>
+
+            {/* ▸ Sócios: a matriz (plano de aportes + aportes reais + resumo por sócio).
+                   O cadastro ("Configurar sócios") vai DENTRO deste card, no rodapé. */}
             <div className="order-3">
-                <AporteScheduleSection project={project} socios={socioCols} onUpdate={onUpdate} onRegisterAporte={() => setShowAporte(true)} />
+                <AporteScheduleSection
+                    project={project}
+                    socios={socioCols}
+                    onUpdate={onUpdate}
+                    onRegisterAporte={() => setShowAporte(true)}
+                    configSlot={configSlot}
+                />
                 {semDono.length > 0 && (
                     <p className="text-[10px] text-slate-500 mt-2 leading-snug text-center">
                         <i className="fa-solid fa-circle-info mr-1"></i>
@@ -416,7 +431,7 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                 )}
             </div>
 
-            {/* ▸ Extrato de aportes (lançamentos em caixa) */}
+            {/* ▸ Extrato de aportes — Data · Sócio · Valor, com total e quanto falta */}
             {contributions.length > 0 && (
                 <div className="order-5 glass rounded-2xl border border-slate-700 overflow-hidden">
                     <button
@@ -430,38 +445,70 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                     </button>
 
                     {showExtrato && (
-                        <div className="px-5 pb-5 pt-1 border-t border-slate-700/60">
-                            <div className="space-y-2">
-                                {contributions.map((c) => (
-                                    <div key={c.id} className="flex items-center justify-between bg-slate-800/40 rounded-xl px-4 py-2.5">
-                                        <div className="min-w-0">
-                                            <p className="text-white font-bold text-sm truncate">{investorName(c.investorId)}</p>
-                                            <p className="text-slate-500 text-xs truncate">
-                                                {fmtDate(c.date)}{c.description ? ` · ${c.description}` : ''}
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-3 shrink-0">
-                                            {c.attachments && c.attachments.length > 0 && (
+                        <div className="px-4 sm:px-5 pb-5 pt-1 border-t border-slate-700/60 overflow-x-auto">
+                            <table className="w-full text-sm border-collapse">
+                                <thead>
+                                    <tr className="text-[10px] font-black uppercase text-slate-500">
+                                        <th className="text-left px-2 py-2">Data</th>
+                                        <th className="text-left px-2 py-2">Sócio</th>
+                                        <th className="text-right px-2 py-2">Valor</th>
+                                        <th className="px-2 py-2"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {contributions.map((c) => (
+                                        <tr key={c.id} className="border-t border-slate-800">
+                                            <td className="px-2 py-2 text-slate-400 whitespace-nowrap">{fmtDate(c.date) || '—'}</td>
+                                            <td className="px-2 py-2 min-w-0">
+                                                <span className="text-white font-bold">{investorName(c.investorId)}</span>
+                                                {c.description && <span className="block text-[10px] text-slate-500 truncate">{c.description}</span>}
+                                            </td>
+                                            <td className="px-2 py-2 text-right text-emerald-400 font-black whitespace-nowrap">{formatCurrency(c.value)}</td>
+                                            <td className="px-2 py-2 text-right whitespace-nowrap">
+                                                {c.attachments && c.attachments.length > 0 && (
+                                                    <button
+                                                        onClick={() => openAttachment(c.attachments![0])}
+                                                        className="text-blue-400 hover:text-blue-300 transition mr-2"
+                                                        title="Ver comprovante"
+                                                    >
+                                                        <i className="fa-solid fa-paperclip"></i>
+                                                    </button>
+                                                )}
                                                 <button
-                                                    onClick={() => openAttachment(c.attachments![0])}
-                                                    className="text-blue-400 hover:text-blue-300 transition"
-                                                    title="Ver comprovante"
+                                                    onClick={() => { if (window.confirm('Excluir este aporte?')) deleteContribution.mutate(c.id); }}
+                                                    className="text-slate-500 hover:text-rose-400 transition"
+                                                    title="Excluir aporte"
                                                 >
-                                                    <i className="fa-solid fa-paperclip"></i>
+                                                    <i className="fa-solid fa-trash"></i>
                                                 </button>
-                                            )}
-                                            <span className="text-emerald-400 font-black text-sm">{formatCurrency(c.value)}</span>
-                                            <button
-                                                onClick={() => { if (window.confirm('Excluir este aporte?')) deleteContribution.mutate(c.id); }}
-                                                className="text-slate-500 hover:text-rose-400 transition"
-                                                title="Excluir aporte"
-                                            >
-                                                <i className="fa-solid fa-trash"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot>
+                                    <tr className="border-t-2 border-slate-700">
+                                        <td colSpan={2} className="px-2 py-2 text-[10px] uppercase text-slate-400 font-black">Total do extrato</td>
+                                        <td className="px-2 py-2 text-right text-white font-black whitespace-nowrap">{formatCurrency(totalExtrato)}</td>
+                                        <td></td>
+                                    </tr>
+                                    {aportadoEmDespesas > 0.5 && (
+                                        <tr>
+                                            <td colSpan={2} className="px-2 py-1 text-[10px] uppercase text-slate-500 font-black">+ pago direto em despesas</td>
+                                            <td className="px-2 py-1 text-right text-slate-300 font-bold whitespace-nowrap">{formatCurrency(aportadoEmDespesas)}</td>
+                                            <td></td>
+                                        </tr>
+                                    )}
+                                    {!acerto.semBase && (
+                                        <tr>
+                                            <td colSpan={2} className="px-2 py-2 text-[10px] uppercase font-black text-slate-400">Falta aportar</td>
+                                            <td className={`px-2 py-2 text-right font-black whitespace-nowrap ${acerto.totalFalta > 0.5 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                                {acerto.totalFalta > 0.5 ? formatCurrency(acerto.totalFalta) : 'Meta atingida'}
+                                            </td>
+                                            <td></td>
+                                        </tr>
+                                    )}
+                                </tfoot>
+                            </table>
                         </div>
                     )}
                 </div>

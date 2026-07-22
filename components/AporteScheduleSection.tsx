@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { Project, AportePlan, AporteParcela } from '../types';
 import { formatCurrency, formatCurrencyAbbrev, generateId } from '../utils';
 import { generateAporteSchedule } from '../utils/aportePlan';
@@ -18,6 +19,19 @@ interface Props {
     socios: SocioCol[];
     onUpdate?: (projectId: string, updates: Partial<Project>) => void;
     onRegisterAporte?: () => void;
+    /** Bloco "Configurar sócios" (cadastro/cotas) — mora DENTRO deste card, no rodapé. */
+    configSlot?: React.ReactNode;
+}
+
+// Célula em confirmação: o sócio quase nunca paga exatamente o planejado nem no dia
+// exato, então o valor e a data abrem editáveis antes de virar aporte de verdade.
+interface ConfirmCell {
+    parcelaId: string;
+    investorId: string;
+    socioName: string;
+    value: string;
+    date: string;
+    planned: number;
 }
 
 const inputCls = 'bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm focus:border-blue-500 focus:outline-none';
@@ -25,7 +39,7 @@ const inputCls = 'bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 te
 // Card "Sócios": a matriz Data × Sócios serve de plano E de registro. Cada célula
 // tem valor + botão "pago" (ao marcar, cria o aporte real → caixa/extrato). Aportes
 // avulsos (fora do plano) aparecem como linhas verdes. Mesma tabela no app e no link.
-const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onRegisterAporte }) => {
+const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onRegisterAporte, configSlot }) => {
     const addContribution = useAddContribution();
     const deleteContribution = useDeleteContribution();
 
@@ -34,6 +48,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
     const dirtyRef = useRef(false);
     const [open, setOpen] = useState(false);
     const [busy, setBusy] = useState(false);
+    const [confirmCell, setConfirmCell] = useState<ConfirmCell | null>(null);
 
     useEffect(() => { if (!dirtyRef.current) setPlan(project.aportePlan || { parcelas: [] }); }, [project.aportePlan]);
 
@@ -86,29 +101,66 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
     const setValue = (id: string, sid: string, v: number) => setParcelas(parcelas.map((p) => p.id === id ? { ...p, values: { ...p.values, [sid]: v } } : p));
     const salvar = () => { onUpdate?.(project.id, { aportePlan: plan }); dirtyRef.current = false; setDirty(false); };
 
-    // Marca/desmarca uma célula como PAGA: cria/apaga o aporte real e liga na parcela.
-    const togglePago = async (parcela: AporteParcela, sid: string) => {
+    // Valor REALMENTE aportado numa célula paga (pode diferir do planejado, porque a
+    // janela de confirmação deixa corrigir). Cai no planejado se o aporte sumiu do banco.
+    const contribById = useMemo(() => {
+        const m = new Map<string, { value: number; date: string }>();
+        (project.contributions || []).forEach((c: any) => { if (c.id) m.set(c.id, { value: c.value || 0, date: (c.date || '').slice(0, 10) }); });
+        return m;
+    }, [project.contributions]);
+
+    // Clique no ✓: abre a janela de confirmação (valor e data já preenchidos, editáveis).
+    const pedirConfirmacao = (parcela: AporteParcela, s: SocioCol) => {
         if (dirty) { alert('Salve o cronograma antes de dar baixa nos aportes.'); return; }
-        if (busy) return;
-        const contribId = parcela.paidContrib?.[sid];
+        const planned = parcela.values?.[s.investorId] || 0;
+        setConfirmCell({
+            parcelaId: parcela.id,
+            investorId: s.investorId,
+            socioName: s.name,
+            value: String(planned || ''),
+            date: parcela.date,
+            planned,
+        });
+    };
+
+    // Confirmou na janela: cria o aporte real (caixa/extrato) e liga na parcela.
+    const confirmarPago = async () => {
+        if (!confirmCell || busy) return;
+        const value = parseFloat(String(confirmCell.value).replace(',', '.')) || 0;
+        if (value <= 0) { alert('Informe o valor do aporte.'); return; }
+        if (!confirmCell.date) { alert('Informe a data do aporte.'); return; }
         setBusy(true);
         try {
-            if (contribId) {
-                await deleteContribution.mutateAsync(contribId);
-                const np = { ...(parcela.paidContrib || {}) }; delete np[sid];
-                const next = parcelas.map((p) => p.id === parcela.id ? { ...p, paidContrib: np } : p);
-                setPlan({ parcelas: next });   // sincroniza local (evita corrida entre cliques)
-                onUpdate?.(project.id, { aportePlan: { parcelas: next } });
-            } else {
-                const value = parcela.values?.[sid] || 0;
-                if (value <= 0) { setBusy(false); return; }
-                const c: any = await addContribution.mutateAsync({ projectId: project.id, investorId: sid, value, date: parcela.date, description: 'Aporte do cronograma' });
-                const next = parcelas.map((p) => p.id === parcela.id ? { ...p, paidContrib: { ...(p.paidContrib || {}), [sid]: c.id } } : p);
-                setPlan({ parcelas: next });   // sincroniza local (evita corrida entre cliques)
-                onUpdate?.(project.id, { aportePlan: { parcelas: next } });
-            }
+            const c: any = await addContribution.mutateAsync({ projectId: project.id, investorId: confirmCell.investorId, value, date: confirmCell.date, description: 'Aporte do cronograma' });
+            const next = parcelas.map((p) => p.id === confirmCell.parcelaId ? { ...p, paidContrib: { ...(p.paidContrib || {}), [confirmCell.investorId]: c.id } } : p);
+            setPlan({ parcelas: next });   // sincroniza local (evita corrida entre cliques)
+            onUpdate?.(project.id, { aportePlan: { parcelas: next } });
+            setConfirmCell(null);
         } catch (e: any) {
-            alert('Erro ao atualizar o aporte: ' + (e?.message || e));
+            alert('Erro ao registrar o aporte: ' + (e?.message || e));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    // Desfazer: apaga o aporte real (some do caixa e do extrato). Pergunta antes.
+    const desfazerPago = async (parcela: AporteParcela, s: SocioCol) => {
+        if (dirty) { alert('Salve o cronograma antes de dar baixa nos aportes.'); return; }
+        if (busy) return;
+        const contribId = parcela.paidContrib?.[s.investorId];
+        if (!contribId) return;
+        const real = contribById.get(contribId);
+        const quanto = real ? formatCurrency(real.value) : formatCurrency(parcela.values?.[s.investorId] || 0);
+        if (!window.confirm(`Desfazer o aporte de ${s.name} (${quanto})?\n\nO lançamento sai do caixa e do extrato.`)) return;
+        setBusy(true);
+        try {
+            await deleteContribution.mutateAsync(contribId);
+            const np = { ...(parcela.paidContrib || {}) }; delete np[s.investorId];
+            const next = parcelas.map((p) => p.id === parcela.id ? { ...p, paidContrib: np } : p);
+            setPlan({ parcelas: next });   // sincroniza local (evita corrida entre cliques)
+            onUpdate?.(project.id, { aportePlan: { parcelas: next } });
+        } catch (e: any) {
+            alert('Erro ao desfazer o aporte: ' + (e?.message || e));
         } finally {
             setBusy(false);
         }
@@ -130,7 +182,8 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
         return (
             <div className="glass rounded-2xl border border-slate-700 p-5">
                 <h3 className="font-black text-white flex items-center gap-2"><i className="fa-solid fa-users text-blue-400"></i> Sócios</h3>
-                <p className="text-slate-400 text-sm mt-2">Cadastre os sócios (e as cotas, ou as casas de cada um) em <b>Configurar sócios</b> para montar a divisão e o cronograma de aportes.</p>
+                <p className="text-slate-400 text-sm mt-2 mb-4">Cadastre os sócios (e as cotas, ou as casas de cada um) em <b>Configurar sócios</b> para montar a divisão e o cronograma de aportes.</p>
+                {configSlot && <div className="-mx-5 -mb-5 border-t border-slate-700/60">{configSlot}</div>}
             </div>
         );
     }
@@ -201,18 +254,26 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                         {socios.map((s) => {
                                             if (row.kind === 'plan') {
                                                 const p = row.parcela!;
-                                                const paid = !!p.paidContrib?.[s.investorId];
+                                                const contribId = p.paidContrib?.[s.investorId];
+                                                const paid = !!contribId;
                                                 const val = p.values?.[s.investorId] ?? 0;
+                                                // Pago mostra o valor REAL (pode ter sido corrigido na confirmação).
+                                                const real = contribId ? contribById.get(contribId) : undefined;
+                                                const mostrado = paid && real ? real.value : val;
+                                                const difere = paid && real && Math.abs(real.value - val) > 1;
                                                 return (
                                                     <td key={s.investorId} className="px-2 py-1.5 text-right">
                                                         <div className="flex items-center justify-end gap-1.5">
                                                             {dirty ? (
                                                                 <input type="number" min={0} value={val || ''} placeholder="0" onChange={(e) => setValue(p.id, s.investorId, parseFloat(e.target.value) || 0)} className={`${inputCls} w-24 text-right`} />
                                                             ) : (
-                                                                <span className={paid ? 'text-emerald-400 font-bold' : 'text-slate-300'}>{val > 0 ? formatCurrencyAbbrev(val) : '—'}</span>
+                                                                <span className={paid ? 'text-emerald-400 font-bold' : 'text-slate-300'}>
+                                                                    {mostrado > 0 ? formatCurrencyAbbrev(mostrado) : '—'}
+                                                                    {difere && <span className="block text-[9px] font-normal text-slate-500">plan. {formatCurrencyAbbrev(val)}</span>}
+                                                                </span>
                                                             )}
                                                             {!dirty && val > 0 && (
-                                                                <button onClick={() => togglePago(p, s.investorId)} disabled={busy} title={paid ? 'Pago (clique pra desfazer)' : 'Dar como pago'}
+                                                                <button onClick={() => paid ? desfazerPago(p, s) : pedirConfirmacao(p, s)} disabled={busy} title={paid ? 'Pago (clique pra desfazer)' : 'Dar como pago'}
                                                                     className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 ${paid ? 'bg-emerald-500 text-white' : 'border border-slate-600 text-slate-500 hover:border-emerald-400 hover:text-emerald-400'}`}>
                                                                     <i className={`fa-solid ${paid ? 'fa-check' : 'fa-clock'}`}></i>
                                                                 </button>
@@ -262,7 +323,60 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                     </div>
                     {dirty && <p className="text-[11px] text-amber-400 font-bold text-right">Salve para poder dar baixa nos aportes.</p>}
                     {!dirty && parcelas.length > 0 && <p className="text-[10px] text-slate-500 leading-snug">Clique no ✓ de cada valor para dar como <b>pago</b> — isso registra o aporte de verdade (entra no caixa e no extrato). Aportes fora do plano aparecem como linhas <span className="text-emerald-500">avulso</span>.</p>}
+
+                    {/* Cadastro dos sócios: mora aqui dentro, no rodapé (é coisa de configurar uma vez). */}
+                    {configSlot && <div className="-mx-4 sm:-mx-5 -mb-5 border-t border-slate-700/60">{configSlot}</div>}
                 </div>
+            )}
+
+            {/* Confirmação do aporte: valor e data vêm preenchidos, mas dá pra corrigir
+                (o sócio raramente paga exatamente o planejado, no dia exato). */}
+            {confirmCell && ReactDOM.createPortal(
+                <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4" onClick={() => !busy && setConfirmCell(null)}>
+                    <div className="glass rounded-2xl border border-slate-700 w-full max-w-sm p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+                        <h4 className="font-black text-white text-lg flex items-center gap-2">
+                            <i className="fa-solid fa-hand-holding-dollar text-emerald-400"></i> Registrar aporte
+                        </h4>
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Sócio</p>
+                            <p className="text-white font-bold">{confirmCell.socioName}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500">Valor (R$)</label>
+                                <input type="number" min={0} step="0.01" inputMode="decimal" autoFocus
+                                    value={confirmCell.value}
+                                    onChange={(e) => setConfirmCell({ ...confirmCell, value: e.target.value })}
+                                    className={`${inputCls} w-full`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500">Data</label>
+                                <input type="date" value={confirmCell.date}
+                                    onChange={(e) => setConfirmCell({ ...confirmCell, date: e.target.value })}
+                                    className={`${inputCls} w-full`} />
+                            </div>
+                        </div>
+                        {confirmCell.planned > 0 && Math.abs((parseFloat(String(confirmCell.value).replace(',', '.')) || 0) - confirmCell.planned) > 1 && (
+                            <p className="text-[11px] text-amber-400 font-bold">
+                                <i className="fa-solid fa-circle-info mr-1"></i>
+                                Diferente do planejado ({formatCurrency(confirmCell.planned)}). O plano continua igual; entra o valor real.
+                            </p>
+                        )}
+                        <p className="text-[11px] text-slate-500 leading-snug">Ao confirmar, o aporte entra no <b>caixa da obra</b> e no extrato.</p>
+                        <div className="flex gap-2">
+                            <button onClick={() => setConfirmCell(null)} disabled={busy}
+                                className="flex-1 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-300 hover:text-white font-black text-sm">
+                                Cancelar
+                            </button>
+                            <button onClick={confirmarPago} disabled={busy}
+                                className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-sm flex items-center justify-center gap-2">
+                                {busy ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-check"></i>}
+                                {busy ? 'Salvando…' : 'Confirmar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.getElementById('modal-root') || document.body
             )}
         </div>
     );
