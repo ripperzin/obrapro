@@ -14,7 +14,7 @@ import MobileNav from './components/MobileNav';
 
 import { SyncStatus } from './components/SyncStatus';
 import { PlanProvider } from './components/PlanProvider';
-import { entitlementsFor } from './hooks/useEntitlements';
+import { entitlementsFor, effectivePlan } from './hooks/useEntitlements';
 
 // Pages (Lazy - Deferred until after login)
 const ProjectsDashboard = lazy(() => import('./components/ProjectsDashboard'));
@@ -205,7 +205,7 @@ const App: React.FC = () => {
                   login: cachedProfile.email ? cachedProfile.email.split('@')[0] : 'Usuário',
                   password: '',
                   role: dbRole === 'ADMIN' ? UserRole.ADMIN : UserRole.STANDARD,
-                  plan: isPlanId(cachedProfile.plan) ? cachedProfile.plan : 'free',
+                  plan: effectivePlan(cachedProfile.plan, cachedProfile.trial_until),
                   allowedProjectIds: [],
                   canSeeUnits: true
                 });
@@ -213,6 +213,19 @@ const App: React.FC = () => {
                 return;
               }
             }
+          }
+
+          // Conta BLOQUEADA pelo dono do app: derruba a sessão com aviso. É uma
+          // trava de porta (front) — o banco ainda vê os dados dele; o corte por
+          // RLS entra junto com a separação de obras por cliente.
+          if (mounted && profile?.blocked) {
+            localStorage.removeItem(`profile_cache_${session.user.id}`);
+            await supabase.auth.signOut();
+            setSession(null);
+            setCurrentUser(null);
+            setAuthLoading(false);
+            alert('Sua conta está suspensa. Fale com o suporte do ObraPro.');
+            return;
           }
 
           if (mounted) {
@@ -228,7 +241,7 @@ const App: React.FC = () => {
                 login: profile.email ? profile.email.split('@')[0] : 'Usuário',
                 password: '',
                 role: dbRole === 'ADMIN' ? UserRole.ADMIN : UserRole.STANDARD,
-                plan: isPlanId(profile.plan) ? profile.plan : 'free',
+                plan: effectivePlan(profile.plan, profile.trial_until),
                 allowedProjectIds: [],
                 canSeeUnits: true
               });
@@ -262,7 +275,7 @@ const App: React.FC = () => {
                 login: cachedProfile.email ? cachedProfile.email.split('@')[0] : 'Usuário',
                 password: '',
                 role: dbRole === 'ADMIN' ? UserRole.ADMIN : UserRole.STANDARD,
-                plan: isPlanId(cachedProfile.plan) ? cachedProfile.plan : 'free',
+                plan: effectivePlan(cachedProfile.plan, cachedProfile.trial_until),
                 allowedProjectIds: [],
                 canSeeUnits: true
               });

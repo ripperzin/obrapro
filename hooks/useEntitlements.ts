@@ -89,5 +89,21 @@ export const entitlementsFor = (plan: PlanId | undefined): Entitlements => {
 export const planLabel = (plan: PlanId): string =>
   plan === 'free' ? 'Free' : plan === 'pro' ? 'ObraPro' : 'Business';
 
+/**
+ * Plano EFETIVO = o que o app deve liberar hoje. É o plano-base do cliente, mas
+ * se ele tem uma cortesia (trial_until) que ainda não venceu, vale ao menos
+ * ObraPro. Vencida a cortesia, cai sozinho no plano-base — sem apagar nada.
+ * O painel do dono mostra o plano-base + a cortesia separados; o app usa este.
+ */
+export const effectivePlan = (basePlan: unknown, trialUntil?: string | null): PlanId => {
+  const base: PlanId = typeof basePlan === 'string' && PLANS[basePlan as PlanId] ? (basePlan as PlanId) : 'free';
+  if (base !== 'free') return base;               // já é pago: cortesia não muda nada
+  if (trialUntil) {
+    const fim = new Date(trialUntil + 'T23:59:59');
+    if (!isNaN(fim.getTime()) && fim.getTime() >= Date.now()) return 'pro';
+  }
+  return base;
+};
+
 export const useEntitlements = (user: User | null | undefined): Entitlements =>
   useMemo(() => entitlementsFor(user?.plan), [user?.plan]);
