@@ -6,8 +6,8 @@ import { planLabel } from '../hooks/useEntitlements';
 
 interface SidebarProps {
   role: UserRole;
-  activeTab: 'projects' | 'general' | 'users' | 'audit' | 'owner';
-  setActiveTab: (tab: 'projects' | 'general' | 'users' | 'audit' | 'owner') => void;
+  activeTab: 'projects' | 'general' | 'users' | 'audit' | 'owner' | 'export';
+  setActiveTab: (tab: 'projects' | 'general' | 'users' | 'audit' | 'owner' | 'export') => void;
   onLogout: () => void;
   onTriggerAI?: () => void;
 }
@@ -46,6 +46,8 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
         <nav className="flex-1 space-y-2">
           <NavItem id="general" icon="fa-home" label="Início" />
           <NavItem id="audit" icon="fa-fingerprint" label="Auditoria" />
+          {/* Portabilidade: qualquer cliente baixa os próprios dados quando quiser. */}
+          <NavItem id="export" icon="fa-download" label="Meus dados" />
           {role === UserRole.ADMIN && <NavItem id="users" icon="fa-users" label="Usuários" />}
           {/* Painel do DONO DO APP (o negócio) — só o admin vê. Não confundir com
               "Usuários", que é o dono da obra liberando obra pra equipe dele. */}

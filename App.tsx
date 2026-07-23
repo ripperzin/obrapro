@@ -10,6 +10,7 @@ import { queryClient } from './lib/react-query';
 // Pages (Sync - Critical for initial load)
 import LoginPage from './components/LoginPage';
 import Sidebar from './components/Sidebar';
+import SuspendedScreen from './components/SuspendedScreen';
 import MobileNav from './components/MobileNav';
 
 import { SyncStatus } from './components/SyncStatus';
@@ -22,6 +23,7 @@ const ProjectDetail = lazy(() => import('./components/ProjectDetail'));
 const GeneralDashboard = lazy(() => import('./components/GeneralDashboard'));
 const UserManagement = lazy(() => import('./components/UserManagement'));
 const OwnerPanel = lazy(() => import('./components/OwnerPanel'));
+const DataExportPanel = lazy(() => import('./components/DataExportPanel'));
 const AuditPage = lazy(() => import('./components/AuditPage'));
 const InvestorView = lazy(() => import('./components/InvestorView'));
 const AICopilot = lazy(() => import('./components/AICopilot'));
@@ -45,6 +47,7 @@ const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true); // Nova flag de carregamento
+  const [isBlocked, setIsBlocked] = useState(false);    // conta suspensa pelo dono do app
   const [debugError, setDebugError] = useState<string | null>(null);
   // Qual usuário JÁ teve o perfil carregado. O Supabase re-emite SIGNED_IN a cada
   // foco de aba; sem isso, o app remontava a árvore inteira (fechava modal, perdia
@@ -53,7 +56,7 @@ const App: React.FC = () => {
 
   // 0. URL State Initialization
   const initialParams = new URLSearchParams(window.location.search);
-  const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users' | 'audit' | 'owner'>((initialParams.get('view') as any) || 'general');
+  const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users' | 'audit' | 'owner' | 'export'>((initialParams.get('view') as any) || 'general');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialParams.get('project') || null);
   const mainRef = useRef<HTMLElement | null>(null);
 
@@ -200,6 +203,7 @@ const App: React.FC = () => {
 
               if (mounted) {
                 const dbRole = (cachedProfile.role || '').toUpperCase();
+                setIsBlocked(!!cachedProfile.blocked);
                 setCurrentUser({
                   id: session.user.id,
                   login: cachedProfile.email ? cachedProfile.email.split('@')[0] : 'Usuário',
@@ -215,18 +219,10 @@ const App: React.FC = () => {
             }
           }
 
-          // Conta BLOQUEADA pelo dono do app: derruba a sessão com aviso. É uma
-          // trava de porta (front) — o banco ainda vê os dados dele; o corte por
-          // RLS entra junto com a separação de obras por cliente.
-          if (mounted && profile?.blocked) {
-            localStorage.removeItem(`profile_cache_${session.user.id}`);
-            await supabase.auth.signOut();
-            setSession(null);
-            setCurrentUser(null);
-            setAuthLoading(false);
-            alert('Sua conta está suspensa. Fale com o suporte do ObraPro.');
-            return;
-          }
+          // Conta BLOQUEADA pelo dono do app: NÃO desloga — mantém a sessão pra
+          // ele conseguir BAIXAR os dados na tela de conta suspensa. É uma trava
+          // de porta (front); o corte por RLS entra com a separação de obras.
+          if (mounted) setIsBlocked(!!profile?.blocked);
 
           if (mounted) {
             if (profile) {
@@ -657,6 +653,12 @@ const App: React.FC = () => {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
+  // Conta suspensa: fora o admin (que nunca se bloqueia), o cliente só vê a tela
+  // de suspensão — sem o app, mas com a exportação dos dados dele.
+  if (isBlocked && currentUser.role !== UserRole.ADMIN) {
+    return <SuspendedScreen projects={projects} user={currentUser} onLogout={logout} />;
+  }
+
   const selectedProject = projects.find(p => p.id === selectedProjectId);
 
 
@@ -686,6 +688,7 @@ const App: React.FC = () => {
                 {activeTab === 'general' && selectedProjectId && selectedProject ? selectedProject.name : ''}
                 {activeTab === 'users' && 'Gestão de Usuários'}
                 {activeTab === 'owner' && 'Negócio'}
+                {activeTab === 'export' && 'Meus dados'}
               </h1>
               {selectedProject && selectedProjectId ? (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
@@ -811,6 +814,9 @@ const App: React.FC = () => {
             {/* Painel do dono do app. A trava de verdade está no banco
                 (admin_overview() recusa quem não é admin); isto aqui só esconde. */}
             {activeTab === 'owner' && currentUser.role === UserRole.ADMIN && <OwnerPanel />}
+
+            {/* "Meus dados": portabilidade — o cliente baixa tudo que é dele. */}
+            {activeTab === 'export' && <DataExportPanel projects={projects} user={currentUser} />}
             {/* Mobile Bottom Spacer to clear fixed Nav */}
             <div className="w-full h-32 md:hidden shrink-0 from-transparent to-transparent pointer-events-none"></div>
           </div>

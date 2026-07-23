@@ -3,8 +3,8 @@ import { UserRole } from '../types';
 import { usePlan } from './PlanProvider';
 interface MobileNavProps {
     role: UserRole;
-    activeTab: 'projects' | 'general' | 'users' | 'audit' | 'owner';
-    setActiveTab: (tab: 'projects' | 'general' | 'users' | 'audit' | 'owner') => void;
+    activeTab: 'projects' | 'general' | 'users' | 'audit' | 'owner' | 'export';
+    setActiveTab: (tab: 'projects' | 'general' | 'users' | 'audit' | 'owner' | 'export') => void;
     onLogout: () => void;
     onTriggerAI?: () => void;
 }
