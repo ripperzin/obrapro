@@ -2,6 +2,24 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { planLabel } from '../hooks/useEntitlements';
 
+// Chama a edge function admin-actions e devolve a mensagem AMIGÁVEL de erro.
+// Sem isto, quando a function responde 4xx/5xx o supabase-js descarta o corpo
+// e mostra só "Edge Function returned a non-2xx status code" — a razão real
+// (ex.: "E-mail inválido.") vem no corpo JSON, acessível por error.context.
+async function invokeAdmin(action: string, args: Record<string, unknown>) {
+    const { data, error } = await supabase.functions.invoke('admin-actions', { body: { action, ...args } });
+    if (error) {
+        let msg = error.message || String(error);
+        try {
+            const body = await (error as any).context?.json?.();
+            if (body?.error) msg = body.error;
+        } catch { /* corpo não-JSON: mantém a mensagem original */ }
+        throw new Error(msg);
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
+}
+
 // Uma linha do painel = um cliente. Vem inteira da função admin_overview()
 // (SECURITY DEFINER), que aplica a régua: CONTAGEM sim, CONTEÚDO não.
 interface Cliente {
@@ -99,14 +117,14 @@ const NovoClienteForm: React.FC<{ open: boolean; setOpen: (v: boolean) => void; 
 
     const criar = async () => {
         if (saving) return;
+        // Checagem rápida no navegador — evita ida ao servidor e dá o motivo na hora.
+        const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
+        if (!emailOk) { alert('Informe um e-mail válido (pode ser fictício para teste, ex.: teste1@teste.com).'); return; }
+        if (password.length < 6) { alert('A senha precisa de ao menos 6 caracteres.'); return; }
         setSaving(true);
         try {
-            const { data, error } = await supabase.functions.invoke('admin-actions', {
-                body: { action: 'create_user', email, password, fullName, plan },
-            });
-            if (error) throw error;
-            if (data?.error) throw new Error(data.error);
-            alert(`Cliente criado! Entre com ${email} e a senha que você definiu.`);
+            await invokeAdmin('create_user', { email: email.trim(), password, fullName, plan });
+            alert(`Cliente criado! Entre com ${email.trim()} e a senha que você definiu.`);
             setEmail(''); setFullName(''); setPassword(''); setPlan('free');
             setOpen(false);
             onCriado();
@@ -169,9 +187,7 @@ const OwnerPanel: React.FC = () => {
     const acao = async (action: string, args: Record<string, unknown>, id: string) => {
         setBusyId(id);
         try {
-            const { data, error } = await supabase.functions.invoke('admin-actions', { body: { action, ...args } });
-            if (error) throw error;
-            if (data?.error) throw new Error(data.error);
+            const data = await invokeAdmin(action, args);
             await carregar();
             return data;
         } catch (e: any) {
