@@ -17,7 +17,25 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setLoading(true);
     setError(null);
 
-    const loginEmail = email.includes('@') ? email : `${email}@obrapro.com`;
+    const entrada = email.trim();
+    let loginEmail = entrada;
+
+    // Sem "@" = a pessoa digitou o LOGIN (apelido). Achamos o e-mail dela pelo
+    // login (função email_for_login, chamável antes de estar logado).
+    if (!entrada.includes('@')) {
+      const { data: achado, error: rpcErr } = await supabase.rpc('email_for_login', { p_login: entrada });
+      if (rpcErr) {
+        setError('Não consegui verificar o login. Tente novamente.');
+        setLoading(false);
+        return;
+      }
+      if (!achado) {
+        setError('Login não encontrado. Confira o login ou use o e-mail.');
+        setLoading(false);
+        return;
+      }
+      loginEmail = achado as string;
+    }
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email: loginEmail,

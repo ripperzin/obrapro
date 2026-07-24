@@ -106,8 +106,10 @@ const Tile: React.FC<{ label: string; valor: string; cor?: string; nota?: string
 // Formulário de criar cliente — chama admin-actions/create_user (Admin API no
 // servidor). Feito pro Victor abrir contas Free e ObraPro e testar cada plano.
 const NovoClienteForm: React.FC<{ open: boolean; setOpen: (v: boolean) => void; onCriado: () => void }> = ({ open, setOpen, onCriado }) => {
+    const [login, setLogin] = useState('');
     const [email, setEmail] = useState('');
     const [fullName, setFullName] = useState('');
+    const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [plan, setPlan] = useState('free');
     const [saving, setSaving] = useState(false);
@@ -118,14 +120,17 @@ const NovoClienteForm: React.FC<{ open: boolean; setOpen: (v: boolean) => void; 
     const criar = async () => {
         if (saving) return;
         // Checagem rápida no navegador — evita ida ao servidor e dá o motivo na hora.
+        // Obrigatórios: login, e-mail e senha. Nome e telefone são opcionais.
+        const loginOk = /^[a-zA-Z0-9._-]{3,}$/.test(login.trim());
+        if (!loginOk) { alert('Login inválido: use letras, números, ponto, hífen ou _ (mín. 3 caracteres, sem espaço nem @).'); return; }
         const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
         if (!emailOk) { alert('Informe um e-mail válido (pode ser fictício para teste, ex.: teste1@teste.com).'); return; }
         if (password.length < 6) { alert('A senha precisa de ao menos 6 caracteres.'); return; }
         setSaving(true);
         try {
-            await invokeAdmin('create_user', { email: email.trim(), password, fullName, plan });
-            alert(`Cliente criado! Entre com ${email.trim()} e a senha que você definiu.`);
-            setEmail(''); setFullName(''); setPassword(''); setPlan('free');
+            await invokeAdmin('create_user', { login: login.trim(), email: email.trim(), password, fullName, phone, plan });
+            alert(`Cliente criado! Ele pode entrar com o login "${login.trim()}" (ou o e-mail) e a senha definida.`);
+            setLogin(''); setEmail(''); setFullName(''); setPhone(''); setPassword(''); setPlan('free');
             setOpen(false);
             onCriado();
         } catch (e: any) {
@@ -142,15 +147,18 @@ const NovoClienteForm: React.FC<{ open: boolean; setOpen: (v: boolean) => void; 
                 <button onClick={() => setOpen(false)} className="text-slate-500 hover:text-white"><i className="fa-solid fa-xmark"></i></button>
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
-                <input className={inCls} placeholder="Nome" value={fullName} onChange={e => setFullName(e.target.value)} />
-                <input className={inCls} placeholder="E-mail" type="email" value={email} onChange={e => setEmail(e.target.value)} />
-                <input className={inCls} placeholder="Senha (mín. 6)" value={password} onChange={e => setPassword(e.target.value)} />
+                <input className={inCls} placeholder="Login * (ex.: joaosilva)" value={login} onChange={e => setLogin(e.target.value)} />
+                <input className={inCls} placeholder="E-mail *" type="email" value={email} onChange={e => setEmail(e.target.value)} />
+                <input className={inCls} placeholder="Nome (opcional)" value={fullName} onChange={e => setFullName(e.target.value)} />
+                <input className={inCls} placeholder="Telefone (opcional)" value={phone} onChange={e => setPhone(e.target.value)} />
+                <input className={inCls} placeholder="Senha * (mín. 6)" value={password} onChange={e => setPassword(e.target.value)} />
                 <select className={inCls} value={plan} onChange={e => setPlan(e.target.value)}>
                     <option value="free">Plano Free</option>
                     <option value="pro">Plano ObraPro</option>
                     <option value="business">Plano Business</option>
                 </select>
             </div>
+            <p className="text-[11px] text-slate-500">* Login, e-mail e senha são obrigatórios. O cliente entra pelo <b>login</b> ou pelo e-mail.</p>
             <div className="flex items-center gap-2">
                 <button onClick={criar} disabled={saving} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-sm font-black flex items-center gap-2">
                     {saving ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-check"></i>}

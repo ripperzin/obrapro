@@ -15,6 +15,7 @@ const corsHeaders = {
 
 const PLANS = ["free", "pro", "business"];
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const LOGIN_RE = /^[a-zA-Z0-9._-]{3,}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (req) => {
@@ -91,10 +92,18 @@ Deno.serve(async (req) => {
             const email = String(args.email || "").trim().toLowerCase();
             const password = String(args.password || "");
             const full_name = String(args.fullName || "").trim();
+            const login = String(args.login || "").trim();
+            const phone = String(args.phone || "").trim();
             const plan = args.plan;
+            // Obrigatórios: login, e-mail e senha. Nome e telefone são opcionais.
+            if (!LOGIN_RE.test(login)) return json({ error: "Login inválido (letras, números, ponto, hífen ou _; mín. 3)." }, 400);
             if (!EMAIL_RE.test(email)) return json({ error: "E-mail inválido." }, 400);
             if (password.length < 6) return json({ error: "A senha precisa de ao menos 6 caracteres." }, 400);
             if (!PLANS.includes(plan)) return json({ error: "Plano inválido." }, 400);
+
+            // Login é único (case-insensitive) — checa antes de criar a conta.
+            const { data: jaExiste } = await admin.from("profiles").select("id").ilike("login", login).maybeSingle();
+            if (jaExiste) return json({ error: "Esse login já está em uso. Escolha outro." }, 400);
 
             // email_confirm: já entra valendo (o dono criou; não manda link de confirmação).
             const { data: created, error: cErr } = await admin.auth.admin.createUser({
@@ -103,9 +112,18 @@ Deno.serve(async (req) => {
             if (cErr) return json({ error: cErr.message }, 400);
 
             // O gatilho handle_new_user cria o profile (role 'user'); só ajustamos
-            // o plano e o nome. NUNCA cria admin por aqui.
+            // plano, nome, login e telefone. NUNCA cria admin por aqui.
             const uid = created.user?.id;
-            if (uid) await admin.from("profiles").update({ plan, full_name }).eq("id", uid);
+            if (uid) {
+                const { error: uErr } = await admin.from("profiles")
+                    .update({ plan, full_name, login, phone: phone || null }).eq("id", uid);
+                // Corrida no login único (índice do banco): desfaz a conta e avisa.
+                if (uErr && (uErr as { code?: string }).code === "23505") {
+                    await admin.auth.admin.deleteUser(uid);
+                    return json({ error: "Esse login já está em uso. Escolha outro." }, 400);
+                }
+                if (uErr) return json({ error: uErr.message }, 400);
+            }
             return json({ ok: true, id: uid });
         }
 
