@@ -16,6 +16,7 @@ import MobileNav from './components/MobileNav';
 import { SyncStatus } from './components/SyncStatus';
 import { PlanProvider } from './components/PlanProvider';
 import { entitlementsFor, effectivePlan } from './hooks/useEntitlements';
+import { canEditProject } from './lib/permissions';
 
 // Pages (Lazy - Deferred until after login)
 const ProjectsDashboard = lazy(() => import('./components/ProjectsDashboard'));
@@ -765,7 +766,7 @@ const App: React.FC = () => {
                   onAdd={addProject}
                   onUpdate={updateProjectHandler}
                   onDelete={deleteProject}
-                  isAdmin={currentUser.role === UserRole.ADMIN}
+                  isAdmin={canEditProject(currentUser)}
                   userId={currentUser.id}
                   userName={currentUser.login}
                 />
@@ -782,7 +783,7 @@ const App: React.FC = () => {
                 onUpdate={updateProjectHandler}
                 onDelete={deleteProject}
                 onAddExpense={addExpenseToProject}
-                isAdmin={currentUser.role === UserRole.ADMIN}
+                isAdmin={canEditProject(currentUser)}
               />
             )}
 

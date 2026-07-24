@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useLayoutEffect } from 'react';
-import { Project, User, UserRole, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense, ProjectMacro, ProjectItem, TemplateStageItem, getProjectStages, getStageName, getStageIndex } from '../types';
+import { Project, User, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense, ProjectMacro, ProjectItem, TemplateStageItem, getProjectStages, getStageName, getStageIndex } from '../types';
+import { canEditProject } from '../lib/permissions';
 import { useInflation } from '../hooks/useInflation';
 import { PROGRESS_STAGES } from '../constants';
 import { formatCurrency, formatCurrencyAbbrev, generateId, calculateMonthsBetween } from '../utils';
@@ -161,7 +162,7 @@ const UnitsSection: React.FC<{
   };
   const { inflationRate } = useInflation();
 
-  const isAdmin = user.role === UserRole.ADMIN;
+  const isAdmin = canEditProject(user, project);
   const isCompleted = project.progress === ProgressStage.COMPLETED;
   // Números do portfólio (mesma fonte do Resultado do Empreendimento).
   const unitsFin = computeProjectFinance(project);
@@ -791,7 +792,7 @@ const ExpensesSection: React.FC<{
     fetchItems();
   }, [project.id, itemsRefreshKey]);
 
-  const isAdmin = user.role === UserRole.ADMIN;
+  const isAdmin = canEditProject(user, project);
 
   // Cria um ITEM na obra (lista plana global) ao lançar despesa, sem sair do modal.
   // Dedupe por nome (ignora maiúsculas/acentos) — reaproveita o existente se já houver.
@@ -1416,7 +1417,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
   // Safety patch for potential ghost reference
   const [attachmentManagerId, setAttachmentManagerId] = useState<string | null>(null);
 
-  const isAdmin = user.role === UserRole.ADMIN;
+  const isAdmin = canEditProject(user, project);
   const canSeeUnits = user.canSeeUnits || isAdmin;
 
   // Cálculos defensivos para dados antigos
