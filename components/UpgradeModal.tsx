@@ -2,14 +2,13 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 
 // WhatsApp que recebe os pedidos de upgrade (DDI+DDD, só números).
-// Enquanto o checkout do Mercado Pago não existe (Fase 2 do lançamento), o
-// convite abre uma conversa com o Victor e a liberação é na mão (profiles.plan).
+// Enquanto o checkout do Mercado Pago não existe, o convite abre uma conversa
+// com o Victor e a liberação é na mão (profiles.plan).
 export const UPGRADE_WHATSAPP = '5567982042203';
 
 /**
- * O que disparou o convite. Quase sempre é um recurso que ele tentou usar;
- * 'geral' é quando ele veio pelo menu, por vontade própria (aí não há uma
- * frase específica a dar — o convite fala do pacote).
+ * O que disparou o convite. Quase sempre é um recurso que a pessoa tentou usar;
+ * 'geral' é quando ela veio pelo menu, por vontade própria.
  */
 export type UpgradeFeature =
   | 'geral'
@@ -22,71 +21,111 @@ export type UpgradeFeature =
   | 'socios'
   | 'multiusuario';
 
-interface Copy {
-  titulo: string;
-  frase: string;
-  icon: string;
-}
-
-// O convite é sempre o mesmo desenho; muda só a frase de cima, que fala da
-// coisa que ele acabou de tentar fazer.
-const COPY: Record<UpgradeFeature, Copy> = {
+// Cabeçalho do convite: fala da coisa que a pessoa acabou de tentar fazer e diz
+// QUAL plano resolve (pra destacar o card certo). Regra do item: ANOTAR é grátis,
+// a ANÁLISE (previsto × real) é que faz parte do Completo.
+type Destaque = 'completo' | 'construtora';
+const COPY: Record<UpgradeFeature, { titulo: string; frase: string; icon: string; destaque: Destaque }> = {
   geral: {
-    titulo: 'Conheça o ObraPro',
-    frase: 'O Free segura uma obra. O ObraPro segura a sua operação: mais obras, o dinheiro detalhado item a item e a prestação de contas pronta para o sócio.',
+    titulo: 'Conheça os planos',
+    frase: 'O plano Grátis segura uma obra. Suba pra detalhar o dinheiro item a item, escanear nota e prestar contas pro sócio — e, quando virar empresa, botar a equipe na obra.',
     icon: 'fa-helmet-safety',
+    destaque: 'completo',
   },
   itens: {
-    titulo: 'Itens de gasto fazem parte do ObraPro',
-    frase: 'Veja para onde o dinheiro foi de verdade — cimento, areia, frete — e compare o previsto com o real de cada item, dentro de cada etapa.',
+    titulo: 'A análise por item faz parte do Completo',
+    frase: 'Anotar o item já é grátis. No Completo você vê pra onde o dinheiro foi de verdade — cimento, areia, frete — e compara o previsto com o real de cada item.',
     icon: 'fa-boxes-stacked',
+    destaque: 'completo',
   },
   ocr: {
-    titulo: 'Escanear comprovante faz parte do ObraPro',
-    frase: 'Fotografe a nota e o gasto se lança sozinho: valor, data e descrição preenchidos. Menos digitação no fim do dia.',
+    titulo: 'Escanear comprovante faz parte do Completo',
+    frase: 'Escaneie a nota com a câmera e o ObraPro preenche o gasto pra você revisar. Menos digitação no fim do dia.',
     icon: 'fa-camera',
+    destaque: 'completo',
   },
   pdf: {
-    titulo: 'O relatório em PDF faz parte do ObraPro',
-    frase: 'O mesmo relatório do link, em PDF, pronto para mandar no grupo, imprimir ou anexar na prestação de contas.',
+    titulo: 'O relatório em PDF faz parte do Completo',
+    frase: 'O mesmo relatório do link, em PDF, pronto pra mandar no grupo, imprimir ou anexar na prestação de contas.',
     icon: 'fa-file-pdf',
+    destaque: 'completo',
   },
   branding: {
-    titulo: 'Link sem a marca ObraPro faz parte do plano ObraPro',
-    frase: 'No Free o relatório vai com o selo "Feito com ObraPro". No plano pago, o relatório é seu — só a sua obra.',
+    titulo: 'Link sem a marca faz parte do Completo',
+    frase: 'No Grátis o relatório vai com o selo "Feito com ObraPro". No plano pago, o relatório é seu — só a sua obra.',
     icon: 'fa-tag',
+    destaque: 'completo',
   },
   linkCompleto: {
-    titulo: 'O relatório completo faz parte do ObraPro',
-    frase: 'Mande o extrato de despesas e o resultado do empreendimento junto no link. No Free vai só a foto, o gasto × avanço, o orçamento e o caixa.',
+    titulo: 'O relatório completo faz parte do Completo',
+    frase: 'Mande o extrato de despesas e o resultado do empreendimento junto no link. No Grátis vai só a foto, o gasto × avanço, o orçamento e o caixa.',
     icon: 'fa-share-nodes',
+    destaque: 'completo',
   },
   obras: {
-    titulo: 'Mais de uma obra faz parte do ObraPro',
-    frase: 'Toque até 10 obras ao mesmo tempo, cada uma com seu caixa, e veja todas juntas no painel. Obra arquivada não ocupa vaga.',
+    titulo: 'Mais de uma obra faz parte do Completo',
+    frase: 'Toque várias obras ao mesmo tempo, cada uma com seu caixa, e veja todas juntas no painel. Obra arquivada não ocupa vaga.',
     icon: 'fa-helmet-safety',
+    destaque: 'completo',
   },
   socios: {
-    titulo: 'Sócios individuais fazem parte do ObraPro',
-    frase: 'Cadastre cada sócio, veja quanto cada um já aportou, o extrato individual e faça chamadas de aporte. No Free tudo cai em "Recursos próprios".',
+    titulo: 'Sócios individuais fazem parte do Completo',
+    frase: 'Cadastre cada sócio, veja quanto cada um já aportou, o extrato individual e faça chamadas de aporte. No Grátis tudo cai em "Recursos próprios".',
     icon: 'fa-users',
+    destaque: 'completo',
   },
   multiusuario: {
-    titulo: 'Mais de um usuário faz parte do ObraPro',
-    frase: 'Coloque o mestre e o escritório lançando na mesma obra, cada um com seu acesso.',
+    titulo: 'Sua equipe na obra faz parte do Construtora',
+    frase: 'Bote o mestre, o gestor e o escritório na mesma obra — cada pessoa acessa apenas o que precisa.',
     icon: 'fa-user-plus',
+    destaque: 'construtora',
   },
 };
 
-// O que vem junto — igual em todos os convites, pra ele ver o pacote e não só
-// a peça que faltou.
-const INCLUSO = [
-  'Até 10 obras ativas',
-  'Itens de gasto (para onde o dinheiro foi)',
-  'Escanear comprovante com a câmera',
-  'Relatório em PDF e link sem a marca ObraPro',
-  'Sócios individuais, extrato e chamadas de aporte',
-  'Mais de um usuário na obra',
+interface Plano {
+  id: Destaque | 'basico';
+  nome: string;
+  fundador: string | null; // preço de fundador /mês (null = grátis)
+  cheio: string;           // preço cheio /mês, ou "Grátis"
+  obras: string;
+  itens: string[];
+  cta: string | null;      // texto do botão (null = plano grátis, sem CTA)
+}
+
+const PLANOS: Plano[] = [
+  {
+    id: 'basico', nome: 'Grátis', fundador: null, cheio: 'Grátis', obras: '1 obra',
+    itens: [
+      'Caixa: entradas e saídas',
+      'Avanço da obra por etapa',
+      'Orçamento previsto × gasto',
+      'Anotar o item de cada gasto',
+      'Link e foto pra mostrar a obra',
+    ],
+    cta: null,
+  },
+  {
+    id: 'completo', nome: 'Completo', fundador: 'R$ 99', cheio: 'R$ 149', obras: 'Até 4 obras',
+    itens: [
+      'Tudo do Grátis',
+      'Análise por item: previsto × real',
+      'Escanear comprovante com a câmera',
+      'Relatório em PDF e link sem a marca',
+      'Sócios: aportes, extrato e chamadas',
+    ],
+    cta: 'Quero o plano Completo',
+  },
+  {
+    id: 'construtora', nome: 'Construtora', fundador: 'R$ 199', cheio: 'R$ 299', obras: 'Obras ilimitadas',
+    itens: [
+      'Tudo do Completo',
+      'Sua equipe na obra (mestre, gestor, sócio-gestor)',
+      'Cada pessoa acessa apenas o que precisa',
+      'Obras ilimitadas',
+      'Copiloto de IA',
+    ],
+    cta: 'Quero o plano Construtora',
+  },
 ];
 
 interface Props {
@@ -97,9 +136,9 @@ interface Props {
 const UpgradeModal: React.FC<Props> = ({ feature, onClose }) => {
   const copy = COPY[feature];
 
-  const handleQuero = () => {
+  const pedir = (p: Plano) => {
     const msg = encodeURIComponent(
-      `Olá! Quero o ObraPro (plano fundador R$99/mês). Vim pelo app — recurso: ${copy.titulo}`
+      `Olá! Quero o plano ${p.nome} do ObraPro (${p.fundador}/mês, preço de fundador). Vim pelo app.`
     );
     window.open(`https://wa.me/${UPGRADE_WHATSAPP}?text=${msg}`, '_blank', 'noopener');
   };
@@ -113,8 +152,8 @@ const UpgradeModal: React.FC<Props> = ({ feature, onClose }) => {
         className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        {/* Cabeçalho: a coisa que ele tentou fazer */}
-        <div className="p-6 border-b border-slate-800">
+        {/* Cabeçalho: a coisa que a pessoa tentou fazer */}
+        <div className="p-6 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
           <div className="flex items-start justify-between gap-3">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-400 flex items-center justify-center shrink-0">
               <i className={`fa-solid ${copy.icon} text-xl`}></i>
@@ -131,40 +170,68 @@ const UpgradeModal: React.FC<Props> = ({ feature, onClose }) => {
           <p className="text-slate-400 text-sm mt-2 leading-relaxed">{copy.frase}</p>
         </div>
 
-        {/* O pacote */}
-        <div className="p-6 space-y-2.5">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">
-            O que vem no ObraPro
-          </p>
-          {INCLUSO.map(item => (
-            <div key={item} className="flex items-start gap-2.5">
-              <i className="fa-solid fa-check text-emerald-400 text-xs mt-1 shrink-0"></i>
-              <span className="text-slate-300 text-sm">{item}</span>
-            </div>
-          ))}
-        </div>
+        {/* Os 3 planos, lado a lado (empilhados no celular) */}
+        <div className="p-4 space-y-3">
+          {PLANOS.map(p => {
+            const destaque = copy.destaque === p.id;
+            return (
+              <div
+                key={p.id}
+                className={`rounded-2xl border p-5 ${destaque ? 'border-amber-500/60 bg-amber-500/[0.06]' : 'border-slate-700 bg-slate-800/40'}`}
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <h3 className="text-white font-black text-base">{p.nome}</h3>
+                  {destaque && (
+                    <span className="text-[9px] font-black uppercase tracking-widest bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
+                      Recomendado
+                    </span>
+                  )}
+                </div>
 
-        {/* Preço + ação */}
-        <div className="p-6 border-t border-slate-800 space-y-3">
-          <div className="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4">
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-white">R$ 99</span>
-              <span className="text-slate-400 text-sm font-bold">/mês</span>
-              <span className="ml-auto text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-400 px-2 py-1 rounded-full">
-                Fundador
-              </span>
-            </div>
-            <p className="text-slate-500 text-xs mt-2">
-              Preço de fundador travado por 12 meses. Depois, R$ 179/mês (ou R$ 1.790/ano).
-            </p>
-          </div>
-          <button
-            onClick={handleQuero}
-            className="w-full px-4 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black transition-colors flex items-center justify-center gap-2"
-          >
-            <i className="fa-brands fa-whatsapp text-lg"></i>
-            Quero o ObraPro
-          </button>
+                <div className="flex items-baseline gap-2 mt-1">
+                  {p.fundador ? (
+                    <>
+                      <span className="text-2xl font-black text-white">{p.fundador}</span>
+                      <span className="text-slate-400 text-xs font-bold">/mês</span>
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">
+                        Fundador
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-2xl font-black text-white">{p.cheio}</span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {p.fundador ? `Depois ${p.cheio}/mês · ${p.obras}` : p.obras}
+                </p>
+
+                <div className="mt-3 space-y-1.5">
+                  {p.itens.map(it => (
+                    <div key={it} className="flex items-start gap-2">
+                      <i className="fa-solid fa-check text-emerald-400 text-[11px] mt-1 shrink-0"></i>
+                      <span className="text-slate-300 text-[13px]">{it}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {p.cta && (
+                  <button
+                    onClick={() => pedir(p)}
+                    className={`w-full mt-4 px-4 py-3 rounded-2xl font-black text-sm transition-colors flex items-center justify-center gap-2 ${
+                      destaque ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'
+                    }`}
+                  >
+                    <i className="fa-brands fa-whatsapp text-base"></i>
+                    {p.cta}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          <p className="text-center text-[11px] text-slate-500 px-4 pt-1">
+            Preço de fundador travado por 12 meses. A liberação é rápida, pelo WhatsApp.
+          </p>
           <button
             onClick={onClose}
             className="w-full px-4 py-2.5 text-slate-400 hover:text-white rounded-2xl font-bold text-sm transition-colors"

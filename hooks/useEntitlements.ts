@@ -7,8 +7,8 @@ import { PlanId, User } from '../types';
  * Regra: nenhuma tela pergunta "o plano é free?" — ela pergunta "pode X?".
  * Quando mudar o que é pago, muda só este arquivo.
  *
- * Planos no lançamento: 'free' e 'pro' (rotulado "ObraPro" na tela).
- * 'business' fica reservado pro futuro e hoje libera tudo (é o dos donos).
+ * Planos: 'free' = Grátis · 'pro' = Completo · 'business' = Construtora.
+ * (As etiquetas do banco NÃO mudam — só o nome que aparece na tela.)
  */
 export interface Entitlements {
   plan: PlanId;
@@ -19,8 +19,12 @@ export interface Entitlements {
   /** Sócios cadastrados por obra (o "Recursos próprios" já ocupa 1 no Free). */
   maxSocios: number;
 
-  /** Itens de gasto: aba "Por item" + campo Item no lançamento. */
-  canUseItens: boolean;
+  /** Anotar o item no lançamento (dropdown). GRÁTIS pra todos — assim ninguém
+   *  acumula histórico cego. O que é pago é a ANÁLISE (canAnalyzeItens). */
+  canLogItens: boolean;
+  /** Analisar item: aba "Por item" (previsto × real) no orçamento e no link.
+   *  É o recurso pago — acende de uma vez o histórico que o grátis já anotava. */
+  canAnalyzeItens: boolean;
   /** Escanear comprovante (OCR). O servidor também barra — aqui é só a vitrine. */
   canUseOCR: boolean;
   /** Baixar o relatório em PDF. */
@@ -31,16 +35,17 @@ export interface Entitlements {
   canShareFullReport: boolean;
   /** Cadastrar sócios individuais além do "Recursos próprios". */
   canUseInvestidoresIndividuais: boolean;
-  /** Tela de Usuários (multiusuário). */
+  /** Equipe: adicionar funcionários (com cargos) na obra. Só no Ilimitado. */
   canUseMultiusuario: boolean;
-  /** Copiloto IA — hoje ninguém tem (fica pro Business). */
+  /** Copiloto IA — só no Ilimitado. */
   canUseCopilotoIA: boolean;
 }
 
 const FREE: Omit<Entitlements, 'plan' | 'isFree'> = {
   maxObrasAtivas: 1,
   maxSocios: 1,
-  canUseItens: false,
+  canLogItens: true,      // anotar item é grátis (histórico não nasce cego)
+  canAnalyzeItens: false, // a análise previsto × real é paga
   canUseOCR: false,
   canExportPdf: false,
   canRemoveBranding: false,
@@ -51,21 +56,23 @@ const FREE: Omit<Entitlements, 'plan' | 'isFree'> = {
 };
 
 const PRO: Omit<Entitlements, 'plan' | 'isFree'> = {
-  maxObrasAtivas: 10,
+  maxObrasAtivas: 4,
   maxSocios: Infinity,
-  canUseItens: true,
+  canLogItens: true,
+  canAnalyzeItens: true,
   canUseOCR: true,
   canExportPdf: true,
   canRemoveBranding: true,
   canShareFullReport: true,
   canUseInvestidoresIndividuais: true,
-  canUseMultiusuario: true,
-  canUseCopilotoIA: false, // Copiloto = Business/futuro.
+  canUseMultiusuario: false, // Equipe (funcionários) = só no Ilimitado.
+  canUseCopilotoIA: false,   // Copiloto = só no Ilimitado.
 };
 
 const BUSINESS: Omit<Entitlements, 'plan' | 'isFree'> = {
   ...PRO,
   maxObrasAtivas: Infinity,
+  canUseMultiusuario: true, // funcionários com cargos
   canUseCopilotoIA: true,
 };
 
@@ -82,12 +89,11 @@ export const entitlementsFor = (plan: PlanId | undefined): Entitlements => {
 
 /**
  * Nome do plano como o usuário lê. É o ÚNICO lugar que traduz a etiqueta do
- * banco para a tela — 'pro' nunca aparece escrito, vira "ObraPro".
- * 'business' é etiqueta interna (admins): não é plano de venda, e por isso as
- * telas escondem o selo nesse caso em vez de escrever "Business".
+ * banco para a tela: 'free' → Grátis · 'pro' → Completo · 'business' → Construtora.
+ * (As etiquetas do banco não mudam — nenhuma tela escreve 'pro'/'business'.)
  */
 export const planLabel = (plan: PlanId): string =>
-  plan === 'free' ? 'Free' : plan === 'pro' ? 'ObraPro' : 'Business';
+  plan === 'free' ? 'Grátis' : plan === 'pro' ? 'Completo' : 'Construtora';
 
 /**
  * Plano EFETIVO = o que o app deve liberar hoje. É o plano-base do cliente, mas

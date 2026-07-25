@@ -482,7 +482,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                 {/* 3b) ONDE FOI O DINHEIRO — itens que mais gastaram (gasto por item, ranqueado).
                        "Por item" é recurso pago: só aparece se o DONO tiver o plano com itens
                        E se o usuário não desligou a seção no seletor de compartilhamento. */}
-                {options.itens && ownerEnt.canUseItens && (() => {
+                {options.itens && ownerEnt.canAnalyzeItens && (() => {
                     const byItem: Record<string, number> = {};
                     for (const e of expenses) {
                         const k = e.item_id || '__none__';
@@ -735,9 +735,9 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     </Collapsible>
                 )}
 
-                {/* Footer. No Free o relatório leva a marca (e ela é o convite:
+                {/* Footer. No Grátis o relatório leva a marca (e ela é o convite:
                     quem recebe o link é justamente quem pode virar cliente).
-                    No plano ObraPro o relatório é do construtor — sem marca. */}
+                    A partir do Completo o relatório é do construtor — sem marca. */}
                 <footer className="text-center text-slate-500 text-sm space-y-4">
                     {!ownerEnt.canRemoveBranding && (
                         <a

@@ -36,10 +36,9 @@ const MobileNav: React.FC<MobileNavProps> = ({ role, activeTab, setActiveTab, on
                 <NavItem id="users" icon="fa-users" label="Usuários" />
             )}
 
-            {/* Só no Free: a barra de baixo tem pouco espaço, então o selo do
-                plano só ocupa um lugar aqui quando ele leva a algum lugar.
-                Quem já paga não precisa do convite; 'business' é etiqueta de
-                admin, não plano de venda. */}
+            {/* Só no Grátis: a barra de baixo tem pouco espaço, então o convite
+                só ocupa um lugar aqui quando leva a algum lugar. Quem já paga
+                (Completo/Construtora) não precisa do convite. */}
             {ent.isFree && (
                 <button
                     onClick={() => openUpgrade('geral')}

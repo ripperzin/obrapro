@@ -4,14 +4,13 @@ export enum UserRole {
   STANDARD = 'STANDARD'
 }
 
-// Plano do usuário (profiles.plan). ATENÇÃO aos nomes: o produto vende só DOIS
-// planos — "Free" e "ObraPro". Aqui há três etiquetas porque o banco já nasceu
-// assim (migration 20260611120000):
-//   'free'     = Free
-//   'pro'      = ObraPro  <- é ESTE que o cliente compra; a tela escreve "ObraPro"
-//   'business' = etiqueta interna que libera tudo (é a dos admins/donos), e onde
-//                um plano Business encaixaria no futuro sem mexer no banco.
-// Nenhuma tela mostra 'pro'/'business' para o usuário.
+// Plano do usuário (profiles.plan). ATENÇÃO aos nomes: as etiquetas do BANCO
+// não mudam (migration 20260611120000); só o nome de TELA mudou:
+//   'free'     = Grátis
+//   'pro'      = Completo      <- o plano do meio (o mais vendido)
+//   'business' = Construtora   <- o plano de cima (equipe + IA + obras ilimitadas);
+//                é também o que os admins/donos usam.
+// Nenhuma tela mostra 'pro'/'business' — sempre passa por planLabel().
 export type PlanId = 'free' | 'pro' | 'business';
 
 export const isPlanId = (v: unknown): v is PlanId =>

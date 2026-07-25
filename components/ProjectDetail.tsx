@@ -1017,7 +1017,7 @@ const ExpensesSection: React.FC<{
                               </select>
                             </div>
                           )}
-                          {ent.canUseItens && (
+                          {ent.canLogItens && (
                             <div>
                               <span className="text-[9px] uppercase font-black text-slate-400 block mb-1 ml-1">Item</span>
                               <div className="flex items-center gap-1">
@@ -1060,7 +1060,7 @@ const ExpensesSection: React.FC<{
                               {projectMacros.find(m => m.id === exp.macroId)?.name}
                             </span>
                           )}
-                          {ent.canUseItens && projectItems.find(it => it.id === exp.itemId) && (
+                          {ent.canLogItens && projectItems.find(it => it.id === exp.itemId) && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300 text-[10px] font-bold">
                               <i className="fa-solid fa-box text-[8px]"></i>
                               {projectItems.find(it => it.id === exp.itemId)?.name}
@@ -1171,10 +1171,9 @@ const ExpensesSection: React.FC<{
                 <th className="px-4 py-4">Data</th>
                 <th className="px-4 py-4">Descrição</th>
                 <th className="px-4 py-4">Etapa</th>
-                {/* Item é do plano ObraPro. No Free a coluna some (mesmo critério do
-                    importador de planilha) — o convite para assinar aparece na hora
-                    de lançar a despesa, que é onde a pessoa sente falta. */}
-                {ent.canUseItens && <th className="px-4 py-4">Item</th>}
+                {/* Anotar item é grátis pra todos, então a coluna aparece pra todos
+                    (a análise previsto × real por item é que fica no Completo). */}
+                {ent.canLogItens && <th className="px-4 py-4">Item</th>}
                 <th className="px-4 py-4">Autor</th>
                 <th className="px-4 py-4 text-right">Valor</th>
                 {isAdmin && <th className="px-4 py-4 text-center">Ações</th>}
@@ -1256,8 +1255,8 @@ const ExpensesSection: React.FC<{
                       )}
                     </td>
 
-                    {/* Coluna Item (lista plana da obra) — só no ObraPro */}
-                    {ent.canUseItens && (
+                    {/* Coluna Item (lista plana da obra) — anotar é grátis pra todos */}
+                    {ent.canLogItens && (
                     <td className="px-4 py-4">
                       {isEditing ? (
                         // Botão "+" SEPARADO do select (não é mais a última opção da

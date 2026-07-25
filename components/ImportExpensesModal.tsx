@@ -153,8 +153,8 @@ const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
         value: r.value,
         date: r.date,
         macroId: r.macroId || undefined,
-        // A planilha pode ter coluna de item; no Free ela não é do plano.
-        itemId: (ent.canUseItens && r.itemId) || undefined,
+        // A planilha pode ter coluna de item; anotar item é grátis pra todos.
+        itemId: (ent.canLogItens && r.itemId) || undefined,
         paidByInvestorId: r.paidByInvestorId || undefined,
         attachments: [] as string[],
       }));
@@ -222,7 +222,7 @@ const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
               />
               <div className="text-[11px] text-slate-500 font-bold leading-relaxed px-2">
                 <p className="mb-1"><i className="fa-solid fa-circle-info mr-1 text-slate-400"></i> A primeira linha deve conter os títulos das colunas.</p>
-                <p>Obrigatórias: <span className="text-slate-300">Data · Descrição · Valor</span>. Opcionais: Etapa{ent.canUseItens ? ' · Item' : ''} · Pago por.</p>
+                <p>Obrigatórias: <span className="text-slate-300">Data · Descrição · Valor</span>. Opcionais: Etapa{ent.canLogItens ? ' · Item' : ''} · Pago por.</p>
               </div>
             </div>
           )}
@@ -291,7 +291,7 @@ const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
                       <th className="p-2 text-left">Descrição</th>
                       <th className="p-2 text-right">Valor</th>
                       <th className="p-2 text-left">Etapa</th>
-                      {ent.canUseItens && <th className="p-2 text-left">Item</th>}
+                      {ent.canLogItens && <th className="p-2 text-left">Item</th>}
                       <th className="p-2 text-left">Pago por</th>
                     </tr>
                   </thead>
@@ -347,7 +347,7 @@ const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
                               {macros.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                             </select>
                           </td>
-                          {ent.canUseItens && (
+                          {ent.canLogItens && (
                             <td className="p-1">
                               <select
                                 value={r.itemId || ''}

@@ -121,7 +121,7 @@ const AddContributionModal: React.FC<Props> = ({ project, user, onClose }) => {
                                     </option>
                                 ))}
                                 <option value="__new__">
-                                    {podeCriarSocio ? '➕ Novo investidor…' : '🔒 Novo investidor — plano ObraPro'}
+                                    {podeCriarSocio ? '➕ Novo investidor…' : '🔒 Novo investidor — plano Completo'}
                                 </option>
                             </select>
                         )}

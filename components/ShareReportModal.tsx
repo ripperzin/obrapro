@@ -111,7 +111,7 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ project, userName, 
                                 <div className="min-w-0 flex-1">
                                     <p className={`font-bold text-sm ${locked ? 'text-slate-300' : 'text-white'}`}>{sec.label}</p>
                                     <p className="text-slate-400 text-xs truncate">
-                                        {locked ? 'Faz parte do ObraPro' : sec.hint}
+                                        {locked ? 'Faz parte do Completo' : sec.hint}
                                     </p>
                                 </div>
                                 {/* switch (no travado vira só a seta do convite) */}

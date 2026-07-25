@@ -831,9 +831,9 @@ const App: React.FC = () => {
           onTriggerAI={() => setVoiceTrigger(prev => prev + 1)}
         />
 
-        {/* Copiloto de IA: hoje só Business/admin vê (canUseCopilotoIA = false no
-            Free e no ObraPro). Está desalinhado com o modelo de Item — quando
-            virar prioridade, consertar useProjectBrain e reabrir por plano. */}
+        {/* Copiloto de IA: só no Construtora (canUseCopilotoIA = false no Grátis
+            e no Completo). Está desalinhado com o modelo de Item — quando virar
+            prioridade, consertar useProjectBrain e reabrir por plano. */}
         {entitlementsFor(currentUser.plan).canUseCopilotoIA && (
           <AICopilot
             currentProjectId={selectedProjectId}

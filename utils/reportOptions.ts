@@ -29,7 +29,7 @@ export const OPTIONAL_SECTIONS: { key: keyof ReportOptions; label: string; hint:
     { key: 'despesas', label: 'Extrato de despesas', hint: 'Lista item a item, com quem pagou', icon: 'fa-receipt' },
 ];
 
-// Seções que só existem no plano ObraPro. No Free o relatório é o NÚCLEO
+// Seções que só existem a partir do Completo. No Grátis o relatório é o NÚCLEO
 // (foto + Gasto × Avanço + Orçamento por etapa + Caixa) e sai com a marca.
 export const PAID_SECTIONS: (keyof ReportOptions)[] = ['itens', 'resultado', 'despesas'];
 

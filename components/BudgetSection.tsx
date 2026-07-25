@@ -983,17 +983,17 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                     >
                         <i className="fa-solid fa-layer-group mr-2"></i>Por etapa
                     </button>
-                    {/* "Por item" é do plano ObraPro. No Free o botão CONTINUA à
-                        vista, com cadeado — é a vitrine do que ele ganha. */}
+                    {/* A análise "Por item" é do Completo. No Grátis o botão CONTINUA
+                        à vista, com cadeado — é a vitrine do que ele ganha. */}
                     <button
                         onClick={() => {
-                            if (!ent.canUseItens) { openUpgrade('itens'); return; }
+                            if (!ent.canAnalyzeItens) { openUpgrade('itens'); return; }
                             setViewMode('item');
                             if (isEditing) handleSetIsEditing(false);
                         }}
                         className={`px-4 py-1.5 rounded-full text-xs font-black transition ${viewMode === 'item' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
                     >
-                        <i className={`fa-solid ${ent.canUseItens ? 'fa-boxes-stacked' : 'fa-lock text-amber-400'} mr-2`}></i>Por item
+                        <i className={`fa-solid ${ent.canAnalyzeItens ? 'fa-boxes-stacked' : 'fa-lock text-amber-400'} mr-2`}></i>Por item
                     </button>
                 </div>
 
@@ -1075,7 +1075,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                     </div>
                 )}
 
-                {isEditing && ent.canUseItens && obrasMoldeItens.length > 0 && (
+                {isEditing && ent.canAnalyzeItens && obrasMoldeItens.length > 0 && (
                     <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-3 mb-4 space-y-1 animate-fade-in">
                         <div className="flex items-center gap-2">
                             <i className="fa-solid fa-graduation-cap text-blue-400 text-xs"></i>

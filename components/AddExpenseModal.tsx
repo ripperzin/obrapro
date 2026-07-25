@@ -7,7 +7,6 @@ import AttachmentUpload from './AttachmentUpload';
 import { ReceiptScanner } from './ReceiptScanner';
 import { ReceiptData } from '../lib/gemini';
 import { getSignedUrl, uploadFile } from '../utils/storage';
-import { usePlan } from './PlanProvider';
 
 interface AddExpenseModalProps {
     isOpen: boolean;
@@ -27,7 +26,6 @@ interface AddExpenseModalProps {
 const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
 const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSave, macros, items, stageItems = [], investors = [], defaultPayerId, onCreateItem }) => {
-    const { ent, openUpgrade } = usePlan();
     const [formData, setFormData] = useState({
         description: '',
         value: 0,
@@ -280,23 +278,10 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                     </div>
 
                     {/* Item da obra — buscável. Sugere primeiro os itens típicos da etapa.
-                        No Free vira uma faixa com cadeado (o item é do plano ObraPro). */}
+                        Anotar o item é GRÁTIS pra todo mundo (o que é pago é a ANÁLISE
+                        previsto × real, na aba "Por item" do orçamento). */}
                     <div className="space-y-2">
                         <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Item (o que comprei)</label>
-                        {!ent.canUseItens ? (
-                            <button
-                                type="button"
-                                onClick={() => openUpgrade('itens')}
-                                className="w-full flex items-center gap-3 px-4 py-3 bg-slate-800/40 border-2 border-dashed border-slate-700 rounded-2xl text-left hover:border-amber-500/50 transition-colors"
-                            >
-                                <i className="fa-solid fa-lock text-amber-400 text-sm shrink-0"></i>
-                                <span className="min-w-0 flex-1">
-                                    <span className="block text-white font-bold text-sm">Saiba no que você mais gasta</span>
-                                    <span className="block text-slate-500 text-[11px]">Cimento, areia, frete... — faz parte do ObraPro</span>
-                                </span>
-                                <i className="fa-solid fa-chevron-right text-slate-600 text-xs shrink-0"></i>
-                            </button>
-                        ) : (
                         <div className="relative">
                             <div className="relative">
                                 <input
@@ -374,10 +359,7 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                                 </div>
                             )}
                         </div>
-                        )}
-                        {ent.canUseItens && (
-                            <p className="text-[10px] text-slate-500 ml-3">Opcional — ajuda a ver no que você mais gasta.</p>
-                        )}
+                        <p className="text-[10px] text-slate-500 ml-3">Opcional — ajuda a ver no que você mais gasta.</p>
                     </div>
 
                     {investors.length > 0 && (

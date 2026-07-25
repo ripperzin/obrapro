@@ -153,9 +153,9 @@ const NovoClienteForm: React.FC<{ open: boolean; setOpen: (v: boolean) => void; 
                 <input className={inCls} placeholder="Telefone (opcional)" value={phone} onChange={e => setPhone(e.target.value)} />
                 <input className={inCls} placeholder="Senha * (mín. 6)" value={password} onChange={e => setPassword(e.target.value)} />
                 <select className={inCls} value={plan} onChange={e => setPlan(e.target.value)}>
-                    <option value="free">Plano Free</option>
-                    <option value="pro">Plano ObraPro</option>
-                    <option value="business">Plano Business</option>
+                    <option value="free">Plano Grátis</option>
+                    <option value="pro">Plano Completo</option>
+                    <option value="business">Plano Construtora</option>
                 </select>
             </div>
             <p className="text-[11px] text-slate-500">* Login, e-mail e senha são obrigatórios. O cliente entra pelo <b>login</b> ou pelo e-mail.</p>
@@ -208,7 +208,7 @@ const OwnerPanel: React.FC = () => {
 
     const trocarPlano = (c: Cliente, plan: string) => { if (plan !== c.plan) acao('set_plan', { userId: c.id, plan }, c.id); };
     const darCortesia = (c: Cliente) => {
-        const dias = window.prompt(`Quantos dias de ObraPro grátis dar para ${c.full_name || c.email}?`, '15');
+        const dias = window.prompt(`Quantos dias de Completo grátis dar para ${c.full_name || c.email}?`, '15');
         if (dias === null) return;
         const n = parseInt(dias);
         if (!(n > 0)) { alert('Informe um número de dias maior que zero.'); return; }
@@ -338,9 +338,9 @@ const OwnerPanel: React.FC = () => {
                                             onChange={e => trocarPlano(c, e.target.value)}
                                             className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-xs font-bold outline-none focus:border-blue-500"
                                         >
-                                            <option value="free">Free</option>
-                                            <option value="pro">ObraPro</option>
-                                            <option value="business">Business</option>
+                                            <option value="free">Grátis</option>
+                                            <option value="pro">Completo</option>
+                                            <option value="business">Construtora</option>
                                         </select>
 
                                         {c.trial_until

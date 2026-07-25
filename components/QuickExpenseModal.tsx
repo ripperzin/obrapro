@@ -8,7 +8,6 @@ import { supabase } from '../supabaseClient';
 import { ReceiptScanner } from './ReceiptScanner';
 import { ReceiptData } from '../lib/gemini';
 import { getSignedUrl, uploadFile } from '../utils/storage';
-import { usePlan } from './PlanProvider';
 
 interface QuickExpenseModalProps {
     isOpen: boolean;
@@ -47,8 +46,6 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [attachments, setAttachments] = useState<string[]>([]);
     const [originalText, setOriginalText] = useState(initialOriginalText);
-
-    const { ent, openUpgrade } = usePlan();
 
     // Categories State
     const [macros, setMacros] = useState<MacroOption[]>([]);
@@ -235,9 +232,8 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             attachments, // New array
             attachmentUrl: attachments.length > 0 ? attachments[0] : undefined, // Legacy fallback sync
             macroId: finalMacroId,
-            // matchCategories chuta um item a partir do texto; no Free o item
-            // não é do plano, então não vai junto nem por esse caminho.
-            itemId: (ent.canUseItens && selectedItemId) || undefined
+            // Anotar item é grátis pra todos — o item vai junto sempre que escolhido.
+            itemId: selectedItemId || undefined
         });
         onClose();
     };
@@ -357,33 +353,22 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                                 ))}
                             </select>
                         </div>
-                        {/* Item é do plano ObraPro — no Free vira a vitrine com cadeado. */}
+                        {/* Anotar o item é grátis pra todos (a análise previsto × real é paga). */}
                         <div className="space-y-2">
                             <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
                                 Item
                             </label>
-                            {ent.canUseItens ? (
-                                <select
-                                    value={selectedItemId}
-                                    onChange={e => setSelectedItemId(e.target.value)}
-                                    disabled={loadingCategories}
-                                    className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none font-bold text-white text-xs appearance-none cursor-pointer disabled:opacity-50"
-                                >
-                                    <option value="">Sem item</option>
-                                    {items.map(it => (
-                                        <option key={it.id} value={it.id}>{it.name}</option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <button
-                                    type="button"
-                                    onClick={() => openUpgrade('itens')}
-                                    className="w-full px-4 py-3 bg-slate-800/40 border-2 border-dashed border-slate-700 rounded-2xl text-left flex items-center gap-2 hover:border-amber-500/50 transition-colors"
-                                >
-                                    <i className="fa-solid fa-lock text-amber-400 text-xs shrink-0"></i>
-                                    <span className="font-bold text-slate-300 text-xs truncate">Faz parte do ObraPro</span>
-                                </button>
-                            )}
+                            <select
+                                value={selectedItemId}
+                                onChange={e => setSelectedItemId(e.target.value)}
+                                disabled={loadingCategories}
+                                className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none font-bold text-white text-xs appearance-none cursor-pointer disabled:opacity-50"
+                            >
+                                <option value="">Sem item</option>
+                                {items.map(it => (
+                                    <option key={it.id} value={it.id}>{it.name}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 

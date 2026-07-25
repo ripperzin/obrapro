@@ -54,9 +54,9 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
           {role === UserRole.ADMIN && <NavItem id="owner" icon="fa-chart-line" label="Negócio" />}
         </nav>
 
-        {/* Selo do plano. 'business' é etiqueta interna (admin), não um plano
-            de venda — nesse caso não mostra nada em vez de escrever "Business". */}
-        {ent.plan !== 'business' && (
+        {/* Selo do plano. O dono do app (admin) não tem "plano de venda", então
+            pra ele não mostramos nada; o cliente vê o nome do plano dele. */}
+        {role !== UserRole.ADMIN && (
           <div className="pt-4 border-t border-slate-800 space-y-2">
             <div className="flex items-center justify-between px-4">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">
@@ -71,7 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
                 onClick={() => openUpgrade('geral')}
                 className="w-full px-4 py-2.5 bg-amber-500/10 border border-amber-500/40 text-amber-400 rounded-xl font-black text-xs hover:bg-amber-500/20 transition whitespace-nowrap"
               >
-                Conhecer o ObraPro
+                Conhecer os planos
               </button>
             )}
           </div>

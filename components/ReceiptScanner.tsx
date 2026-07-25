@@ -62,10 +62,10 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onScanComplete }
                         Scanner Inteligente
                     </h3>
                     <p className="text-[10px] text-slate-400 font-medium max-w-[220px] mx-auto leading-relaxed text-center">
-                        Fotografe o comprovante e o gasto se lança sozinho. Faz parte do <b className="text-amber-400">ObraPro</b>.
+                        Escaneie a nota e o ObraPro preenche o gasto pra você revisar. Faz parte do <b className="text-amber-400">Completo</b>.
                     </p>
                     <span className="text-[10px] font-black uppercase tracking-wide bg-amber-500/15 text-amber-400 px-3 py-1.5 rounded-full">
-                        Conhecer o ObraPro
+                        Conhecer os planos
                     </span>
                 </div>
             </button>

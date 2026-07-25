@@ -8,7 +8,7 @@ import UpgradeModal, { UpgradeFeature } from './UpgradeModal';
  *
  * Qualquer tela faz:
  *   const { ent, openUpgrade } = usePlan();
- *   if (!ent.canUseItens) return <botão com cadeado onClick={() => openUpgrade('itens')} />
+ *   if (!ent.canAnalyzeItens) return <botão com cadeado onClick={() => openUpgrade('itens')} />
  *
  * Assim nenhuma tela precisa receber o plano por prop nem montar o modal.
  */
