@@ -1981,7 +1981,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
 
 
-            {/* Navegação de etapa (mobile) — avançar/voltar sem depender do stepper horizontal */}
+            {/* Navegação de etapa (mobile) — avançar/voltar. Só gestor/dono; o
+                apontador não avança etapa. */}
+            {isAdmin && (
             <div className="md:hidden flex items-center justify-between gap-2 mb-6">
               {(() => {
                 // Usa o índice por FAIXA (igual ao stepper do desktop) — não exige
@@ -2012,6 +2014,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 );
               })()}
             </div>
+            )}
 
             {/* Cronograma de Obra - Opção Visual com Fotos */}
             <div ref={scrollContainerRef} className="glass rounded-2xl p-3 md:p-6 border border-slate-700 overflow-x-auto">
@@ -2132,6 +2135,12 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                           id={isCurrent ? 'current-stage-indicator' : undefined}
                           disabled={false}
                           onClick={() => {
+                            // Apontador não avança/volta etapa (isso é do gestor/dono);
+                            // pra ele o clique só abre as fotos da etapa.
+                            if (!isAdmin) {
+                              setEvidenceModal({ isOpen: true, stage, evidence });
+                              return;
+                            }
                             if (isCurrent) {
                               // Current stage - open evidence modal for editing
                               setEvidenceModal({ isOpen: true, stage, evidence });
