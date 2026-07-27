@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
         // Cria só a CONTA (login/senha). As obras e os cargos o Dono distribui
         // depois, no card da equipe (seletor por obra). Equipe é do Construtora.
         if (action === "create_member") {
-            const login = String(args.login || "").trim();
+            let login = String(args.login || "").trim();
             const password = String(args.password || "");
             const full_name = String(args.fullName || "").trim();
             if (!LOGIN_RE.test(login)) return json({ error: "Login inválido (letras, números, ponto, hífen ou _; mín. 3)." }, 400);
@@ -101,9 +101,19 @@ Deno.serve(async (req) => {
             // Trava de plano no servidor: equipe é do Construtora (não só o front esconde).
             if (!isAdmin && callerPlan !== "business") return json({ error: "A equipe faz parte do plano Construtora." }, 403);
 
-            // Login é único (case-insensitive) — checa antes de criar a conta.
-            const { data: jaExiste } = await admin.from("profiles").select("id").ilike("login", login).maybeSingle();
-            if (jaExiste) return json({ error: "Esse login já está em uso. Escolha outro." }, 400);
+            // O login é o "usuário" pra entrar (apelido) — precisa ser único no
+            // sistema todo. O NOME pode repetir; se o login pedido já existe,
+            // achamos um livre sozinho (joao -> joao2 -> joao3...) e devolvemos qual ficou.
+            let finalLogin = login;
+            let n = 1;
+            while (true) {
+                const { data: taken } = await admin.from("profiles").select("id").ilike("login", finalLogin).maybeSingle();
+                if (!taken) break;
+                n++;
+                finalLogin = `${login}${n}`;
+                if (n > 99) return json({ error: "Muitos logins parecidos já existem. Escolha outro." }, 400);
+            }
+            login = finalLogin;
 
             // O funcionário loga só pelo apelido; geramos um e-mail interno (ele nunca vê).
             const email = `${login.toLowerCase()}@equipe.obrapro.app`;
@@ -126,7 +136,7 @@ Deno.serve(async (req) => {
             }
             if (uErr) { await admin.auth.admin.deleteUser(uid); return json({ error: uErr.message }, 400); }
 
-            return json({ ok: true, id: uid });
+            return json({ ok: true, id: uid, login });
         }
 
         // ---- o Dono reseta a senha de um funcionário dele --------------------

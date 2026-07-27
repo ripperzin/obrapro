@@ -295,7 +295,13 @@ const NovoFuncionario: React.FC<{ onClose: () => void; onCriado: (id?: string) =
     if (senha.length < 6) { setErro('A senha precisa de ao menos 6 caracteres.'); return; }
     setBusy(true);
     try {
-      const data = await invokeTeam('create_member', { login: login.trim(), password: senha, fullName: nome.trim() });
+      const pedido = login.trim();
+      const data = await invokeTeam('create_member', { login: pedido, password: senha, fullName: nome.trim() });
+      // O login precisa ser único; se o pedido já existia, o servidor achou um
+      // livre (joao -> joao2). Avisa qual ficou pra o Dono passar certo.
+      if (data?.login && String(data.login).toLowerCase() !== pedido.toLowerCase()) {
+        alert(`O login "${pedido}" já existia. Criei como "${data.login}". A pessoa entra com "${data.login}".`);
+      }
       onCriado(data?.id);
     } catch (e: any) {
       setErro(e.message);
