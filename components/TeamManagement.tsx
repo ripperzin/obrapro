@@ -184,7 +184,7 @@ const TeamManagement: React.FC<Props> = ({ projects }) => {
                             onClick={() => mudarCargo(m, p.id, op)}
                             className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors ${cor}`}
                           >
-                            {op === 'fora' ? 'Fora' : CARGO_LABEL[op as Cargo]}
+                            {op === 'fora' ? 'Não entra' : CARGO_LABEL[op as Cargo]}
                           </button>
                         );
                       })}

@@ -89,6 +89,8 @@ Deno.serve(async (req) => {
         }
 
         // ---- criar o login do funcionário (Admin API) e prendê-lo a uma obra --
+        // (a pessoa entra numa obra; pra colocar em mais obras, o card da equipe
+        //  já tem o seletor por obra.)
         if (action === "create_member") {
             const login = String(args.login || "").trim();
             const password = String(args.password || "");
