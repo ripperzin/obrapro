@@ -219,7 +219,15 @@ const UpgradeModal: React.FC<Props> = ({ feature, onClose, currentPlan }) => {
 
         {/* Os 3 planos, lado a lado (empilhados no celular) */}
         <div className="p-4 space-y-3">
-          {PLANOS.map(p => {
+          {[...PLANOS]
+            .sort((a, b) => {
+              // Recomendado sempre no topo; o resto por valor decrescente
+              // (planos maiores mais acima, Grátis por último).
+              if (a.id === recomendadoId) return -1;
+              if (b.id === recomendadoId) return 1;
+              return RANK[b.id] - RANK[a.id];
+            })
+            .map(p => {
             const isAtual = p.id === currentCard;
             const destaque = p.id === recomendadoId;
             const podeAssinar = RANK[p.id] > currentRank; // só planos ACIMA do atual
