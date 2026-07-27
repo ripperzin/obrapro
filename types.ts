@@ -400,6 +400,8 @@ export interface AportePlan {
 export interface Project {
   id: string;
   name: string;
+  city?: string;           // Cidade da obra — base de tudo que é regional (comparativos por região)
+  uf?: string;             // UF (2 letras) — enum curto, não texto livre
   startDate?: string;      // Data de início da obra (YYYY-MM-DD)
   deliveryDate?: string;   // Data prevista de entrega (YYYY-MM-DD)
   unitCount: number;

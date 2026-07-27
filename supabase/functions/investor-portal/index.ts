@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
         const [unitsRes, evidenceRes, expensesRes, budgetRes, contributionsRes, acquisitionRes, investorsRes, profitSharesRes, itemsRes] = await Promise.all([
             admin.from("units").select("*").eq("project_id", projectId),
             admin.from("stage_evidences").select("*").eq("project_id", projectId),
-            admin.from("expenses").select("*").eq("project_id", projectId),
+            admin.from("expenses").select("*").eq("project_id", projectId).is("deleted_at", null),
             admin.from("project_budgets").select("*").eq("project_id", projectId).maybeSingle(),
             // Aportes por sócio: valor, data e o investidor (nomes vêm da tabela investors).
             // O `id` é obrigatório: é ele que liga o aporte à parcela do cronograma

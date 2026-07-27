@@ -155,6 +155,8 @@ export const fetchProjects = async (): Promise<Project[]> => {
 
     return projectsData.map((p: any) => ({
         ...p,
+        city: p.city || undefined,
+        uf: p.uf || undefined,
         startDate: p.start_date || null,
         deliveryDate: p.delivery_date || null,
         unitCount: p.unit_count || 0,
@@ -180,7 +182,9 @@ export const fetchProjects = async (): Promise<Project[]> => {
         })).sort((a: any, b: any) =>
             (a.identifier || '').localeCompare(b.identifier || '', 'pt-BR', { numeric: true, sensitivity: 'base' })
         ),
-        expenses: (p.expenses || []).map((e: any) => ({
+        // Despesa apagada = soft delete (deleted_at preenchido). Fica no banco pra
+        // base histórica não ter buraco, mas não aparece em lugar nenhum do app.
+        expenses: (p.expenses || []).filter((e: any) => !e.deleted_at).map((e: any) => ({
             ...e,
             userId: e.user_id,
             userName: e.user_name,

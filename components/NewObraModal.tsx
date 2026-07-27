@@ -15,6 +15,11 @@ interface Props {
     userName?: string;
 }
 
+// UF como lista fechada (enum curto) — não texto livre. É o que amarra a obra a
+// uma região para os comparativos futuros; "SP"/"sp"/"São Paulo" digitados soltos
+// tornariam a base regional inutilizável.
+const UF_LIST = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
+
 // Bloco opcional recolhível — mantém a criação leve, expandindo só o que o usuário quer.
 const Section: React.FC<{
     icon: string;
@@ -47,6 +52,8 @@ const Section: React.FC<{
 const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName }) => {
     const [mode, setMode] = useState<'nova' | 'andamento'>('nova');
     const [name, setName] = useState('');
+    const [city, setCity] = useState('');
+    const [uf, setUf] = useState('');
     const [startDate, setStartDate] = useState('');
     const [deliveryDate, setDeliveryDate] = useState('');
     const [unitTypes, setUnitTypes] = useState<{ quantidade: string; area: string }[]>([{ quantidade: '', area: '' }]);
@@ -161,10 +168,13 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
+        if (!city.trim() || !uf) { alert('Informe a cidade e o estado (UF) da obra.'); return; }
         try {
             setSaving(true);
             const res = await createObra.mutateAsync({
                 name: name.trim(),
+                city: city.trim(),
+                uf,
                 startDate: startDate || undefined,
                 deliveryDate: deliveryDate || undefined,
                 unitTypes: unitTypes.map(t => ({ quantidade: parseInt(t.quantidade) || 0, area: parseFloat(t.area) || 0 })),
@@ -225,6 +235,25 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
                         <input required type="text" value={name} onChange={e => setName(e.target.value)}
                             placeholder="Ex: Residencial Aurora"
                             className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white shadow-sm text-sm placeholder-slate-500" />
+                    </div>
+
+                    {/* Cidade/UF — onde a obra fica. Usado para comparar sua obra com
+                        outras da mesma região no futuro. */}
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="col-span-2 space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Cidade</label>
+                            <input required type="text" value={city} onChange={e => setCity(e.target.value)}
+                                placeholder="Ex: Campo Grande"
+                                className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white shadow-sm text-sm placeholder-slate-500" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">UF</label>
+                            <select required value={uf} onChange={e => setUf(e.target.value)}
+                                className="w-full px-3 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white shadow-sm text-sm cursor-pointer">
+                                <option value="">—</option>
+                                {UF_LIST.map(u => <option key={u} value={u}>{u}</option>)}
+                            </select>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">

@@ -12,6 +12,8 @@ export interface UnitType {
 
 export interface CreateObraInput {
     name: string;
+    city?: string;       // cidade da obra (base dos comparativos regionais)
+    uf?: string;         // UF (2 letras)
     startDate?: string;
     deliveryDate?: string;
     unitTypes: UnitType[]; // pode vir vazio (unidades opcionais)
@@ -54,6 +56,8 @@ export const useCreateObra = () => {
             const { error: pErr } = await supabase.from('projects').insert([{
                 id: projectId,
                 name: input.name,
+                city: input.city || null,
+                uf: input.uf || null,
                 start_date: input.startDate || null,
                 delivery_date: input.deliveryDate || null,
                 unit_count: totalUnits,

@@ -19,6 +19,8 @@ export interface CreateProjectInput {
     name: string;
     userId: string;
     userName: string;
+    city?: string | null;
+    uf?: string | null;
     startDate?: string | null;
     deliveryDate?: string | null;
     unitCount?: number;
@@ -37,6 +39,8 @@ export async function createProjectMutationFn(projectData: CreateProjectInput) {
     const { data, error } = await supabase.from('projects').insert([{
         id: id,
         name: projectData.name,
+        city: projectData.city || null,
+        uf: projectData.uf || null,
         start_date: projectData.startDate || null,
         delivery_date: projectData.deliveryDate || null,
         unit_count: projectData.unitCount,
@@ -77,6 +81,8 @@ export async function updateProjectMutationFn(input: UpdateProjectInput) {
     // 1. Basic Fields Update
     const supabaseUpdates: any = {};
     if (updates.name !== undefined) supabaseUpdates.name = updates.name;
+    if (updates.city !== undefined) supabaseUpdates.city = updates.city || null;
+    if (updates.uf !== undefined) supabaseUpdates.uf = updates.uf || null;
     // '' || null: coluna de data recusa string vazia ("invalid input syntax for type
     // date"). Limpar a data no formulário manda '' — sem isto, ou estoura ou (se o
     // chamador trocar '' por undefined) o campo nunca chega aqui e a data nunca sai.
@@ -123,7 +129,8 @@ export async function updateProjectMutationFn(input: UpdateProjectInput) {
         const deletedExpenseIds = currentExpenseIds.filter(eid => !newExpenseIds.includes(eid));
 
         if (deletedExpenseIds.length > 0) {
-            await supabase.from('expenses').delete().in('id', deletedExpenseIds);
+            // Soft delete: marca como apagada em vez de sumir (base histórica sem buraco).
+            await supabase.from('expenses').update({ deleted_at: new Date().toISOString() }).in('id', deletedExpenseIds);
         }
 
         if (updates.expenses.length > 0) {
@@ -278,7 +285,9 @@ export interface DeleteExpenseInput {
 }
 
 export async function deleteExpenseMutationFn({ projectId, expenseId }: DeleteExpenseInput) {
-    const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
+    // Soft delete: a despesa não some do banco, só ganha deleted_at e some do app.
+    // A base histórica (preço/item por obra) não pode ter buraco — ver visão de longo prazo.
+    const { error } = await supabase.from('expenses').update({ deleted_at: new Date().toISOString() }).eq('id', expenseId);
     if (error) throw error;
     return { projectId, expenseId };
 }

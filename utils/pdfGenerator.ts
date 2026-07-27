@@ -150,7 +150,7 @@ const fetchData = async (id: string) => {
     const { data: p, error } = await supabase.from('projects').select('*').eq('id', id).single();
     if (error || !p) throw new Error('Projeto não encontrado');
     const { data: units } = await supabase.from('units').select('*').eq('project_id', id);
-    const { data: exps } = await supabase.from('expenses').select('*').eq('project_id', id);
+    const { data: exps } = await supabase.from('expenses').select('*').eq('project_id', id).is('deleted_at', null);
     const { data: acqs } = await supabase.from('acquisition_costs').select('*').eq('project_id', id);
     const { data: evs } = await supabase.from('stage_evidences').select('*').eq('project_id', id);
     const { data: contribs } = await supabase.from('contributions').select('*').eq('project_id', id);

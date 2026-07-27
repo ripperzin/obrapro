@@ -105,6 +105,8 @@ Verifique se cadastrou corretamente (ex: ${senderNumber} ou ${possibleNumbers[1]
         // Mapear para o formato esperado (Project user interface)
         const projects: Project[] = rawProjects.map((p: any) => ({
             ...p,
+            // Soft delete: despesa apagada (deleted_at) não entra em resumo/cálculo.
+            expenses: (p.expenses || []).filter((e: any) => !e.deleted_at),
             diary: p.diary_entries || [],
             budget: p.project_budgets?.[0] || (p.project_budgets as any) || undefined // Tratar array ou objeto
         })) as unknown as Project[]
