@@ -39,7 +39,7 @@ export const PlanProvider: React.FC<{ user: User | null; children: React.ReactNo
   return (
     <PlanContext.Provider value={value}>
       {children}
-      {feature && <UpgradeModal feature={feature} onClose={() => setFeature(null)} />}
+      {feature && <UpgradeModal feature={feature} currentPlan={value.ent.plan} onClose={() => setFeature(null)} />}
     </PlanContext.Provider>
   );
 };

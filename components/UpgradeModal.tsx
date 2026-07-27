@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import { PlanId } from '../types';
 
 // WhatsApp que recebe os pedidos de upgrade (DDI+DDD, só números).
 // Enquanto o checkout do Mercado Pago não existe, o convite abre uma conversa
@@ -82,6 +83,21 @@ const COPY: Record<UpgradeFeature, { titulo: string; frase: string; icon: string
   },
 };
 
+// Cabeçalho quando a pessoa abre a vitrine PELO MENU ('geral'): o texto muda
+// conforme o próximo passo dela — não é sempre o discurso de quem está no Grátis.
+const GERAL_POR_DESTINO: Record<Destaque, { titulo: string; frase: string; icon: string }> = {
+  completo: {
+    titulo: 'Conheça o Completo',
+    frase: 'O Grátis segura uma obra. Suba pro Completo pra detalhar o dinheiro item a item, escanear nota, tirar a marca do relatório e prestar contas pro sócio.',
+    icon: 'fa-helmet-safety',
+  },
+  construtora: {
+    titulo: 'Pronto pra virar empresa?',
+    frase: 'Você já tem o controle do dinheiro no Completo. O Construtora abre a obra pra sua equipe — mestre, gestor e escritório, cada um vendo só o que precisa — com obras ilimitadas e o copiloto de IA.',
+    icon: 'fa-user-plus',
+  },
+};
+
 interface Plano {
   id: Destaque | 'basico';
   nome: string;
@@ -91,6 +107,12 @@ interface Plano {
   itens: string[];
   cta: string | null;      // texto do botão (null = plano grátis, sem CTA)
 }
+
+// Degrau de cada plano (0 = mais baixo). Serve pra saber quem é o plano ATUAL,
+// quem está ACIMA (pode assinar) e quem é o PRÓXIMO passo (recomendado).
+const RANK: Record<Plano['id'], number> = { basico: 0, completo: 1, construtora: 2 };
+// Etiqueta do banco → card da vitrine.
+const PLAN_TO_CARD: Record<PlanId, Plano['id']> = { free: 'basico', pro: 'completo', business: 'construtora' };
 
 const PLANOS: Plano[] = [
   {
@@ -131,10 +153,35 @@ const PLANOS: Plano[] = [
 interface Props {
   feature: UpgradeFeature;
   onClose: () => void;
+  /** Plano que a pessoa já tem hoje. Sem isso, a vitrine assume Grátis. */
+  currentPlan?: PlanId;
 }
 
-const UpgradeModal: React.FC<Props> = ({ feature, onClose }) => {
+const UpgradeModal: React.FC<Props> = ({ feature, onClose, currentPlan }) => {
   const copy = COPY[feature];
+
+  // Onde a pessoa está e qual é o próximo degrau. A vitrine NUNCA oferece o
+  // plano que a pessoa já tem: o recomendado é o degrau do gatilho, mas se ele
+  // for igual ou abaixo do plano atual, sobe pro próximo passo pra cima.
+  const currentCard = currentPlan ? PLAN_TO_CARD[currentPlan] : 'basico';
+  const currentRank = RANK[currentCard];
+  let recRank = RANK[copy.destaque];
+  if (recRank <= currentRank) recRank = currentRank + 1;
+  const recomendadoId = PLANOS.find(p => RANK[p.id] === recRank)?.id ?? null;
+
+  // Cabeçalho: se a pessoa tocou num recurso trancado, fala DAQUELE recurso. Se
+  // veio pelo menu ('geral'), o texto acompanha o próximo passo dela; e quem já
+  // está no topo (Construtora) vê que não há pra onde subir.
+  const header =
+    feature !== 'geral'
+      ? { titulo: copy.titulo, frase: copy.frase, icon: copy.icon }
+      : recomendadoId === 'completo' || recomendadoId === 'construtora'
+      ? GERAL_POR_DESTINO[recomendadoId]
+      : {
+          titulo: 'Você já está no topo',
+          frase: 'O Construtora é o plano mais completo do ObraPro — você já tem tudo liberado.',
+          icon: 'fa-crown',
+        };
 
   const pedir = (p: Plano) => {
     const msg = encodeURIComponent(
@@ -156,7 +203,7 @@ const UpgradeModal: React.FC<Props> = ({ feature, onClose }) => {
         <div className="p-6 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
           <div className="flex items-start justify-between gap-3">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-400 flex items-center justify-center shrink-0">
-              <i className={`fa-solid ${copy.icon} text-xl`}></i>
+              <i className={`fa-solid ${header.icon} text-xl`}></i>
             </div>
             <button
               onClick={onClose}
@@ -166,26 +213,34 @@ const UpgradeModal: React.FC<Props> = ({ feature, onClose }) => {
               <i className="fa-solid fa-xmark"></i>
             </button>
           </div>
-          <h2 className="text-lg font-black text-white mt-4">{copy.titulo}</h2>
-          <p className="text-slate-400 text-sm mt-2 leading-relaxed">{copy.frase}</p>
+          <h2 className="text-lg font-black text-white mt-4">{header.titulo}</h2>
+          <p className="text-slate-400 text-sm mt-2 leading-relaxed">{header.frase}</p>
         </div>
 
         {/* Os 3 planos, lado a lado (empilhados no celular) */}
         <div className="p-4 space-y-3">
           {PLANOS.map(p => {
-            const destaque = copy.destaque === p.id;
+            const isAtual = p.id === currentCard;
+            const destaque = p.id === recomendadoId;
+            const podeAssinar = RANK[p.id] > currentRank; // só planos ACIMA do atual
+            const borda = isAtual
+              ? 'border-emerald-500/50 bg-emerald-500/[0.06]'
+              : destaque
+              ? 'border-amber-500/60 bg-amber-500/[0.06]'
+              : 'border-slate-700 bg-slate-800/40';
             return (
-              <div
-                key={p.id}
-                className={`rounded-2xl border p-5 ${destaque ? 'border-amber-500/60 bg-amber-500/[0.06]' : 'border-slate-700 bg-slate-800/40'}`}
-              >
+              <div key={p.id} className={`rounded-2xl border p-5 ${borda}`}>
                 <div className="flex items-baseline justify-between gap-2">
                   <h3 className="text-white font-black text-base">{p.nome}</h3>
-                  {destaque && (
+                  {isAtual ? (
+                    <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full">
+                      Seu plano atual
+                    </span>
+                  ) : destaque ? (
                     <span className="text-[9px] font-black uppercase tracking-widest bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">
                       Recomendado
                     </span>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="flex items-baseline gap-2 mt-1">
@@ -214,16 +269,23 @@ const UpgradeModal: React.FC<Props> = ({ feature, onClose }) => {
                   ))}
                 </div>
 
-                {p.cta && (
-                  <button
-                    onClick={() => pedir(p)}
-                    className={`w-full mt-4 px-4 py-3 rounded-2xl font-black text-sm transition-colors flex items-center justify-center gap-2 ${
-                      destaque ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'
-                    }`}
-                  >
-                    <i className="fa-brands fa-whatsapp text-base"></i>
-                    {p.cta}
-                  </button>
+                {isAtual ? (
+                  <div className="w-full mt-4 px-4 py-3 rounded-2xl font-black text-sm bg-emerald-500/10 text-emerald-400 flex items-center justify-center gap-2">
+                    <i className="fa-solid fa-check text-base"></i>
+                    Seu plano atual
+                  </div>
+                ) : (
+                  p.cta && podeAssinar && (
+                    <button
+                      onClick={() => pedir(p)}
+                      className={`w-full mt-4 px-4 py-3 rounded-2xl font-black text-sm transition-colors flex items-center justify-center gap-2 ${
+                        destaque ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'
+                      }`}
+                    >
+                      <i className="fa-brands fa-whatsapp text-base"></i>
+                      {p.cta}
+                    </button>
+                  )
                 )}
               </div>
             );
