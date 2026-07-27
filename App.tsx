@@ -23,6 +23,7 @@ const ProjectsDashboard = lazy(() => import('./components/ProjectsDashboard'));
 const ProjectDetail = lazy(() => import('./components/ProjectDetail'));
 const GeneralDashboard = lazy(() => import('./components/GeneralDashboard'));
 const UserManagement = lazy(() => import('./components/UserManagement'));
+const TeamManagement = lazy(() => import('./components/TeamManagement'));
 const OwnerPanel = lazy(() => import('./components/OwnerPanel'));
 const DataExportPanel = lazy(() => import('./components/DataExportPanel'));
 const AuditPage = lazy(() => import('./components/AuditPage'));
@@ -57,7 +58,7 @@ const App: React.FC = () => {
 
   // 0. URL State Initialization
   const initialParams = new URLSearchParams(window.location.search);
-  const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users' | 'audit' | 'owner' | 'export'>((initialParams.get('view') as any) || 'general');
+  const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users' | 'audit' | 'owner' | 'export' | 'team'>((initialParams.get('view') as any) || 'general');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialParams.get('project') || null);
   const mainRef = useRef<HTMLElement | null>(null);
 
@@ -688,6 +689,7 @@ const App: React.FC = () => {
                 {activeTab === 'projects' && (selectedProjectId && selectedProject ? selectedProject.name : 'Obras')}
                 {activeTab === 'general' && selectedProjectId && selectedProject ? selectedProject.name : ''}
                 {activeTab === 'users' && 'Gestão de Usuários'}
+                {activeTab === 'team' && 'Minha equipe'}
                 {activeTab === 'owner' && 'Negócio'}
                 {activeTab === 'export' && 'Meus dados'}
               </h1>
@@ -803,6 +805,12 @@ const App: React.FC = () => {
                 onUpdateDiary={handleUpdateDiary}
                 onDeleteDiary={deleteDiary}
               />
+            )}
+
+            {/* Minha equipe: só no Construtora (canUseMultiusuario). A trava real
+                das escritas é o RLS members_* (só o dono da obra); isto só esconde. */}
+            {activeTab === 'team' && entitlementsFor(currentUser.plan).canUseMultiusuario && (
+              <TeamManagement projects={projects} user={currentUser} />
             )}
 
             {activeTab === 'users' && currentUser.role === UserRole.ADMIN && (

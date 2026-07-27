@@ -3,8 +3,8 @@ import { UserRole } from '../types';
 import { usePlan } from './PlanProvider';
 interface MobileNavProps {
     role: UserRole;
-    activeTab: 'projects' | 'general' | 'users' | 'audit' | 'owner' | 'export';
-    setActiveTab: (tab: 'projects' | 'general' | 'users' | 'audit' | 'owner' | 'export') => void;
+    activeTab: 'projects' | 'general' | 'users' | 'audit' | 'owner' | 'export' | 'team';
+    setActiveTab: (tab: 'projects' | 'general' | 'users' | 'audit' | 'owner' | 'export' | 'team') => void;
     onLogout: () => void;
     onTriggerAI?: () => void;
 }
@@ -31,6 +31,11 @@ const MobileNav: React.FC<MobileNavProps> = ({ role, activeTab, setActiveTab, on
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 px-6 py-2 flex justify-around items-center z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.3)]">
             <NavItem id="general" icon="fa-home" label="Início" />
             <NavItem id="audit" icon="fa-fingerprint" label="Auditoria" />
+
+            {/* Equipe: só no Construtora. */}
+            {ent.canUseMultiusuario && (
+                <NavItem id="team" icon="fa-user-group" label="Equipe" />
+            )}
 
             {role === UserRole.ADMIN && (
                 <NavItem id="users" icon="fa-users" label="Usuários" />
