@@ -16,7 +16,7 @@ import MobileNav from './components/MobileNav';
 import { SyncStatus } from './components/SyncStatus';
 import { PlanProvider } from './components/PlanProvider';
 import { entitlementsFor, effectivePlan } from './hooks/useEntitlements';
-import { canEditProject } from './lib/permissions';
+import { canEditProject, ProjectRole, MyRoles } from './lib/permissions';
 
 // Pages (Lazy - Deferred until after login)
 const ProjectsDashboard = lazy(() => import('./components/ProjectsDashboard'));
@@ -50,6 +50,9 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true); // Nova flag de carregamento
   const [isBlocked, setIsBlocked] = useState(false);    // conta suspensa pelo dono do app
+  // Cargo do usuário logado em cada obra (project_members.role). Alimenta o
+  // controle de "apontador vê só o essencial" — ver lib/permissions.
+  const [myRoles, setMyRoles] = useState<MyRoles>({});
   const [debugError, setDebugError] = useState<string | null>(null);
   // Qual usuário JÁ teve o perfil carregado. O Supabase re-emite SIGNED_IN a cada
   // foco de aba; sem isso, o app remontava a árvore inteira (fechava modal, perdia
@@ -327,6 +330,24 @@ const App: React.FC = () => {
     setSession(null);
     setSelectedProjectId(null);
   };
+
+  // Carrega o cargo do usuário em cada obra (project_members.role). Sem isto o
+  // app não sabe quem é apontador. A regra members_select do banco já libera a
+  // pessoa a ler as próprias linhas. Cargo desconhecido = vê tudo (owner/gestor).
+  useEffect(() => {
+    const uid = currentUser?.id;
+    if (!uid) { setMyRoles({}); return; }
+    let cancel = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('project_members').select('project_id, role').eq('user_id', uid);
+      if (cancel || error || !data) return;
+      const map: MyRoles = {};
+      for (const r of data as { project_id: string; role: string }[]) map[r.project_id] = r.role as ProjectRole;
+      setMyRoles(map);
+    })();
+    return () => { cancel = true; };
+  }, [currentUser?.id]);
 
   const addProject = async (project: Omit<Project, 'id' | 'units' | 'expenses' | 'logs'>) => {
     try {
@@ -754,6 +775,7 @@ const App: React.FC = () => {
                 <ProjectDetail
                   project={selectedProject!}
                   user={currentUser}
+                  myRole={myRoles[selectedProject!.id]}
                   onUpdate={updateProjectHandler}
                   onDeleteUnit={deleteUnit}
                   onDeleteExpense={deleteExpense}
@@ -786,6 +808,7 @@ const App: React.FC = () => {
                 onDelete={deleteProject}
                 onAddExpense={addExpenseToProject}
                 isAdmin={canEditProject(currentUser)}
+                myRoles={myRoles}
               />
             )}
 
@@ -797,6 +820,7 @@ const App: React.FC = () => {
               <ProjectDetail
                 project={selectedProject}
                 user={currentUser}
+                myRole={myRoles[selectedProject.id]}
                 onUpdate={updateProjectHandler}
                 onDeleteUnit={deleteUnit}
                 onDeleteExpense={deleteExpense}

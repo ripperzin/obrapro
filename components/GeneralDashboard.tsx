@@ -22,6 +22,7 @@ import QuickExpenseModal from './QuickExpenseModal';
 import SwipeableProjectItem from './SwipeableProjectItem';
 import NewObraModal from './NewObraModal';
 import { usePlan } from './PlanProvider';
+import { MyRoles } from '../lib/permissions';
 
 interface GeneralDashboardProps {
    projects: Project[];
@@ -33,6 +34,7 @@ interface GeneralDashboardProps {
    onDelete?: (id: string) => void;
    onAddExpense?: (projectId: string, expense: Omit<Expense, 'id' | 'userId' | 'userName'>) => void;
    isAdmin?: boolean;
+   myRoles?: MyRoles; // cargo por obra — pra esconder dinheiro do apontador
 }
 
 const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
@@ -44,7 +46,8 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    onUpdate,
    onDelete,
    onAddExpense,
-   isAdmin = false
+   isAdmin = false,
+   myRoles
 }) => {
    const [showModal, setShowModal] = useState(false);
    const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -56,6 +59,9 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    // Obras arquivadas saem da lista ativa e não entram nos números do portfólio.
    const activeProjects = projects.filter(p => !p.archived);
    const archivedProjects = projects.filter(p => p.archived);
+   // Esconde o dinheiro do portfólio só se a pessoa é APONTADOR em TODAS as obras
+   // visíveis (não penaliza quem é dono/gestor em alguma). Cargo desconhecido = vê.
+   const hideMoney = activeProjects.length > 0 && activeProjects.every(p => myRoles?.[p.id] === 'apontador');
    const visibleProjects = showArchived ? archivedProjects : activeProjects;
    // Vagas de obra ativa acabaram? O botão continua lá, com cadeado.
    const obrasCheias = activeProjects.length >= ent.maxObrasAtivas;
@@ -332,6 +338,8 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   </div>
                </div>
 
+               {/* Dinheiro do portfólio — some pro apontador (só as contagens ficam). */}
+               {!hideMoney && (
                <div className="grid grid-cols-2 gap-2">
                   <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1 relative overflow-hidden">
                      <i className="fa-solid fa-money-bill-trend-up text-green-400 text-2xl mb-1"></i>
@@ -346,10 +354,12 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                      {portfolioMargem !== null && <p className="text-slate-600 text-[9px] font-bold">margem {portfolioMargem.toFixed(0)}%</p>}
                   </div>
                </div>
+               )}
             </div>
          </div>
 
-         {isAdmin && onAddExpense && projects.length > 0 && (
+         {/* Adicionar despesa: o apontador PODE lançar (é o que ele faz). */}
+         {onAddExpense && projects.length > 0 && (
             <div className="mt-8 mb-6 block md:hidden">
                <button
                   onClick={openExpenseModal}
@@ -364,7 +374,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
          <div className="space-y-4 block md:hidden">
             <div className="flex justify-between items-center">
                <h3 className="text-slate-400 font-bold text-xs uppercase tracking-widest">{showArchived ? 'Arquivadas' : 'Seus Projetos'}</h3>
-               {isAdmin && onAddProject && !showArchived && (
+               {isAdmin && !hideMoney && onAddProject && !showArchived && (
                   <button
                      onClick={() => openAddModal()}
                      className="px-4 py-2 bg-blue-600/20 border border-blue-500/40 rounded-xl text-blue-400 flex items-center gap-2 hover:bg-blue-600/30 transition-all active:scale-95"
@@ -432,6 +442,9 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Estoque</p>
                      </div>
 
+                     {/* Dinheiro do portfólio — some pro apontador (contagens ficam). */}
+                     {!hideMoney && (
+                     <>
                      {/* Faturado */}
                      <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-green-500/5 border border-green-500/10 hover:bg-green-500/10 transition-colors group flex-1 h-36">
                         <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center mb-1">
@@ -454,6 +467,8 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                            {portfolioMargem !== null && <p className="text-slate-600 text-[9px] font-bold mt-0.5">margem {portfolioMargem.toFixed(0)}%</p>}
                         </div>
                      </div>
+                     </>
+                     )}
                   </div>
                </div>
             </div>
@@ -475,7 +490,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                            {showArchived ? 'Ver ativas' : `Arquivadas (${archivedProjects.length})`}
                         </button>
                      )}
-                     {onAddProject && !showArchived && (
+                     {!hideMoney && onAddProject && !showArchived && (
                         <button
                            onClick={openAddModal}
                            className="px-8 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 hover:-translate-y-2 active:scale-95 transition-all shadow-lg shadow-blue-600/30 font-black flex items-center gap-2 border border-blue-400/50"
@@ -515,7 +530,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                               })()}
                               <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60"></div>
                               <div className="absolute top-4 right-4 flex gap-2">
-                                 {isAdmin && (
+                                 {isAdmin && !hideMoney && (
                                     <>
                                        {!p.archived && (
                                           <button onClick={(e) => openEditModal(e, p)} className="w-8 h-8 rounded-lg bg-slate-900/80 backdrop-blur-md text-blue-400 flex items-center justify-center border border-slate-700 hover:bg-blue-600 hover:text-white transition" title="Editar">

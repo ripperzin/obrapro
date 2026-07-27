@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useLayoutEffect } from 'react';
 import { Project, User, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense, ProjectMacro, ProjectItem, TemplateStageItem, getProjectStages, getStageName, getStageIndex } from '../types';
-import { canEditProject } from '../lib/permissions';
+import { canEditProject, ProjectRole } from '../lib/permissions';
 import { useInflation } from '../hooks/useInflation';
 import { PROGRESS_STAGES } from '../constants';
 import { formatCurrency, formatCurrencyAbbrev, generateId, calculateMonthsBetween } from '../utils';
@@ -38,6 +38,7 @@ type ObraTab = 'info' | 'units' | 'expenses' | 'socios' | 'budget' | 'documents'
 interface ProjectDetailProps {
   project: Project;
   user: User;
+  myRole?: ProjectRole; // cargo do usuário NESTA obra (owner/gestor/apontador)
   onUpdate: (id: string, updates: Partial<Project>, logMsg?: string) => Promise<void>;
   onDeleteUnit: (projectId: string, unitId: string) => void;
   onDeleteExpense: (projectId: string, expenseId: string) => void;
@@ -631,12 +632,13 @@ const UnitsSection: React.FC<{
 const ExpensesSection: React.FC<{
   project: Project,
   user: User,
+  myRole?: ProjectRole,
   onAddExpense: (e: any) => void,
   onUpdate: (e: Expense[]) => void,
   logChange: (a: string, f: string, o: string, n: string) => void,
   onDeleteExpense: (id: string) => void,
   initialAction?: string | null
-}> = ({ project, user, onAddExpense, onUpdate, logChange, onDeleteExpense, initialAction }) => {
+}> = ({ project, user, myRole, onAddExpense, onUpdate, logChange, onDeleteExpense, initialAction }) => {
   const [showAdd, setShowAdd] = useState(initialAction === 'new-expense');
   const [showImport, setShowImport] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
@@ -792,7 +794,10 @@ const ExpensesSection: React.FC<{
     fetchItems();
   }, [project.id, itemsRefreshKey]);
 
-  const isAdmin = canEditProject(user, project);
+  const isAdmin = canEditProject(user, project, myRole);
+  // Apontador: LANÇA despesa, mas não vê dinheiro (valores/totais) nem edita.
+  const canSeeMoney = myRole !== 'apontador';
+  const canLancar = true; // todo membro lança (inclui apontador)
 
   // Cria um ITEM na obra (lista plana global) ao lançar despesa, sem sair do modal.
   // Dedupe por nome (ignora maiúsculas/acentos) — reaproveita o existente se já houver.
@@ -860,14 +865,20 @@ const ExpensesSection: React.FC<{
           <i className="fa-solid fa-wallet text-green-400"></i>
           Fluxo de Despesas
         </h3>
-        {isAdmin && (
+        {canLancar && (
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowImport(true)} className="bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-full font-black text-sm hover:border-emerald-500 hover:text-white transition flex items-center gap-2">
-              <i className="fa-solid fa-file-import text-emerald-400"></i> <span className="hidden sm:inline">Importar planilha</span>
-            </button>
-            <button onClick={handleExportExcel} disabled={sortedExpenses.length === 0} title={sortedExpenses.length === 0 ? 'Nenhuma despesa para exportar' : 'Baixar despesas em Excel'} className="bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-full font-black text-sm hover:border-emerald-500 hover:text-white transition flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-slate-700 disabled:hover:text-slate-200">
-              <i className="fa-solid fa-file-excel text-emerald-400"></i> <span className="hidden sm:inline">Exportar Excel</span>
-            </button>
+            {/* Importar/Exportar são de gestão (dinheiro) — só quem vê dinheiro. */}
+            {isAdmin && (
+              <>
+                <button onClick={() => setShowImport(true)} className="bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-full font-black text-sm hover:border-emerald-500 hover:text-white transition flex items-center gap-2">
+                  <i className="fa-solid fa-file-import text-emerald-400"></i> <span className="hidden sm:inline">Importar planilha</span>
+                </button>
+                <button onClick={handleExportExcel} disabled={sortedExpenses.length === 0} title={sortedExpenses.length === 0 ? 'Nenhuma despesa para exportar' : 'Baixar despesas em Excel'} className="bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-full font-black text-sm hover:border-emerald-500 hover:text-white transition flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-slate-700 disabled:hover:text-slate-200">
+                  <i className="fa-solid fa-file-excel text-emerald-400"></i> <span className="hidden sm:inline">Exportar Excel</span>
+                </button>
+              </>
+            )}
+            {/* Nova Despesa: o apontador PRECISA (é o que ele faz). */}
             <button onClick={() => handleSetShowAdd(true)} className="bg-green-600 text-white px-6 py-3 rounded-full font-black text-sm hover:bg-green-700 transition shadow-lg shadow-green-600/30 flex items-center gap-2">
               <i className="fa-solid fa-plus"></i> Nova Despesa
             </button>
@@ -891,12 +902,14 @@ const ExpensesSection: React.FC<{
         variant="danger"
       />
 
-      {/* Summary Cards */}
+      {/* Summary Cards — o Total (dinheiro) some pro apontador; a contagem fica. */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="glass p-6 rounded-2xl border border-slate-700">
-          <p className="text-[10px] text-slate-500 font-black uppercase mb-1">Total Desembolsado</p>
-          <p className="text-3xl font-black text-white">{formatCurrency(project.expenses.reduce((a, b) => a + b.value, 0))}</p>
-        </div>
+        {canSeeMoney && (
+          <div className="glass p-6 rounded-2xl border border-slate-700">
+            <p className="text-[10px] text-slate-500 font-black uppercase mb-1">Total Desembolsado</p>
+            <p className="text-3xl font-black text-white">{formatCurrency(project.expenses.reduce((a, b) => a + b.value, 0))}</p>
+          </div>
+        )}
         <div className="glass p-6 rounded-2xl border border-slate-700">
           <p className="text-[10px] text-blue-400 font-black uppercase mb-1">Volume de Lançamentos</p>
           <p className="text-3xl font-black text-blue-400">
@@ -1113,6 +1126,7 @@ const ExpensesSection: React.FC<{
                       </div>
                     )}
                   </div>
+                  {/* Valor por nota: o apontador VÊ (ele digita). Só a soma/caixa some. */}
                   <div className="text-right">
                     <div className="text-[10px] uppercase font-bold text-slate-500 mb-2">Valor</div>
                     {isEditing ? (
@@ -1365,6 +1379,7 @@ const ExpensesSection: React.FC<{
 const ProjectDetail: React.FC<ProjectDetailProps> = ({
   project,
   user,
+  myRole,
   onUpdate,
   onDeleteUnit,
   onDeleteExpense: onDeleteExpenseProp,
@@ -1416,8 +1431,17 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
   // Safety patch for potential ghost reference
   const [attachmentManagerId, setAttachmentManagerId] = useState<string | null>(null);
 
-  const isAdmin = canEditProject(user, project);
-  const canSeeUnits = user.canSeeUnits || isAdmin;
+  const isAdmin = canEditProject(user, project, myRole);
+  // Apontador: só o campo (lançar + avançar). Não vê dinheiro nem as abas de
+  // dinheiro (Sócios, Orçamento, Unidades).
+  const canSeeMoney = myRole !== 'apontador';
+  const canSeeUnits = (user.canSeeUnits || isAdmin) && canSeeMoney;
+
+  // Apontador não acessa abas de dinheiro nem pela URL (?tab=socios) — redireciona.
+  useEffect(() => {
+    if (!canSeeMoney && (activeTab === 'socios' || activeTab === 'budget')) setActiveTab('info');
+    if (!canSeeUnits && activeTab === 'units') setActiveTab('info');
+  }, [canSeeMoney, canSeeUnits, activeTab]);
 
   // Cálculos defensivos para dados antigos
   const totalActualExpenses = project.expenses.reduce((acc, curr) => acc + curr.value, 0);
@@ -1817,7 +1841,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
               <span className={`text-xs lg:text-[10px] font-black uppercase tracking-widest ${activeTab === 'info' ? 'text-white' : 'text-slate-400'}`}>Gestão</span>
             </button>
 
-            {/* 2. SÓCIOS — aportes, saldo por sócio, divisão */}
+            {/* 2. SÓCIOS — aportes, saldo por sócio, divisão (dinheiro: some p/ apontador) */}
+            {canSeeMoney && (
             <button
               onClick={() => setActiveTab('socios')}
               className={`h-12 lg:h-24 flex flex-row lg:flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'socios'
@@ -1828,6 +1853,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
               <i className={`fa-solid fa-hand-holding-dollar text-lg md:text-2xl ${activeTab === 'socios' ? 'text-emerald-400' : 'text-slate-500 group-hover:text-emerald-400'}`}></i>
               <span className={`text-[10px] font-black uppercase tracking-widest ${activeTab === 'socios' ? 'text-white' : 'text-slate-400'}`}>Sócios</span>
             </button>
+            )}
 
             {/* 3. DESPESAS — gastos + aquisição */}
             <button
@@ -1855,7 +1881,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
               </button>
             )}
 
-            {/* 5. ORÇAMENTO — por etapa / por item */}
+            {/* 5. ORÇAMENTO — por etapa / por item (dinheiro: some p/ apontador) */}
+            {canSeeMoney && (
             <button
               onClick={() => setActiveTab('budget')}
               className={`h-12 lg:h-24 flex flex-row lg:flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-300 group ${activeTab === 'budget'
@@ -1866,6 +1893,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
               <i className={`fa-solid fa-chart-pie text-lg md:text-2xl ${activeTab === 'budget' ? 'text-purple-400' : 'text-slate-500 group-hover:text-purple-400'}`}></i>
               <span className={`text-[10px] font-black uppercase tracking-widest ${activeTab === 'budget' ? 'text-white' : 'text-slate-400'}`}>Orçamento</span>
             </button>
+            )}
 
             {/* 6. DOCS */}
             <button
@@ -2016,29 +2044,35 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     )
                   )}
 
-                  {/* Compartilhar relatório (link + PDF no mesmo modal) */}
-                  <button
-                    onClick={() => setShowShareModal(true)}
-                    className="px-3 py-1.5 bg-blue-600/20 border border-blue-500/40 text-blue-400 rounded-full text-xs font-bold hover:bg-blue-600 hover:text-white transition-all flex items-center gap-2"
-                    title="Compartilhar relatório (link ou PDF)"
-                  >
-                    <i className="fa-solid fa-share-nodes"></i>
-                    <span className="hidden md:inline">Compartilhar</span>
-                  </button>
+                  {/* Compartilhar (relatório tem dinheiro) e Cronograma (Curva S
+                      físico-financeira) revelam dinheiro — somem pro apontador. */}
+                  {canSeeMoney && (
+                    <>
+                      <button
+                        onClick={() => setShowShareModal(true)}
+                        className="px-3 py-1.5 bg-blue-600/20 border border-blue-500/40 text-blue-400 rounded-full text-xs font-bold hover:bg-blue-600 hover:text-white transition-all flex items-center gap-2"
+                        title="Compartilhar relatório (link ou PDF)"
+                      >
+                        <i className="fa-solid fa-share-nodes"></i>
+                        <span className="hidden md:inline">Compartilhar</span>
+                      </button>
 
-                  {/* Schedule (Cronograma) Button */}
-                  <button
-                    onClick={() => setShowSchedule(true)}
-                    className="px-3 py-1.5 bg-blue-600/20 border border-blue-500/40 text-blue-400 rounded-full text-xs font-bold hover:bg-blue-600 hover:text-white transition-all flex items-center gap-2"
-                    title="Ver Cronograma Físico-Financeiro"
-                  >
-                    <i className="fa-solid fa-calendar-days text-blue-400"></i>
-                    <span className="hidden md:inline">Cronograma</span>
-                  </button>
+                      <button
+                        onClick={() => setShowSchedule(true)}
+                        className="px-3 py-1.5 bg-blue-600/20 border border-blue-500/40 text-blue-400 rounded-full text-xs font-bold hover:bg-blue-600 hover:text-white transition-all flex items-center gap-2"
+                        title="Ver Cronograma Físico-Financeiro"
+                      >
+                        <i className="fa-solid fa-calendar-days text-blue-400"></i>
+                        <span className="hidden md:inline">Cronograma</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Gasto × Avanço (prestação de contas) — fundido com a linha do tempo */}
+              {/* Gasto × Avanço (prestação de contas) — dinheiro: some pro apontador.
+                  O avanço da obra (stepper com fotos, abaixo) fica pra ele. */}
+              {canSeeMoney && (
               <div className="mb-8 sticky left-0 w-full">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 truncate">Gasto × Avanço</p>
@@ -2055,6 +2089,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                   <span className="text-[10px] text-slate-500 shrink-0 whitespace-nowrap">Gasto {formatCurrencyAbbrev(finance.gasto)} de {formatCurrencyAbbrev(finance.orcamentoObra)}</span>
                 </div>
               </div>
+              )}
 
               {/* Stepper Visual Fotos — só no desktop (no mobile usamos o card "Etapa Atual") */}
               <div className="hidden md:block relative py-1 md:py-4 w-full md:min-w-[800px] px-4 md:px-10">
@@ -2184,22 +2219,27 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
               </div>
             </div>
 
-            {/* Caixa da obra: Aportado - Gasto - Aquisição = Saldo em caixa */}
-            <div className="mb-8">
-              <CashSummaryCards project={project} />
-            </div>
+            {/* DINHEIRO — some pro apontador (só o campo: avanço + foto acima). */}
+            {canSeeMoney && (
+              <>
+                {/* Caixa da obra: Aportado - Gasto - Aquisição = Saldo em caixa */}
+                <div className="mb-8">
+                  <CashSummaryCards project={project} />
+                </div>
 
-            {/* Últimas movimentações + última atualização da obra */}
-            <RecentMovements project={project} />
+                {/* Últimas movimentações + última atualização da obra */}
+                <RecentMovements project={project} />
 
-            {/* Resultado do Empreendimento (Projetado + Realizado) */}
-            <ResultadoEmpreendimento project={project} />
+                {/* Resultado do Empreendimento (Projetado + Realizado) */}
+                <ResultadoEmpreendimento project={project} />
+              </>
+            )}
           </div>
         )}
 
         {/* ===== ÁREA FINANCEIRO: aportes + despesas + saldo (+ unidades) ===== */}
-        {/* ===== ABA SÓCIOS (aportes, saldo por sócio, divisão) ===== */}
-        {activeTab === 'socios' && (
+        {/* ===== ABA SÓCIOS (aportes, saldo por sócio, divisão) — dinheiro ===== */}
+        {activeTab === 'socios' && canSeeMoney && (
           <div className="animate-fade-in">
             <SociosSection project={project} user={user} onUpdate={onUpdate} />
           </div>
@@ -2208,12 +2248,13 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
         {/* ===== ABA DESPESAS (gastos + aquisição) ===== */}
         {activeTab === 'expenses' && (
           <div className="space-y-8 animate-fade-in">
-            {/* Terreno / Aquisição — seção separada; NÃO entra no gasto×orçamento da obra */}
-            <AquisicaoSection project={project} user={user} />
+            {/* Terreno / Aquisição — dinheiro (some pro apontador) */}
+            {canSeeMoney && <AquisicaoSection project={project} user={user} />}
 
             <ExpensesSection
               project={project}
               user={user}
+              myRole={myRole}
               onAddExpense={handleAddExpense}
               onUpdate={(newExpenses) => onUpdate(project.id, { expenses: newExpenses })}
               onDeleteExpense={onDeleteExpense}
@@ -2238,8 +2279,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
           </div>
         )}
 
-        {/* ===== ABA ORÇAMENTO (por etapa / por item) ===== */}
-        {activeTab === 'budget' && (
+        {/* ===== ABA ORÇAMENTO (por etapa / por item) — dinheiro ===== */}
+        {activeTab === 'budget' && canSeeMoney && (
           <div className="animate-fade-in">
             <BudgetSection
               project={project}
