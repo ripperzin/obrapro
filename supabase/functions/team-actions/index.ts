@@ -46,8 +46,9 @@ Deno.serve(async (req) => {
         // Service role: ignora RLS. Usada pra checar titularidade e executar a ação.
         const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
-        const { data: me } = await admin.from("profiles").select("role").eq("id", caller.id).single();
+        const { data: me } = await admin.from("profiles").select("role, plan").eq("id", caller.id).single();
         const isAdmin = me?.role === "admin";
+        const callerPlan = me?.plan;
 
         // O chamador é o DONO desta obra (ou o dono do app)?
         const ownsProject = async (projectId: string): Promise<boolean> => {
@@ -88,20 +89,17 @@ Deno.serve(async (req) => {
             return json({ ok: true, team: out });
         }
 
-        // ---- criar o login do funcionário (Admin API) e prendê-lo a uma obra --
-        // (a pessoa entra numa obra; pra colocar em mais obras, o card da equipe
-        //  já tem o seletor por obra.)
+        // ---- criar o login do funcionário (Admin API) ------------------------
+        // Cria só a CONTA (login/senha). As obras e os cargos o Dono distribui
+        // depois, no card da equipe (seletor por obra). Equipe é do Construtora.
         if (action === "create_member") {
             const login = String(args.login || "").trim();
             const password = String(args.password || "");
             const full_name = String(args.fullName || "").trim();
-            const projectId = String(args.projectId || "");
-            const cargo = String(args.cargo || "");
             if (!LOGIN_RE.test(login)) return json({ error: "Login inválido (letras, números, ponto, hífen ou _; mín. 3)." }, 400);
             if (password.length < 6) return json({ error: "A senha precisa de ao menos 6 caracteres." }, 400);
-            if (!UUID_RE.test(projectId)) return json({ error: "Obra inválida." }, 400);
-            if (!CARGOS.includes(cargo)) return json({ error: "Cargo inválido." }, 400);
-            if (!(await ownsProject(projectId))) return json({ error: "Acesso negado: só o dono da obra adiciona equipe." }, 403);
+            // Trava de plano no servidor: equipe é do Construtora (não só o front esconde).
+            if (!isAdmin && callerPlan !== "business") return json({ error: "A equipe faz parte do plano Construtora." }, 403);
 
             // Login é único (case-insensitive) — checa antes de criar a conta.
             const { data: jaExiste } = await admin.from("profiles").select("id").ilike("login", login).maybeSingle();
@@ -127,11 +125,6 @@ Deno.serve(async (req) => {
                 return json({ error: "Esse login já está em uso. Escolha outro." }, 400);
             }
             if (uErr) { await admin.auth.admin.deleteUser(uid); return json({ error: uErr.message }, 400); }
-
-            // Prende à obra com o cargo escolhido.
-            const { error: mErr } = await admin.from("project_members")
-                .insert({ project_id: projectId, user_id: uid, role: cargo });
-            if (mErr) { await admin.auth.admin.deleteUser(uid); return json({ error: mErr.message }, 400); }
 
             return json({ ok: true, id: uid });
         }

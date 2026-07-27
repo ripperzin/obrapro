@@ -48,6 +48,12 @@ const TeamManagement: React.FC<Props> = ({ projects }) => {
   const [busy, setBusy] = useState<string | null>(null); // id do funcionário/obra em ação
   const [showForm, setShowForm] = useState(false);
   const [resetId, setResetId] = useState<string | null>(null);
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set()); // cards de obras expandidos
+  const toggleOpen = (id: string) => setOpenIds(prev => {
+    const n = new Set(prev);
+    n.has(id) ? n.delete(id) : n.add(id);
+    return n;
+  });
 
   // Só as obras que o Dono pode gerenciar (hoje = as dele; passo 3 refina por cargo).
   const obras = projects.filter(p => !p.archived);
@@ -161,47 +167,78 @@ const TeamManagement: React.FC<Props> = ({ projects }) => {
               <ResetSenha member={m} onDone={() => setResetId(null)} />
             )}
 
-            {/* Obras: seletor Fora / Apontador / Gestor por obra */}
-            <div className="mt-4 space-y-2">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Obras e cargo</p>
-              {obras.map(p => {
-                const atual = (m.memberships[p.id] as Cargo | undefined) || 'fora';
-                const emAcao = busy === `${m.id}:${p.id}`;
-                return (
-                  <div key={p.id} className="flex items-center justify-between gap-3 bg-slate-900/40 rounded-2xl px-4 py-2.5">
-                    <span className="text-sm text-slate-200 font-bold truncate">{p.name}</span>
-                    <div className={`flex gap-1 shrink-0 ${emAcao ? 'opacity-50 pointer-events-none' : ''}`}>
-                      {(['fora', 'apontador', 'gestor'] as const).map(op => {
-                        const on = atual === op;
-                        const cor = op === 'fora'
-                          ? (on ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-slate-300')
-                          : op === 'apontador'
-                          ? (on ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-blue-300')
-                          : (on ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-emerald-300');
+            {/* Obras e cargo: card que EXPANDE (o Dono distribui as obras com calma) */}
+            {(() => {
+              const nObras = Object.keys(m.memberships).length;
+              const aberto = openIds.has(m.id);
+              return (
+                <div className="mt-4">
+                  <button
+                    onClick={() => toggleOpen(m.id)}
+                    className="w-full flex items-center justify-between gap-3 bg-slate-900/40 hover:bg-slate-900/70 rounded-2xl px-4 py-3 transition-colors"
+                  >
+                    <span className="flex items-center gap-2 text-sm font-bold text-slate-200">
+                      <i className="fa-solid fa-helmet-safety text-slate-500"></i>
+                      Obras e cargo
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className={`text-xs font-bold ${nObras === 0 ? 'text-amber-400' : 'text-slate-400'}`}>
+                        {nObras === 0 ? 'sem obra ainda' : `em ${nObras} obra${nObras > 1 ? 's' : ''}`}
+                      </span>
+                      <i className={`fa-solid fa-chevron-down text-slate-500 text-xs transition-transform ${aberto ? 'rotate-180' : ''}`}></i>
+                    </span>
+                  </button>
+
+                  {aberto && (
+                    <div className="mt-2 space-y-2">
+                      {obras.length === 0 && (
+                        <p className="text-xs text-amber-300 px-1">Crie uma obra primeiro para dar acesso a esta pessoa.</p>
+                      )}
+                      {obras.map(p => {
+                        const atual = (m.memberships[p.id] as Cargo | undefined) || 'fora';
+                        const emAcao = busy === `${m.id}:${p.id}`;
                         return (
-                          <button
-                            key={op}
-                            onClick={() => mudarCargo(m, p.id, op)}
-                            className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors ${cor}`}
-                          >
-                            {op === 'fora' ? 'Não entra' : CARGO_LABEL[op as Cargo]}
-                          </button>
+                          <div key={p.id} className="flex items-center justify-between gap-3 bg-slate-900/40 rounded-2xl px-4 py-2.5">
+                            <span className="text-sm text-slate-200 font-bold truncate">{p.name}</span>
+                            <div className={`flex gap-1 shrink-0 ${emAcao ? 'opacity-50 pointer-events-none' : ''}`}>
+                              {(['fora', 'apontador', 'gestor'] as const).map(op => {
+                                const on = atual === op;
+                                const cor = op === 'fora'
+                                  ? (on ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-slate-300')
+                                  : op === 'apontador'
+                                  ? (on ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-blue-300')
+                                  : (on ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-emerald-300');
+                                return (
+                                  <button
+                                    key={op}
+                                    onClick={() => mudarCargo(m, p.id, op)}
+                                    className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors ${cor}`}
+                                  >
+                                    {op === 'fora' ? 'Não entra' : CARGO_LABEL[op as Cargo]}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
                         );
                       })}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         ))}
       </div>
 
       {showForm && (
         <NovoFuncionario
-          obras={obras}
           onClose={() => setShowForm(false)}
-          onCriado={() => { setShowForm(false); carregar(); }}
+          onCriado={(id?: string) => {
+            setShowForm(false);
+            carregar();
+            if (id) setOpenIds(prev => new Set(prev).add(id)); // já abre pra distribuir obras
+          }}
         />
       )}
     </div>
@@ -243,12 +280,12 @@ const ResetSenha: React.FC<{ member: TeamMember; onDone: () => void }> = ({ memb
 };
 
 // ---- Cadastrar novo funcionário (modal) --------------------------------------
-const NovoFuncionario: React.FC<{ obras: Project[]; onClose: () => void; onCriado: () => void }> = ({ obras, onClose, onCriado }) => {
+// Só a CONTA: nome, login e senha. As obras e os cargos o Dono distribui depois,
+// no card da equipe. Assim não precisa decidir tudo na hora do cadastro.
+const NovoFuncionario: React.FC<{ onClose: () => void; onCriado: (id?: string) => void }> = ({ onClose, onCriado }) => {
   const [nome, setNome] = useState('');
   const [login, setLogin] = useState('');
   const [senha, setSenha] = useState('');
-  const [projectId, setProjectId] = useState(obras[0]?.id || '');
-  const [cargo, setCargo] = useState<Cargo>('apontador');
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -256,11 +293,10 @@ const NovoFuncionario: React.FC<{ obras: Project[]; onClose: () => void; onCriad
     setErro(null);
     if (!/^[a-zA-Z0-9._-]{3,}$/.test(login.trim())) { setErro('Login inválido (letras, números, ponto, hífen ou _; mín. 3).'); return; }
     if (senha.length < 6) { setErro('A senha precisa de ao menos 6 caracteres.'); return; }
-    if (!projectId) { setErro('Escolha a obra.'); return; }
     setBusy(true);
     try {
-      await invokeTeam('create_member', { login: login.trim(), password: senha, fullName: nome.trim(), projectId, cargo });
-      onCriado();
+      const data = await invokeTeam('create_member', { login: login.trim(), password: senha, fullName: nome.trim() });
+      onCriado(data?.id);
     } catch (e: any) {
       setErro(e.message);
     } finally {
@@ -289,27 +325,7 @@ const NovoFuncionario: React.FC<{ obras: Project[]; onClose: () => void; onCriad
             <input type="text" value={senha} onChange={e => setSenha(e.target.value)} placeholder="senha provisória"
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-blue-500" />
           </Campo>
-          <Campo label="Obra">
-            <select value={projectId} onChange={e => setProjectId(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-blue-500">
-              {obras.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
-          </Campo>
-          <Campo label="Cargo nesta obra">
-            <div className="flex gap-2">
-              {(['apontador', 'gestor'] as Cargo[]).map(c => (
-                <button key={c} onClick={() => setCargo(c)}
-                  className={`flex-1 px-4 py-2.5 rounded-xl font-bold text-sm transition-colors ${cargo === c
-                    ? (c === 'gestor' ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white')
-                    : 'bg-slate-800 border border-slate-700 text-slate-400'}`}>
-                  {CARGO_LABEL[c]}
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1.5">
-              {cargo === 'gestor' ? 'Toca a obra toda; não apaga a obra nem mexe na equipe.' : 'Só lança despesa e avança a obra; não vê dinheiro nem sócios.'}
-            </p>
-          </Campo>
+          <p className="text-[11px] text-slate-500">Depois de criar, você escolhe em quais obras a pessoa entra e o cargo em cada uma.</p>
           <button onClick={salvar} disabled={busy}
             className="w-full mt-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-sm disabled:opacity-50">
             {busy ? 'Criando…' : 'Criar funcionário'}
