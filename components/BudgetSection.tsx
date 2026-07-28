@@ -156,6 +156,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
     const [totalEstimated, setTotalEstimated] = useState(0);
     const [expandedMacroId, setExpandedMacroId] = useState<string | null>(null);
     const [isEditing, setIsEditing] = useState(false);
+    const [showCronoMenu, setShowCronoMenu] = useState(false); // menu do "Gerar cronograma" (Automático × pelo ritmo)
     const [editMacros, setEditMacros] = useState<ProjectMacro[]>([]);
     const [viewMode, setViewMode] = useState<'stage' | 'item'>('stage'); // "Por etapa" x "Por item"
     const { ent, openUpgrade } = usePlan();
@@ -1004,14 +1005,61 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                     </h4>
                     {isAdmin && (
                         <div className="flex items-center gap-2">
-                            <button
-                                onClick={handleGenerateSchedule}
-                                title="Distribui as datas das etapas entre o início e a entrega da obra (pelo peso de cada etapa)"
-                                className="text-xs font-bold px-3 py-1 rounded-full border transition bg-blue-600/10 text-blue-400 border-blue-500/40 hover:bg-blue-600 hover:text-white"
-                            >
-                                <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>
-                                Gerar cronograma
-                            </button>
+                            {/* Gerar cronograma vira um MENU: o Automático (pelo peso das
+                                etapas) é o de sempre; o "pelo ritmo de obra concluída" fica
+                                escondido aqui dentro (avançado fora do caminho do básico). */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowCronoMenu(v => !v)}
+                                    title="Gera as datas das etapas entre o início e a entrega da obra"
+                                    className="text-xs font-bold px-3 py-1 rounded-full border transition bg-blue-600/10 text-blue-400 border-blue-500/40 hover:bg-blue-600 hover:text-white flex items-center gap-2"
+                                >
+                                    <i className="fa-solid fa-wand-magic-sparkles"></i>
+                                    Gerar cronograma
+                                    <i className={`fa-solid fa-chevron-down text-[9px] transition-transform ${showCronoMenu ? 'rotate-180' : ''}`}></i>
+                                </button>
+                                {showCronoMenu && (
+                                    <>
+                                        {/* backdrop: fecha ao clicar fora */}
+                                        <div className="fixed inset-0 z-40" onClick={() => setShowCronoMenu(false)} />
+                                        <div className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-50 p-2 animate-fade-in">
+                                            <button
+                                                onClick={() => { setShowCronoMenu(false); handleGenerateSchedule(); }}
+                                                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-slate-800 transition flex items-start gap-3"
+                                            >
+                                                <i className="fa-solid fa-wand-magic-sparkles text-blue-400 mt-0.5"></i>
+                                                <span>
+                                                    <span className="block text-sm font-bold text-white">Automático</span>
+                                                    <span className="block text-[11px] text-slate-500 leading-snug normal-case">Reparte o prazo pelo peso de cada etapa (% de custo).</span>
+                                                </span>
+                                            </button>
+                                            {obrasMoldeRitmo.length > 0 && (
+                                                <div className="mt-1 pt-2 border-t border-slate-800">
+                                                    <div className="px-3 pb-1 flex items-center gap-1.5">
+                                                        <i className="fa-solid fa-graduation-cap text-blue-400 text-[11px]"></i>
+                                                        <span className="text-[10px] font-black text-blue-400 uppercase tracking-wider">Pelo ritmo de uma obra que terminei</span>
+                                                    </div>
+                                                    <p className="px-3 pb-2 text-[11px] text-slate-500 leading-snug normal-case">
+                                                        Usa o <b className="text-slate-400">tempo real</b> que cada etapa levou lá (pelas datas das fotos), não o % de custo.
+                                                    </p>
+                                                    <div className="max-h-40 overflow-y-auto">
+                                                        {obrasMoldeRitmo.map(o => (
+                                                            <button
+                                                                key={o.id}
+                                                                onClick={() => { setShowCronoMenu(false); handleGenerateScheduleFromObra(o.id); }}
+                                                                className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 transition text-sm text-blue-300 font-bold flex items-center gap-2 normal-case"
+                                                            >
+                                                                <i className="fa-solid fa-arrow-turn-down text-[10px] text-slate-600 shrink-0"></i>
+                                                                <span className="truncate">{o.name} <span className="text-[10px] text-slate-500 font-normal">— ritmo real</span></span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                             <button
                                 onClick={() => handleSetIsEditing(!isEditing)}
                                 className={`text-xs font-bold px-3 py-1 rounded-full border transition ${isEditing
@@ -1025,28 +1073,6 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                         </div>
                     )}
                 </div>
-                )}
-
-                {viewMode === 'stage' && isAdmin && obrasMoldeRitmo.length > 0 && (
-                    <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-3 mx-2 space-y-1 animate-fade-in">
-                        <div className="flex items-center gap-2">
-                            <i className="fa-solid fa-graduation-cap text-blue-400 text-xs"></i>
-                            <span className="text-[11px] font-black text-blue-400 uppercase tracking-wider">Cronograma pelo ritmo de uma obra concluída</span>
-                        </div>
-                        <p className="text-[11px] text-slate-500">
-                            Em vez de repartir o prazo pelo <b className="text-slate-400">% de custo</b>, usa o <b className="text-slate-400">tempo real</b> que cada etapa levou numa obra sua já terminada (pelas datas das fotos). O acabamento ganha o prazo real dele.
-                        </p>
-                        <select
-                            value=""
-                            onChange={(e) => { if (e.target.value) handleGenerateScheduleFromObra(e.target.value); }}
-                            className="w-full mt-1 px-3 py-2 bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-xl outline-none font-bold text-blue-400 text-[11px] cursor-pointer"
-                        >
-                            <option value="">↧ gerar cronograma pelo ritmo de uma obra concluída…</option>
-                            {obrasMoldeRitmo.map(o => (
-                                <option key={o.id} value={o.id}>{o.name} — ritmo real</option>
-                            ))}
-                        </select>
-                    </div>
                 )}
 
                 {viewMode === 'stage' ? (
