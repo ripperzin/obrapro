@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Project, User } from '../types';
+import { Project, User, UserRole } from '../types';
 import { supabase } from '../supabaseClient';
+import { entitlementsFor } from '../hooks/useEntitlements';
 
 // "Minha equipe" — a conta do DONO. Ele cria o funcionário (login + senha) e
 // marca em quais das OBRAS dele a pessoa entra, com o cargo em cada uma.
@@ -41,7 +42,7 @@ interface Props {
   user: User;
 }
 
-const TeamManagement: React.FC<Props> = ({ projects }) => {
+const TeamManagement: React.FC<Props> = ({ projects, user }) => {
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +58,11 @@ const TeamManagement: React.FC<Props> = ({ projects }) => {
 
   // Só as obras que o Dono pode gerenciar (hoje = as dele; passo 3 refina por cargo).
   const obras = projects.filter(p => !p.archived);
+
+  // Teto de funcionários do plano (o dono da conta abre esta tela). Admin = sem teto.
+  // A trava REAL é no servidor (team-actions); aqui é só o contador + travar o botão.
+  const maxFunc = user.role === UserRole.ADMIN ? Infinity : entitlementsFor(user.plan).maxFuncionarios;
+  const noTeto = team.length >= maxFunc;
 
   const carregar = async () => {
     try {
@@ -110,15 +116,30 @@ const TeamManagement: React.FC<Props> = ({ projects }) => {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-black text-white">Minha equipe 👷</h3>
-          <p className="text-slate-400 text-sm">Cadastre quem trabalha nas suas obras e diga o que cada um pode.</p>
+          <p className="text-slate-400 text-sm">
+            Cadastre quem trabalha nas suas obras e diga o que cada um pode.
+            {Number.isFinite(maxFunc) && (
+              <span className={`ml-1 font-bold ${noTeto ? 'text-amber-400' : 'text-slate-300'}`}>
+                {team.length} de {maxFunc} funcionários.
+              </span>
+            )}
+          </p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-sm flex items-center gap-2 shrink-0 transition-colors"
+          disabled={noTeto}
+          title={noTeto ? `Limite de ${maxFunc} funcionários atingido` : undefined}
+          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-sm flex items-center gap-2 shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600"
         >
           <i className="fa-solid fa-user-plus"></i> Novo funcionário
         </button>
       </div>
+
+      {noTeto && (
+        <div className="p-4 bg-amber-900/15 border border-amber-500/30 rounded-2xl text-amber-200 text-sm">
+          Você chegou no limite de {maxFunc} funcionários do plano Construtora. Para cadastrar mais, fale com o suporte.
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-red-900/20 border border-red-500/40 rounded-2xl text-red-200 text-sm">{error}</div>

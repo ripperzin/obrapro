@@ -37,6 +37,8 @@ export interface Entitlements {
   canUseInvestidoresIndividuais: boolean;
   /** Equipe: adicionar funcionários (com cargos) na obra. Só no Ilimitado. */
   canUseMultiusuario: boolean;
+  /** Funcionários que a conta pode cadastrar. 0 = plano sem equipe. */
+  maxFuncionarios: number;
   /** Copiloto IA — só no Ilimitado. */
   canUseCopilotoIA: boolean;
 }
@@ -52,6 +54,7 @@ const FREE: Omit<Entitlements, 'plan' | 'isFree'> = {
   canShareFullReport: false,
   canUseInvestidoresIndividuais: false,
   canUseMultiusuario: false,
+  maxFuncionarios: 0,
   canUseCopilotoIA: false,
 };
 
@@ -66,6 +69,7 @@ const PRO: Omit<Entitlements, 'plan' | 'isFree'> = {
   canShareFullReport: true,
   canUseInvestidoresIndividuais: true,
   canUseMultiusuario: false, // Equipe (funcionários) = só no Ilimitado.
+  maxFuncionarios: 0,        // sem equipe no Completo
   canUseCopilotoIA: false,   // Copiloto = só no Ilimitado.
 };
 
@@ -73,6 +77,7 @@ const BUSINESS: Omit<Entitlements, 'plan' | 'isFree'> = {
   ...PRO,
   maxObrasAtivas: Infinity,
   canUseMultiusuario: true, // funcionários com cargos
+  maxFuncionarios: 15,      // teto por conta (espelhado na edge function team-actions)
   canUseCopilotoIA: true,
 };
 

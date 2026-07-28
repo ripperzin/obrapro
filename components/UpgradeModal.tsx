@@ -77,7 +77,7 @@ const COPY: Record<UpgradeFeature, { titulo: string; frase: string; icon: string
   },
   multiusuario: {
     titulo: 'Sua equipe na obra faz parte do Construtora',
-    frase: 'Bote o mestre, o gestor e o escritório na mesma obra — cada pessoa acessa apenas o que precisa.',
+    frase: 'Bote seu gestor e seu apontador na mesma obra — cada um acessa apenas o que precisa.',
     icon: 'fa-user-plus',
     destaque: 'construtora',
   },
@@ -93,7 +93,7 @@ const GERAL_POR_DESTINO: Record<Destaque, { titulo: string; frase: string; icon:
   },
   construtora: {
     titulo: 'Pronto pra virar empresa?',
-    frase: 'Você já tem o controle do dinheiro no Completo. O Construtora abre a obra pra sua equipe — mestre, gestor e escritório, cada um vendo só o que precisa — com obras ilimitadas e o copiloto de IA.',
+    frase: 'Você já tem o controle do dinheiro no Completo. O Construtora abre a obra pra sua equipe — o gestor toca a obra e o apontador lança do canteiro, cada um vendo só o que precisa — com obras ilimitadas e o copiloto de IA.',
     icon: 'fa-user-plus',
   },
 };
@@ -141,7 +141,7 @@ const PLANOS: Plano[] = [
     id: 'construtora', nome: 'Construtora', fundador: 'R$ 199', cheio: 'R$ 299', obras: 'Obras ilimitadas',
     itens: [
       'Tudo do Completo',
-      'Sua equipe na obra (mestre, gestor, sócio-gestor)',
+      'Sua equipe na obra: gestor e apontador (até 15)',
       'Cada pessoa acessa apenas o que precisa',
       'Obras ilimitadas',
       'Copiloto de IA',

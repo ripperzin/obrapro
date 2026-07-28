@@ -19,6 +19,9 @@ const corsHeaders = {
 };
 
 const CARGOS = ["gestor", "apontador"]; // o 'owner' nasce com a obra; não se cria por aqui
+// Teto de funcionários por plano. Espelho de hooks/useEntitlements.ts (o Deno não
+// enxerga o TS do front) — mudou lá, mudar aqui. 0 = plano sem equipe.
+const MAX_FUNCIONARIOS: Record<string, number> = { free: 0, pro: 0, business: 15 };
 const LOGIN_RE = /^[a-zA-Z0-9._-]{3,}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -100,6 +103,17 @@ Deno.serve(async (req) => {
             if (password.length < 6) return json({ error: "A senha precisa de ao menos 6 caracteres." }, 400);
             // Trava de plano no servidor: equipe é do Construtora (não só o front esconde).
             if (!isAdmin && callerPlan !== "business") return json({ error: "A equipe faz parte do plano Construtora." }, 403);
+
+            // Teto de funcionários por plano (trava real, não só o botão do front).
+            // Admin (dono do app) não tem teto. Conta pela espinha "minha equipe" (created_by).
+            if (!isAdmin) {
+                const teto = MAX_FUNCIONARIOS[callerPlan as string] ?? 0;
+                const { count } = await admin.from("profiles")
+                    .select("id", { count: "exact", head: true }).eq("created_by", caller.id);
+                if ((count ?? 0) >= teto) {
+                    return json({ error: `Você chegou no limite de ${teto} funcionários do plano Construtora.` }, 403);
+                }
+            }
 
             // O login é o "usuário" pra entrar (apelido) — precisa ser único no
             // sistema todo. O NOME pode repetir; se o login pedido já existe,
