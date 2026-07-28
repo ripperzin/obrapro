@@ -12,35 +12,33 @@ interface SidebarProps {
   onTriggerAI?: () => void;
 }
 
+// Barra lateral (desktop) = TRILHO DE ÍCONES sempre visível. Recolhida mostra só
+// os ícones (w-16); ao passar o mouse ela abre (w-64) e revela os nomes. O rótulo
+// e os textos só "acendem" no hover (opacity), o ícone fica sempre à mostra. O
+// conteúdo reserva 64px à esquerda (main md:pl-16) pra não ficar embaixo do trilho.
 const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogout }) => {
   const { ent, openUpgrade } = usePlan();
   const NavItem = ({ id, icon, label }: { id: typeof activeTab; icon: string; label: string }) => (
     <button
       onClick={() => setActiveTab(id)}
-      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${activeTab === id
+      title={label}
+      className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${activeTab === id
         ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
         : 'text-slate-400 hover:bg-slate-800 hover:text-white'
         }`}
     >
-      <i className={`fa-solid ${icon} w-6`}></i>
-      <span className="font-medium">{label}</span>
+      <i className={`fa-solid ${icon} text-lg w-6 text-center shrink-0`}></i>
+      <span className="font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">{label}</span>
     </button>
   );
 
   return (
-    <aside className="fixed left-0 top-0 h-full z-50 bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 ease-in-out w-4 hover:w-64 overflow-hidden group hidden md:flex hover:shadow-2xl">
-      {/* Strip Visual Indicator (Always visible when collapsed) */}
-      <div className="absolute left-0 top-0 w-4 h-full bg-slate-800/30 flex flex-col items-center pt-10 gap-2 opacity-100 group-hover:opacity-0 transition-opacity duration-300">
-        <div className="w-[2px] h-full bg-slate-700/50 rounded-full"></div>
-      </div>
-
-      {/* Main Content (Hidden when collapsed) */}
-      <div className="w-64 flex flex-col h-full p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
-        <div className="flex items-center space-x-2 px-2 mb-10">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/30">
-            G
-          </div>
-          <span className="text-xl font-bold text-white whitespace-nowrap">ObraPro</span>
+    <aside className="fixed left-0 top-0 h-full z-50 bg-slate-900 border-r border-slate-800 flex-col transition-all duration-300 ease-in-out w-16 hover:w-64 overflow-hidden group hidden md:flex hover:shadow-2xl">
+      <div className="flex flex-col h-full p-2">
+        {/* Logo (sempre visível; o nome acende no hover) */}
+        <div className="flex items-center gap-2 px-1 h-14 mb-4 shrink-0">
+          <img src="/pwa-192x192.png" alt="ObraPro" className="w-10 h-10 rounded-xl shrink-0 shadow-lg shadow-blue-500/20" />
+          <span className="text-xl font-bold text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">ObraPro</span>
         </div>
 
         <nav className="flex-1 space-y-2">
@@ -58,9 +56,10 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
         </nav>
 
         {/* Selo do plano. O dono do app (admin) não tem "plano de venda", então
-            pra ele não mostramos nada; o cliente vê o nome do plano dele. */}
+            pra ele não mostramos nada; o cliente vê o nome do plano dele. O bloco
+            de texto só acende no hover (recolhido = trilho de ícones). */}
         {role !== UserRole.ADMIN && (
-          <div className="pt-4 border-t border-slate-800 space-y-2">
+          <div className="pt-4 border-t border-slate-800 space-y-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <div className="flex items-center justify-between px-4">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">
                 Seu plano
@@ -80,13 +79,14 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
           </div>
         )}
 
-        <div className="pt-4 border-t border-slate-800">
+        <div className="pt-4 mt-2 border-t border-slate-800">
           <button
             onClick={onLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 text-red-400 rounded-xl hover:bg-red-500/10 transition whitespace-nowrap"
+            title="Sair"
+            className="w-full flex items-center gap-3 px-3 py-3 text-red-400 rounded-xl hover:bg-red-500/10 transition"
           >
-            <i className="fa-solid fa-right-from-bracket w-6"></i>
-            <span className="font-medium">Sair</span>
+            <i className="fa-solid fa-right-from-bracket text-lg w-6 text-center shrink-0"></i>
+            <span className="font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">Sair</span>
           </button>
         </div>
       </div>

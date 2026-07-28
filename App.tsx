@@ -709,7 +709,7 @@ const App: React.FC = () => {
           onTriggerAI={() => setVoiceTrigger(prev => prev + 1)}
         />
 
-        <main ref={mainRef} className="flex-1 overflow-y-auto flex flex-col relative">
+        <main ref={mainRef} className="flex-1 overflow-y-auto flex flex-col relative md:pl-16">
           <header className="flex justify-between items-center p-4 md:px-8 md:py-6 bg-slate-900/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-30 shadow-lg">
             <div className="flex flex-col gap-1">
               <h1 className="text-2xl font-bold text-white tracking-tight leading-tight">
