@@ -263,7 +263,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                             </thead>
                             <tbody>
                                 {rows.length === 0 && (
-                                    <tr><td colSpan={socios.length + 2} className="px-2 py-6 text-center text-slate-500 text-sm">Nenhum aporte ainda. Use <b>Registrar aporte</b> pra lançar o que já entrou, ou <b>Iguais</b>/<b>Pelo ritmo</b> pra montar o plano.</td></tr>
+                                    <tr><td colSpan={socios.length + 2} className="px-2 py-6 text-center text-slate-500 text-sm"><b>Adicionar parcela</b> (abaixo) monta mês a mês, você escolhe a data e o valor · <b>Iguais</b>/<b>Pelo ritmo</b> montam o plano de uma vez · <b>Registrar aporte</b> lança o que já entrou no caixa.</td></tr>
                                 )}
                                 {rows.map((row) => (
                                     <tr key={row.key} className="border-t border-slate-800">
@@ -357,7 +357,10 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
 
                     {/* Ações */}
                     <div className="flex flex-wrap items-center gap-2">
-                        {parcelas.length > 0 && <button onClick={addParcela} className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 hover:text-white text-sm font-black"><i className="fa-solid fa-plus mr-1"></i> Parcela</button>}
+                        {/* Sempre disponível (mesmo sem plano): monta o cronograma mês a
+                            mês na mão — cada parcela com a data e o valor que o dono quer.
+                            Antes só aparecia com plano já feito, obrigando a usar Iguais/Ritmo. */}
+                        <button onClick={addParcela} className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 hover:text-white text-sm font-black"><i className="fa-solid fa-plus mr-1"></i> Adicionar parcela</button>
                         <div className="flex-1"></div>
                         {dirty && <button onClick={salvar} className="px-5 py-2 bg-green-600 text-white rounded-lg font-black text-sm hover:bg-green-700 shadow-lg shadow-green-600/30"><i className="fa-solid fa-check mr-1"></i> Salvar</button>}
                     </div>
