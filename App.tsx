@@ -158,13 +158,19 @@ const App: React.FC = () => {
         const isNewLogin = event === 'SIGNED_IN' && !!session && incomingUserId !== loadedUserIdRef.current;
         setSession(session);
         if (isNewLogin) {
-          // Force refresh all cached data on new login to clear stale IndexedDB cache
-          queryClient.invalidateQueries();
+          // Troca de usuário: REMOVE o cache (não só invalida). invalidateQueries só
+          // marca "velho" e CONTINUA MOSTRANDO os dados do usuário anterior até o
+          // refetch chegar — era isso que fazia as obras de outra conta piscarem no
+          // login. removeQueries esvazia o cache → tela limpa (carregando) → busca as
+          // obras do novo usuário. Não mexe nas mutations (fila offline preservada).
+          queryClient.removeQueries();
         }
         if (!session) {
           loadedUserIdRef.current = null;
           setCurrentUser(null);
           setAuthLoading(false);
+          // Logout: limpa o cache pra o próximo login não herdar as obras desta conta.
+          queryClient.removeQueries();
         }
       }
 
