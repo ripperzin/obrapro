@@ -11,7 +11,6 @@ const prazoToneCls = (tone: DeliveryTone): string => ({
   slate: 'bg-slate-700/40 text-slate-400 border border-slate-600/40',
 }[tone]);
 import { useInflation } from '../hooks/useInflation';
-import { computeProjectFinance } from '../utils/projectFinance';
 
 import ConfirmModal from './ConfirmModal';
 import MoneyInput from './MoneyInput';
@@ -23,6 +22,7 @@ import SwipeableProjectItem from './SwipeableProjectItem';
 import NewObraModal from './NewObraModal';
 import { usePlan } from './PlanProvider';
 import { MyRoles } from '../lib/permissions';
+// (o "lucro projetado" saiu do Resumo Geral — não precisamos mais de computeProjectFinance aqui)
 
 interface GeneralDashboardProps {
    projects: Project[];
@@ -156,6 +156,13 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    let totalMonthlyRoi = 0;
    let soldUnitsCount = 0;
 
+   // Resultado REALIZADO dos últimos 12 meses (margem das casas vendidas no período).
+   // Usa o MESMO custo por casa do ROI (com rateio de terreno) pra bater com o app.
+   const cutoff12m = (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().split('T')[0]; })();
+   let vendas12m = 0;
+   let lucro12m = 0;
+   let casas12m = 0;
+
    activeProjects.forEach(project => {
       const isCompleted = project.progress === 100;
       const totalExpenses = project.expenses.reduce((sum, exp) => sum + exp.value, 0);
@@ -176,6 +183,13 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                : unit.cost + terrenoShare;
 
             const costBase = realCost > 0 ? realCost : unit.cost;
+
+            // Acumula o resultado do período (últimos 12 meses) pela data da venda.
+            if (unit.saleDate && unit.saleDate >= cutoff12m) {
+               vendas12m += unit.saleValue;
+               lucro12m += unit.saleValue - costBase;
+               casas12m += 1;
+            }
 
             if (costBase > 0) {
                const roi = (unit.saleValue - costBase) / costBase;
@@ -203,13 +217,9 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    const totalUnits = unitsInventory.availableCount + unitsInventory.soldCount;
    const salesPerformance = totalUnits > 0 ? (unitsInventory.soldCount / totalUnits) * 100 : 0;
 
-   // Números do portfólio pela fonte única (Resultado). Já descontam terreno.
-   const portfolioFin = activeProjects.map(p => computeProjectFinance(p));
-   const portfolioLucroProj = portfolioFin.reduce((s, f) => s + f.lucroProjetado, 0);
-   // Margem = lucro ÷ receita (padrão do app: Resultado, Sócios, Unidades).
-   const totalVendasReal = portfolioFin.reduce((s, f) => s + f.vendasRealizadas, 0);
-   const totalLucroReal = portfolioFin.reduce((s, f) => s + f.lucroReal, 0);
-   const portfolioMargem = totalVendasReal > 0 ? (totalLucroReal / totalVendasReal) * 100 : null;
+   // Margem realizada do período (lucro ÷ vendas dos últimos 12 meses). É a manchete
+   // do Resumo Geral — substitui o "lucro projetado", que era só previsão.
+   const margem12m = vendas12m > 0 ? (lucro12m / vendas12m) * 100 : null;
 
    // Data atual formatada
    const today = new Date();
@@ -338,21 +348,32 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                   </div>
                </div>
 
-               {/* Dinheiro do portfólio — some pro apontador (só as contagens ficam). */}
+               {/* Resultado REALIZADO dos últimos 12 meses — some pro apontador. */}
                {!hideMoney && (
-               <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1 relative overflow-hidden">
-                     <i className="fa-solid fa-money-bill-trend-up text-green-400 text-2xl mb-1"></i>
-                     <p className="text-white font-black text-xl tracking-tight whitespace-nowrap">{formatCurrencyAbbrev(unitsInventory.realizedValue)}</p>
-                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Recebido</p>
-                  </div>
-
-                  <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-0.5 relative overflow-hidden">
-                     <i className="fa-solid fa-sack-dollar text-cyan-400 text-2xl mb-1"></i>
-                     <p className={`font-black text-xl tracking-tight whitespace-nowrap ${portfolioLucroProj >= 0 ? 'text-white' : 'text-rose-400'}`}>{formatCurrencyAbbrev(portfolioLucroProj)}</p>
-                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Lucro projetado</p>
-                     {portfolioMargem !== null && <p className="text-slate-600 text-[9px] font-bold">margem {portfolioMargem.toFixed(0)}%</p>}
-                  </div>
+               <div>
+                  <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-2 mt-1 flex items-center gap-1.5">
+                     <i className="fa-solid fa-calendar-check text-cyan-500/70"></i> Últimos 12 meses
+                  </p>
+                  {casas12m === 0 ? (
+                     <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 text-center text-slate-500 text-xs font-bold">
+                        Nenhuma casa vendida no período
+                     </div>
+                  ) : (
+                     <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex flex-col items-center justify-center gap-0.5">
+                           <p className="text-white font-black text-base tracking-tight whitespace-nowrap">{formatCurrencyAbbrev(vendas12m)}</p>
+                           <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest">Vendas</p>
+                        </div>
+                        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex flex-col items-center justify-center gap-0.5">
+                           <p className={`font-black text-base tracking-tight whitespace-nowrap ${lucro12m >= 0 ? 'text-white' : 'text-rose-400'}`}>{formatCurrencyAbbrev(lucro12m)}</p>
+                           <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest">Lucro</p>
+                        </div>
+                        <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-2xl p-3 flex flex-col items-center justify-center gap-0.5">
+                           <p className={`font-black text-lg tracking-tight ${(margem12m ?? 0) >= 0 ? 'text-cyan-300' : 'text-rose-400'}`}>{margem12m !== null ? `${margem12m.toFixed(0)}%` : '—'}</p>
+                           <p className="text-cyan-400/70 text-[9px] font-bold uppercase tracking-widest">Margem</p>
+                        </div>
+                     </div>
+                  )}
                </div>
                )}
             </div>
@@ -442,33 +463,42 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Estoque</p>
                      </div>
 
-                     {/* Dinheiro do portfólio — some pro apontador (contagens ficam). */}
-                     {!hideMoney && (
+                     {/* Resultado REALIZADO dos últimos 12 meses — some pro apontador. */}
+                     {!hideMoney && (casas12m === 0 ? (
+                        <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-slate-800/40 border border-slate-700/40 flex-1 h-36">
+                           <i className="fa-solid fa-calendar-xmark text-slate-600 text-xl mb-1"></i>
+                           <p className="text-slate-500 text-xs font-bold text-center leading-snug">Nenhuma casa vendida<br />nos últimos 12 meses</p>
+                        </div>
+                     ) : (
                      <>
-                     {/* Faturado */}
+                     {/* Vendas · 12m (receita realizada no período) */}
                      <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-green-500/5 border border-green-500/10 hover:bg-green-500/10 transition-colors group flex-1 h-36">
                         <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center mb-1">
                            <i className="fa-solid fa-money-bill-trend-up text-green-400 text-xl"></i>
                         </div>
-                        <p className="text-white font-black text-2xl leading-none whitespace-nowrap">{formatCurrencyAbbrev(unitsInventory.realizedValue)}</p>
-                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Recebido</p>
+                        <p className="text-white font-black text-2xl leading-none whitespace-nowrap">{formatCurrencyAbbrev(vendas12m)}</p>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Vendas · 12m</p>
                      </div>
 
-                     {/* Lucro projetado do portfólio (margem como subtítulo) */}
-                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-cyan-500/5 border border-cyan-500/10 hover:bg-cyan-500/10 transition-colors group flex-1 h-36">
-                        <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center mb-1">
-                           <i className="fa-solid fa-sack-dollar text-cyan-400 text-xl"></i>
+                     {/* Lucro · 12m */}
+                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-slate-500/5 border border-slate-500/10 hover:bg-slate-500/10 transition-colors group flex-1 h-36">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-500/10 flex items-center justify-center mb-1">
+                           <i className="fa-solid fa-sack-dollar text-slate-300 text-xl"></i>
                         </div>
-                        <div className="text-center flex flex-col items-center">
-                           <p className={`font-black text-2xl leading-none whitespace-nowrap ${portfolioLucroProj >= 0 ? 'text-white' : 'text-rose-400'}`}>
-                              {formatCurrencyAbbrev(portfolioLucroProj)}
-                           </p>
-                           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Lucro projetado</p>
-                           {portfolioMargem !== null && <p className="text-slate-600 text-[9px] font-bold mt-0.5">margem {portfolioMargem.toFixed(0)}%</p>}
+                        <p className={`font-black text-2xl leading-none whitespace-nowrap ${lucro12m >= 0 ? 'text-white' : 'text-rose-400'}`}>{formatCurrencyAbbrev(lucro12m)}</p>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Lucro · 12m</p>
+                     </div>
+
+                     {/* Margem · 12m — a manchete */}
+                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/15 transition-colors group flex-1 h-36">
+                        <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 flex items-center justify-center mb-1">
+                           <i className="fa-solid fa-chart-line text-cyan-300 text-xl"></i>
                         </div>
+                        <p className={`font-black text-3xl leading-none ${(margem12m ?? 0) >= 0 ? 'text-cyan-300' : 'text-rose-400'}`}>{margem12m !== null ? `${margem12m.toFixed(0)}%` : '—'}</p>
+                        <p className="text-cyan-400/80 text-[10px] font-bold uppercase tracking-wider mt-1">Margem · 12m</p>
                      </div>
                      </>
-                     )}
+                     ))}
                   </div>
                </div>
             </div>
