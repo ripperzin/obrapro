@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import DateInput from './DateInput';
 import MoneyInput from './MoneyInput';
@@ -19,6 +19,12 @@ interface Props {
 // uma região para os comparativos futuros; "SP"/"sp"/"São Paulo" digitados soltos
 // tornariam a base regional inutilizável.
 const UF_LIST = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
+
+// Cidade = lista fechada do IBGE por UF (autocomplete), pra o dado nascer limpo e
+// a base regional (custo por cidade) funcionar depois — texto livre viraria a mesma
+// cidade escrita de N jeitos. Cache por sessão; offline/erro cai em texto livre.
+const cityCache: Record<string, string[]> = {};
+const normalizeCity = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
 
 // Bloco opcional recolhível — mantém a criação leve, expandindo só o que o usuário quer.
 const Section: React.FC<{
@@ -54,10 +60,13 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
     const [name, setName] = useState('');
     const [city, setCity] = useState('');
     const [uf, setUf] = useState('');
+    const [cityOptions, setCityOptions] = useState<string[]>([]); // municípios do IBGE da UF
+    const [cityOpen, setCityOpen] = useState(false);              // dropdown do autocomplete
     const [startDate, setStartDate] = useState('');
     const [deliveryDate, setDeliveryDate] = useState('');
     const [unitTypes, setUnitTypes] = useState<{ quantidade: string; area: string }[]>([{ quantidade: '', area: '' }]);
     const [custoM2, setCustoM2] = useState(0);
+    const [manualBudget, setManualBudget] = useState(0); // valor total digitado direto (nova do zero, sem unidades)
     const [saving, setSaving] = useState(false);
 
     // Terreno (aquisição)
@@ -78,6 +87,26 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
 
     const createObra = useCreateObra();
     const { data: projects } = useProjects();
+
+    // Cidades do IBGE para a UF escolhida (autocomplete). Trocar a UF zera a cidade
+    // (a cidade tem que casar com a UF). Cache por sessão; offline/erro = texto livre.
+    useEffect(() => {
+        setCity('');
+        if (!uf) { setCityOptions([]); return; }
+        if (cityCache[uf]) { setCityOptions(cityCache[uf]); return; }
+        let cancel = false;
+        (async () => {
+            try {
+                const resp = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios?orderBy=nome`);
+                if (!resp.ok) return;
+                const data = await resp.json();
+                const nomes: string[] = (data || []).map((m: any) => m.nome).filter(Boolean);
+                cityCache[uf] = nomes;
+                if (!cancel) setCityOptions(nomes);
+            } catch { /* offline / falha: mantém texto livre */ }
+        })();
+        return () => { cancel = true; };
+    }, [uf]);
 
     // Régua do orçamento: começa no preset do banco (o mesmo que semeia a obra)
     // e o usuário pode ajustar aqui mesmo. `null` = ainda não mexeu.
@@ -153,7 +182,7 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
     const openSaldo = openAportado - openGasto;
     // Orçamento da obra: vem das unidades ou, sem elas, do valor informado no
     // modo "já em andamento". É o mesmo critério do useCreateObra.
-    const budgetTotal = hasConstrucao ? totalCost : (mode === 'andamento' ? openBudget : 0);
+    const budgetTotal = hasConstrucao ? totalCost : (mode === 'andamento' ? openBudget : manualBudget);
 
     const addUnitType = () => setUnitTypes([...unitTypes, { quantidade: '', area: '' }]);
     const removeUnitType = (idx: number) => setUnitTypes(unitTypes.filter((_, i) => i !== idx));
@@ -193,7 +222,12 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
                     openingProgress: parseInt(openProgress) || 0,
                     openingAportado: openAportado,
                     openingGasto: openGasto,
-                } : {}),
+                } : (!hasConstrucao && manualBudget > 0 ? {
+                    // Nova do zero sem unidades: o valor total vira o orçamento. O
+                    // useCreateObra usa openingBudget como total quando não há unidades
+                    // (sem gasto/aporte de abertura, que não são passados aqui).
+                    openingBudget: manualBudget,
+                } : {})),
             });
             onClose();
             if (res?.id) onCreated(res.id);
@@ -237,15 +271,9 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
                             className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white shadow-sm text-sm placeholder-slate-500" />
                     </div>
 
-                    {/* Cidade/UF — onde a obra fica. Usado para comparar sua obra com
-                        outras da mesma região no futuro. */}
+                    {/* UF (lista fechada) + Cidade (autocomplete do IBGE por UF) — onde a
+                        obra fica. Dado limpo pra comparar com a região no futuro. */}
                     <div className="grid grid-cols-3 gap-3">
-                        <div className="col-span-2 space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Cidade</label>
-                            <input required type="text" value={city} onChange={e => setCity(e.target.value)}
-                                placeholder="Ex: Campo Grande"
-                                className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white shadow-sm text-sm placeholder-slate-500" />
-                        </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">UF</label>
                             <select required value={uf} onChange={e => setUf(e.target.value)}
@@ -253,6 +281,32 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
                                 <option value="">—</option>
                                 {UF_LIST.map(u => <option key={u} value={u}>{u}</option>)}
                             </select>
+                        </div>
+                        <div className="col-span-2 space-y-2 relative">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Cidade</label>
+                            <input required type="text" value={city} disabled={!uf}
+                                onChange={e => { setCity(e.target.value); setCityOpen(true); }}
+                                onFocus={() => setCityOpen(true)}
+                                onBlur={() => setTimeout(() => setCityOpen(false), 150)}
+                                placeholder={uf ? 'Comece a digitar…' : 'Escolha a UF primeiro'}
+                                autoComplete="off"
+                                className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white shadow-sm text-sm placeholder-slate-500 disabled:opacity-50 disabled:cursor-not-allowed" />
+                            {cityOpen && uf && cityOptions.length > 0 && (() => {
+                                const q = normalizeCity(city);
+                                const matches = cityOptions.filter(c => normalizeCity(c).includes(q)).slice(0, 8);
+                                if (matches.length === 0) return null;
+                                return (
+                                    <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-52 overflow-y-auto">
+                                        {matches.map(c => (
+                                            <button type="button" key={c}
+                                                onMouseDown={() => { setCity(c); setCityOpen(false); }}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-800 transition">
+                                                {c}
+                                            </button>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
 
@@ -268,6 +322,25 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
                                 className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-xl outline-none transition-all font-bold text-white shadow-sm text-sm text-center" placeholder="DD/MM/AAAA" />
                         </div>
                     </div>
+
+                    {/* Valor total da obra (modo "nova do zero"): dá pra informar o total
+                        direto, sem precisar detalhar unidades. Se detalhar unidades × custo/m²
+                        abaixo, o total passa a vir de lá (fica travado, mostrando a origem). */}
+                    {mode === 'nova' && (
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest ml-2">Valor total da obra</label>
+                            {hasConstrucao ? (
+                                <div className="w-full px-5 py-4 bg-slate-800/60 border-2 border-slate-700/50 rounded-2xl font-bold text-slate-300 text-sm">
+                                    {formatCurrency(totalCost)}
+                                    <span className="block text-[9px] text-slate-500 font-bold normal-case">calculado das unidades × custo/m²</span>
+                                </div>
+                            ) : (
+                                <MoneyInput value={manualBudget} onChange={setManualBudget}
+                                    className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white text-sm" />
+                            )}
+                            <p className="text-[11px] text-slate-500 ml-2">Informe o total, ou detalhe as unidades abaixo pra sair o custo por m².</p>
+                        </div>
+                    )}
 
                     {/* Terreno (opcional) */}
                     <Section icon="fa-map-location-dot" color="text-amber-400" title="Terreno" hint="opcional"
