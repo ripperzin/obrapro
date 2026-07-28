@@ -463,42 +463,39 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Estoque</p>
                      </div>
 
-                     {/* Resultado REALIZADO dos últimos 12 meses — some pro apontador. */}
-                     {!hideMoney && (casas12m === 0 ? (
-                        <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-slate-800/40 border border-slate-700/40 flex-1 h-36">
-                           <i className="fa-solid fa-calendar-xmark text-slate-600 text-xl mb-1"></i>
-                           <p className="text-slate-500 text-xs font-bold text-center leading-snug">Nenhuma casa vendida<br />nos últimos 12 meses</p>
-                        </div>
-                     ) : (
-                     <>
-                     {/* Vendas · 12m (receita realizada no período) */}
-                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-green-500/5 border border-green-500/10 hover:bg-green-500/10 transition-colors group flex-1 h-36">
-                        <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center mb-1">
-                           <i className="fa-solid fa-money-bill-trend-up text-green-400 text-xl"></i>
-                        </div>
-                        <p className="text-white font-black text-2xl leading-none whitespace-nowrap">{formatCurrencyAbbrev(vendas12m)}</p>
-                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Vendas · 12m</p>
+                     {/* Resultado REALIZADO dos últimos 12 meses — AGRUPADO sob um título
+                         (com divisor), senão o "Lucro" fica solto. Some pro apontador. */}
+                     {!hideMoney && (
+                     <div className="flex-[2] flex flex-col justify-center self-stretch border-l border-slate-700/50 pl-6">
+                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                           <i className="fa-solid fa-calendar-check text-cyan-500/70"></i> Últimos 12 meses
+                        </p>
+                        {casas12m === 0 ? (
+                           <div className="flex items-center gap-3 px-5 py-6 rounded-3xl bg-slate-800/40 border border-slate-700/40">
+                              <i className="fa-solid fa-calendar-xmark text-slate-600 text-lg"></i>
+                              <p className="text-slate-500 text-sm font-bold">Nenhuma casa vendida no período.</p>
+                           </div>
+                        ) : (
+                           <div className="flex items-stretch gap-3">
+                              {/* Vendas (receita realizada no período) */}
+                              <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 py-5 rounded-3xl bg-green-500/5 border border-green-500/10 h-28">
+                                 <p className="text-white font-black text-2xl leading-none whitespace-nowrap">{formatCurrencyAbbrev(vendas12m)}</p>
+                                 <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Vendas</p>
+                              </div>
+                              {/* Lucro */}
+                              <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 py-5 rounded-3xl bg-slate-500/5 border border-slate-500/10 h-28">
+                                 <p className={`font-black text-2xl leading-none whitespace-nowrap ${lucro12m >= 0 ? 'text-white' : 'text-rose-400'}`}>{formatCurrencyAbbrev(lucro12m)}</p>
+                                 <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Lucro</p>
+                              </div>
+                              {/* Margem — a manchete */}
+                              <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 py-5 rounded-3xl bg-cyan-500/10 border border-cyan-500/30 h-28">
+                                 <p className={`font-black text-3xl leading-none ${(margem12m ?? 0) >= 0 ? 'text-cyan-300' : 'text-rose-400'}`}>{margem12m !== null ? `${margem12m.toFixed(0)}%` : '—'}</p>
+                                 <p className="text-cyan-400/80 text-[10px] font-bold uppercase tracking-wider mt-1">Margem</p>
+                              </div>
+                           </div>
+                        )}
                      </div>
-
-                     {/* Lucro · 12m */}
-                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-slate-500/5 border border-slate-500/10 hover:bg-slate-500/10 transition-colors group flex-1 h-36">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-500/10 flex items-center justify-center mb-1">
-                           <i className="fa-solid fa-sack-dollar text-slate-300 text-xl"></i>
-                        </div>
-                        <p className={`font-black text-2xl leading-none whitespace-nowrap ${lucro12m >= 0 ? 'text-white' : 'text-rose-400'}`}>{formatCurrencyAbbrev(lucro12m)}</p>
-                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Lucro · 12m</p>
-                     </div>
-
-                     {/* Margem · 12m — a manchete */}
-                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-6 rounded-3xl bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/15 transition-colors group flex-1 h-36">
-                        <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 flex items-center justify-center mb-1">
-                           <i className="fa-solid fa-chart-line text-cyan-300 text-xl"></i>
-                        </div>
-                        <p className={`font-black text-3xl leading-none ${(margem12m ?? 0) >= 0 ? 'text-cyan-300' : 'text-rose-400'}`}>{margem12m !== null ? `${margem12m.toFixed(0)}%` : '—'}</p>
-                        <p className="text-cyan-400/80 text-[10px] font-bold uppercase tracking-wider mt-1">Margem · 12m</p>
-                     </div>
-                     </>
-                     ))}
+                     )}
                   </div>
                </div>
             </div>
