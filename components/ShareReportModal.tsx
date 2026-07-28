@@ -48,7 +48,7 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ project, userName, 
         if (generating) return;
         setGenerating(true);
         try {
-            await generateProjectPDF(project, userName, opts);
+            await generateProjectPDF(project, userName, opts, ent.canRemoveBranding);
         } catch (err) {
             console.error('Erro ao gerar PDF', err);
             alert('Erro ao gerar PDF. Tente novamente.');

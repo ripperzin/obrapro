@@ -4,6 +4,7 @@ import { exportProjectData } from '../utils/dataExport';
 import { generateProjectPDF } from '../utils/pdfGenerator';
 import { openAttachment } from '../utils/storage';
 import { DEFAULT_REPORT_OPTIONS } from '../utils/reportOptions';
+import { entitlementsFor } from '../hooks/useEntitlements';
 
 interface Props {
     projects: Project[];
@@ -23,7 +24,7 @@ const DataExportPanel: React.FC<Props> = ({ projects, user }) => {
     const baixarPdf = async (p: Project) => {
         setPdfBusy(p.id);
         try {
-            await generateProjectPDF(p, user.login, DEFAULT_REPORT_OPTIONS);
+            await generateProjectPDF(p, user.login, DEFAULT_REPORT_OPTIONS, entitlementsFor(user.plan).canRemoveBranding);
         } catch (e: any) {
             alert('Não consegui gerar o PDF: ' + (e?.message || e));
         } finally {

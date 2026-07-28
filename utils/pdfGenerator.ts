@@ -36,21 +36,20 @@ const getPhotoUrl = async (path: string): Promise<string | null> => {
         for (const bucket of ['project-documents', 'expense-attachments']) {
             try {
                 const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
-                if (error) { console.warn('[PDF] createSignedUrl falhou em', bucket, '->', error.message); continue; }
+                if (error) continue;
                 if (data?.signedUrl) { url = data.signedUrl; break; }
-            } catch (e) { console.warn('[PDF] createSignedUrl exceção em', bucket, e); }
+            } catch { /* tenta o próximo bucket */ }
         }
     }
-    if (!url) { console.warn('[PDF] Não consegui assinar a foto:', path); return null; }
+    if (!url) return null;
 
     // 2) Baixa os bytes e converte em data URL
     try {
         const resp = await fetch(url);
-        if (!resp.ok) { console.warn('[PDF] fetch da foto retornou', resp.status); return null; }
+        if (!resp.ok) return null;
         const blob = await resp.blob();
         return await blobToDataUrl(blob);
-    } catch (e) {
-        console.warn('[PDF] fetch da foto falhou:', e);
+    } catch {
         return null;
     }
 };
@@ -113,10 +112,14 @@ const C = {
 
 const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 }).format(v);
 
+// Abreviação IGUAL à do link (formatCurrencyAbbrev em utils.ts): >=1mi vira "X,YM",
+// >=1mil vira "Nk" (arredondado, sem casas), abaixo disso o valor cheio. Assim o
+// mesmo número aparece do mesmo jeito no link e no PDF.
 const fmtShort = (v: number): string => {
-    if (Math.abs(v) >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1)}M`;
-    if (Math.abs(v) >= 10_000) return `R$ ${(v / 1_000).toFixed(0)}k`;
-    if (Math.abs(v) >= 1_000) return `R$ ${(v / 1_000).toFixed(1)}k`;
+    const sign = v < 0 ? '-' : '';
+    const abs = Math.abs(v);
+    if (abs >= 1_000_000) return `R$ ${sign}${(abs / 1_000_000).toFixed(1).replace('.', ',')}M`;
+    if (abs >= 1_000) return `R$ ${sign}${Math.round(abs / 1_000)}k`;
     return fmt(v);
 };
 
@@ -168,7 +171,7 @@ const fetchData = async (id: string) => {
         splitMode: (p.split_mode as 'percent' | 'unit') || 'percent',
         aportePlan: p.aporte_plan || undefined,
         units: (units || []).map((u: any) => ({ id: u.id, identifier: u.identifier, area: u.area, cost: u.cost, status: u.status, valorEstimadoVenda: u.valor_estimado_venda, saleValue: u.sale_value, saleDate: u.sale_date, ownerInvestorId: u.owner_investor_id || undefined })),
-        expenses: (exps || []).map((e: any) => ({ id: e.id, description: e.description, value: e.value, date: e.date, userId: e.user_id, userName: e.user_name, macroId: e.macro_id, subMacroId: e.sub_macro_id, attachmentUrl: e.attachment_url, attachments: e.attachments || [], paidByInvestorId: e.paid_by_investor_id || undefined })),
+        expenses: (exps || []).map((e: any) => ({ id: e.id, description: e.description, value: e.value, date: e.date, userId: e.user_id, userName: e.user_name, macroId: e.macro_id, subMacroId: e.sub_macro_id, itemId: e.item_id || undefined, attachmentUrl: e.attachment_url, attachments: e.attachments || [], paidByInvestorId: e.paid_by_investor_id || undefined })),
         acquisitionCosts: (acqs || []).map((a: any) => ({ id: a.id, projectId: a.project_id, category: a.category, description: a.description, value: a.value, date: a.date, paidFromProject: a.paid_from_project })),
         stageEvidence: (evs || []).map((e: any) => ({ stage: e.stage, photos: e.photos || [], date: e.date, notes: e.notes, user: e.user_name })),
         contributions: (contribs || []).map((c: any) => ({ id: c.id, projectId: c.project_id, investorId: c.investor_id, value: c.value, date: c.date })),
@@ -195,7 +198,7 @@ const fetchData = async (id: string) => {
 // MAIN PDF GENERATOR
 // ============================================================================
 
-export const generateProjectPDF = async (projectPartial: Project, userName: string, options: ReportOptions = DEFAULT_REPORT_OPTIONS) => {
+export const generateProjectPDF = async (projectPartial: Project, userName: string, options: ReportOptions = DEFAULT_REPORT_OPTIONS, canRemoveBranding = false) => {
     try {
         const project = await fetchData(projectPartial.id);
         const doc = new jsPDF() as any;
@@ -281,12 +284,8 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
                     if (latestEv.date) { doc.setFontSize(7); setColor(C.muted); doc.text(`Foto: ${fmtDate(latestEv.date)}`, pw - M - 5, y + imgH - 4, { align: 'right' }); }
                     y += imgH + 6;
                     fotoShown = true;
-                } else {
-                    console.warn('[PDF] getPhotoUrl retornou vazio para', latestEv.photos[0]);
                 }
-            } catch (err) { console.warn('[PDF] Falha ao desenhar a foto:', err); }
-        } else {
-            console.warn('[PDF] Sem foto para o hero. options.foto=', options.foto, 'latestEv=', latestEv);
+            } catch { /* sem foto: segue sem o hero */ }
         }
 
         // ══════════════════════════════════════════════════════════
@@ -317,6 +316,42 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
             y += 6;
         }
         y += 4;
+
+        // ══════════════════════════════════════════════════════════
+        // CAIXA DA OBRA (Aportado - Gasto - Aquisição = Saldo)
+        // ══════════════════════════════════════════════════════════
+        // Vem logo após o Gasto × Avanço — MESMA ordem do link. A aquisição entra
+        // como card (e na legenda) só quando foi paga PELA OBRA (regra do app/link).
+        y = pageBreak(40, y);
+
+        const temAquisicaoPaga = f.aquisicaoPaga > 0;
+        const legendaCaixa = temAquisicaoPaga ? 'Aportado - Gasto - Aquisição = Saldo' : 'Aportado - Gasto = Saldo';
+
+        doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
+        doc.text('CAIXA DA OBRA', M, y);
+        const legW = temAquisicaoPaga ? 60 : 46;
+        card(doc, pw - M - legW, y - 4.5, legW, 6);
+        doc.setFontSize(6); setColor(C.muted); doc.text(legendaCaixa, pw - M - legW / 2, y - 0.5, { align: 'center' });
+        y += 6;
+
+        const caixa = [
+            { lbl: 'APORTADO', val: fmtShort(f.aportadoTotal), c: C.emerald, brd: C.emerald },
+            { lbl: 'GASTO', val: fmtShort(f.gasto), c: C.red, brd: C.red },
+            ...(temAquisicaoPaga
+                ? [{ lbl: 'AQUISIÇÃO', val: fmtShort(f.aquisicaoPaga), c: C.amber, brd: C.amber }]
+                : []),
+            { lbl: 'SALDO EM CAIXA', val: fmtShort(f.saldoCaixa), c: f.saldoCaixa >= 0 ? C.green : C.red, brd: f.saldoCaixa >= 0 ? C.green : C.red },
+        ];
+        const cxW = (W - 4 * (caixa.length - 1)) / caixa.length, cxH = 22;
+        caixa.forEach((s, i) => {
+            const x = M + i * (cxW + 4);
+            card(doc, x, y, cxW, cxH, s.brd);
+            doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'bold');
+            doc.text(s.lbl, x + cxW / 2, y + 6, { align: 'center' });
+            doc.setFontSize(12); setColor(s.c);
+            doc.text(s.val, x + cxW / 2, y + 15, { align: 'center' });
+        });
+        y += cxH + 8;
 
         // ══════════════════════════════════════════════════════════
         // ORÇAMENTO POR CATEGORIA (só a lista — a barra/totais já estão acima)
@@ -386,42 +421,7 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
             }
         }
 
-        // ══════════════════════════════════════════════════════════
-        // CAIXA DA OBRA (Aportado - Gasto - Aquisição = Saldo)
-        // ══════════════════════════════════════════════════════════
-        // A aquisição entra como card (e na legenda) só quando foi paga PELA OBRA
-        // — mesma regra do app e do link. Sem ela, a legenda prometia uma conta
-        // que não fechava: o saldo desconta a aquisição, mas ela não aparecia.
-        y = pageBreak(40, y);
-
-        const temAquisicaoPaga = f.aquisicaoPaga > 0;
-        const legendaCaixa = temAquisicaoPaga ? 'Aportado - Gasto - Aquisição = Saldo' : 'Aportado - Gasto = Saldo';
-
-        doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
-        doc.text('CAIXA DA OBRA', M, y);
-        const legW = temAquisicaoPaga ? 60 : 46;
-        card(doc, pw - M - legW, y - 4.5, legW, 6);
-        doc.setFontSize(6); setColor(C.muted); doc.text(legendaCaixa, pw - M - legW / 2, y - 0.5, { align: 'center' });
-        y += 6;
-
-        const caixa = [
-            { lbl: 'APORTADO', val: fmtShort(f.aportadoTotal), c: C.emerald, brd: C.emerald },
-            { lbl: 'GASTO', val: fmtShort(f.gasto), c: C.red, brd: C.red },
-            ...(temAquisicaoPaga
-                ? [{ lbl: 'AQUISIÇÃO', val: fmtShort(f.aquisicaoPaga), c: C.amber, brd: C.amber }]
-                : []),
-            { lbl: 'SALDO EM CAIXA', val: fmtShort(f.saldoCaixa), c: f.saldoCaixa >= 0 ? C.green : C.red, brd: f.saldoCaixa >= 0 ? C.green : C.red },
-        ];
-        const cxW = (W - 4 * (caixa.length - 1)) / caixa.length, cxH = 22;
-        caixa.forEach((s, i) => {
-            const x = M + i * (cxW + 4);
-            card(doc, x, y, cxW, cxH, s.brd);
-            doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'bold');
-            doc.text(s.lbl, x + cxW / 2, y + 6, { align: 'center' });
-            doc.setFontSize(12); setColor(s.c);
-            doc.text(s.val, x + cxW / 2, y + 15, { align: 'center' });
-        });
-        y += cxH + 8;
+        // (CAIXA DA OBRA foi movido pra cima, logo após o Gasto × Avanço — igual ao link.)
 
         // ══════════════════════════════════════════════════════════
         // ACERTO DE APORTES (Meta · Aportou · Falta por sócio — fonte única do app).
@@ -620,6 +620,17 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         }
         y += resH + 5;
 
+        // Aviso "casas com preço" — MESMA nota do componente do app/link (senão a
+        // projeção parece valer pra obra toda quando só algumas casas têm preço).
+        if (temProjecao && f.unidadesComPreco < f.unidadesTotais) {
+            const aviso = `Projeção só das ${f.unidadesComPreco} de ${f.unidadesTotais} casas com preço. Defina o valor de venda das demais em Unidades.`;
+            const linhas = doc.splitTextToSize(aviso, W);
+            y = pageBreak(linhas.length * 4 + 2, y);
+            doc.setFontSize(6.5); setColor(C.amber); doc.setFont('helvetica', 'normal');
+            doc.text(linhas, M, y);
+            y += linhas.length * 4 + 2;
+        }
+
         // A vender (mesma linha do componente do app)
         const disponiveis = f.unidadesTotais - f.unidadesVendidas;
         if (disponiveis > 0) {
@@ -683,7 +694,8 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
             doc.setPage(i);
             doc.setFontSize(6.5); setColor(C.muted);
             doc.text(`Página ${i}/${pc}`, pw - M, ph - 6, { align: 'right' });
-            doc.text('Obra Pro • Portal do Investidor', M, ph - 6);
+            // Selo de marca só pra quem NÃO paga o "sem marca" — mesma regra do link.
+            doc.text(canRemoveBranding ? 'Portal do Investidor' : 'Obra Pro • Portal do Investidor', M, ph - 6);
         }
 
         doc.save(`Relatorio_${project.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
