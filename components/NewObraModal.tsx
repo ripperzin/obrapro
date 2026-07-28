@@ -67,6 +67,11 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
     const [unitTypes, setUnitTypes] = useState<{ quantidade: string; area: string }[]>([{ quantidade: '', area: '' }]);
     const [custoM2, setCustoM2] = useState(0);
     const [manualBudget, setManualBudget] = useState(0); // valor total digitado direto (nova do zero, sem unidades)
+    // Como o orçamento é informado no modo "nova do zero": pelo valor total (+ nº de
+    // casas, opcional) OU por m² (unidades × custo/m²). Só um método por vez — evita a
+    // confusão de ter todos os campos abertos juntos.
+    const [budgetMethod, setBudgetMethod] = useState<'total' | 'm2'>('total');
+    const [casasQtd, setCasasQtd] = useState(''); // nº de casas no método "valor total"
     const [saving, setSaving] = useState(false);
 
     // Terreno (aquisição)
@@ -179,10 +184,15 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
     const totalArea = unitTypes.reduce((s, t) => s + (parseInt(t.quantidade) || 0) * (parseFloat(t.area) || 0), 0);
     const totalCost = totalArea * (custoM2 || 0);
     const hasConstrucao = totalUnits > 0 && custoM2 > 0;
+    const casasN = parseInt(casasQtd) || 0; // nº de casas no método "valor total"
     const openSaldo = openAportado - openGasto;
-    // Orçamento da obra: vem das unidades ou, sem elas, do valor informado no
-    // modo "já em andamento". É o mesmo critério do useCreateObra.
-    const budgetTotal = hasConstrucao ? totalCost : (mode === 'andamento' ? openBudget : manualBudget);
+    // Orçamento total da obra conforme modo/método:
+    //  · andamento → das unidades (se detalhou) ou do valor informado;
+    //  · nova + "por m²" → unidades × custo/m²;
+    //  · nova + "valor total" → o valor digitado.
+    const budgetTotal = mode === 'andamento'
+        ? (hasConstrucao ? totalCost : openBudget)
+        : (budgetMethod === 'm2' ? totalCost : manualBudget);
 
     const addUnitType = () => setUnitTypes([...unitTypes, { quantidade: '', area: '' }]);
     const removeUnitType = (idx: number) => setUnitTypes(unitTypes.filter((_, i) => i !== idx));
@@ -198,6 +208,13 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
         e.preventDefault();
         if (!name.trim()) return;
         if (!city.trim() || !uf) { alert('Informe a cidade e o estado (UF) da obra.'); return; }
+        // Método "valor total" (só na nova do zero): as casas vêm do nº informado
+        // (área 0, custo = rateio do total no useCreateObra) e não há custo/m².
+        const usaValorTotal = mode === 'nova' && budgetMethod === 'total';
+        const submitUnitTypes = usaValorTotal
+            ? (casasN > 0 ? [{ quantidade: casasN, area: 0 }] : [])
+            : unitTypes.map(t => ({ quantidade: parseInt(t.quantidade) || 0, area: parseFloat(t.area) || 0 }));
+        const submitCustoM2 = usaValorTotal ? 0 : custoM2;
         try {
             setSaving(true);
             const res = await createObra.mutateAsync({
@@ -206,8 +223,8 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
                 uf,
                 startDate: startDate || undefined,
                 deliveryDate: deliveryDate || undefined,
-                unitTypes: unitTypes.map(t => ({ quantidade: parseInt(t.quantidade) || 0, area: parseFloat(t.area) || 0 })),
-                custoM2,
+                unitTypes: submitUnitTypes,
+                custoM2: submitCustoM2,
                 userId: userId || '',
                 userName: userName || 'Usuário',
                 terrenoValue: terreno,
@@ -222,10 +239,10 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
                     openingProgress: parseInt(openProgress) || 0,
                     openingAportado: openAportado,
                     openingGasto: openGasto,
-                } : (!hasConstrucao && manualBudget > 0 ? {
-                    // Nova do zero sem unidades: o valor total vira o orçamento. O
-                    // useCreateObra usa openingBudget como total quando não há unidades
-                    // (sem gasto/aporte de abertura, que não são passados aqui).
+                } : (usaValorTotal && manualBudget > 0 ? {
+                    // Nova do zero, "valor total": o valor digitado vira o orçamento. O
+                    // useCreateObra usa openingBudget como total quando não há custo/m²
+                    // (e rateia entre as casas). Sem gasto/aporte de abertura.
                     openingBudget: manualBudget,
                 } : {})),
             });
@@ -323,22 +340,98 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
                         </div>
                     </div>
 
-                    {/* Valor total da obra (modo "nova do zero"): dá pra informar o total
-                        direto, sem precisar detalhar unidades. Se detalhar unidades × custo/m²
-                        abaixo, o total passa a vir de lá (fica travado, mostrando a origem). */}
+                    {/* ORÇAMENTO DA OBRA (modo "nova do zero"): escolha de método — valor
+                        total OU por m². Só aparece o método escolhido, pra não confundir
+                        com todos os campos abertos ao mesmo tempo. As casas são criadas
+                        nos dois casos (no "valor total" o custo de cada uma é o rateio). */}
                     {mode === 'nova' && (
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest ml-2">Valor total da obra</label>
-                            {hasConstrucao ? (
-                                <div className="w-full px-5 py-4 bg-slate-800/60 border-2 border-slate-700/50 rounded-2xl font-bold text-slate-300 text-sm">
-                                    {formatCurrency(totalCost)}
-                                    <span className="block text-[9px] text-slate-500 font-bold normal-case">calculado das unidades × custo/m²</span>
-                                </div>
+                        <div className="border border-slate-700 rounded-2xl p-4 space-y-4">
+                            <div className="flex items-center gap-2">
+                                <i className="fa-solid fa-sack-dollar text-emerald-400"></i>
+                                <span className="text-[11px] font-black text-slate-200 uppercase tracking-widest">Orçamento da obra</span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-800/60 rounded-xl border border-slate-700">
+                                <button type="button" onClick={() => setBudgetMethod('total')}
+                                    className={`py-2 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all ${budgetMethod === 'total' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
+                                    Valor total
+                                </button>
+                                <button type="button" onClick={() => setBudgetMethod('m2')}
+                                    className={`py-2 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all ${budgetMethod === 'm2' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
+                                    Por m²
+                                </button>
+                            </div>
+
+                            {budgetMethod === 'total' ? (
+                                <>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Valor total da obra</label>
+                                        <MoneyInput value={manualBudget} onChange={setManualBudget}
+                                            className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-emerald-500 rounded-xl outline-none font-bold text-white text-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nº de casas <span className="text-slate-600 normal-case">· opcional</span></label>
+                                        <input type="number" min="0" inputMode="numeric" value={casasQtd}
+                                            onChange={e => setCasasQtd(e.target.value)} placeholder="Ex: 12"
+                                            className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-emerald-500 rounded-xl outline-none font-bold text-white text-sm text-center" />
+                                        <p className="text-[11px] text-slate-500 ml-1">Pra acompanhar vendas e estoque. O custo de cada casa é o rateio do total.</p>
+                                    </div>
+                                </>
                             ) : (
-                                <MoneyInput value={manualBudget} onChange={setManualBudget}
-                                    className="w-full px-5 py-4 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl outline-none transition-all font-bold text-white text-sm" />
+                                <>
+                                    {unitTypes.map((t, idx) => (
+                                        <div key={idx} className="flex gap-2 items-end">
+                                            <div className="flex-1 space-y-1">
+                                                {idx === 0 && <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Qtd. casas</label>}
+                                                <input type="number" min="0" inputMode="numeric" value={t.quantidade}
+                                                    onChange={e => updateUnitType(idx, 'quantidade', e.target.value)} placeholder="Ex: 10"
+                                                    className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-emerald-500 rounded-xl outline-none font-bold text-white text-sm text-center" />
+                                            </div>
+                                            <div className="flex-1 space-y-1">
+                                                {idx === 0 && <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">m² de cada</label>}
+                                                <input type="number" min="0" inputMode="decimal" value={t.area}
+                                                    onChange={e => updateUnitType(idx, 'area', e.target.value)} placeholder="Ex: 50"
+                                                    className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-emerald-500 rounded-xl outline-none font-bold text-white text-sm text-center" />
+                                            </div>
+                                            {unitTypes.length > 1 && (
+                                                <button type="button" onClick={() => removeUnitType(idx)}
+                                                    className="w-11 h-11 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-xl text-slate-400 hover:text-red-400 shrink-0">
+                                                    <i className="fa-solid fa-xmark"></i>
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                    <button type="button" onClick={addUnitType}
+                                        className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-2">
+                                        <i className="fa-solid fa-plus"></i> adicionar tipo de casa (m² diferente)
+                                    </button>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Custo por m²</label>
+                                        {obrasRefM2.length > 0 && (
+                                            <select value="" onChange={e => { const v = parseFloat(e.target.value); if (v) setCustoM2(v); }}
+                                                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-xl outline-none font-bold text-blue-400 text-[11px] cursor-pointer">
+                                                <option value="">↧ puxar R$/m² de uma obra concluída…</option>
+                                                {obrasRefM2.map(o => (
+                                                    <option key={o.id} value={o.valor}>
+                                                        {o.name} — {formatCurrency(o.valor)}/m² {o.ehReal ? '(custo real)' : '(estimado)'}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
+                                        <MoneyInput value={custoM2} onChange={setCustoM2}
+                                            className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-emerald-500 rounded-xl outline-none font-bold text-white text-sm" />
+                                    </div>
+                                    {hasConstrucao && (
+                                        <div className="bg-slate-800/60 rounded-2xl p-4 border border-emerald-500/30 space-y-1">
+                                            <p className="text-center text-white font-bold text-sm">
+                                                {totalUnits} casa{totalUnits > 1 ? 's' : ''} · {totalArea.toLocaleString('pt-BR')} m²
+                                            </p>
+                                            <p className="text-center text-emerald-400 font-black text-xl">{formatCurrency(totalCost)}</p>
+                                            <p className="text-center text-[10px] text-slate-400 uppercase tracking-widest">Orçamento total</p>
+                                        </div>
+                                    )}
+                                </>
                             )}
-                            <p className="text-[11px] text-slate-500 ml-2">Informe o total, ou detalhe as unidades abaixo pra sair o custo por m².</p>
                         </div>
                     )}
 
@@ -362,7 +455,9 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
                         </button>
                     </Section>
 
-                    {/* Unidades e custo/m² (opcional) */}
+                    {/* Unidades e custo/m² — modo "já em andamento" (o modo nova usa o
+                        bloco de Orçamento acima com o toggle Valor total × Por m²). */}
+                    {mode === 'andamento' && (
                     <Section icon="fa-ruler-combined" color="text-emerald-400" title="Unidades e custo/m²" hint="opcional"
                         open={showUnidades} onToggle={() => setShowUnidades(v => !v)}>
                         {unitTypes.map((t, idx) => (
@@ -420,6 +515,7 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
                             </div>
                         )}
                     </Section>
+                    )}
 
                     {/* Orçamento por etapa (opcional). A régua vem do preset do BANCO —
                         a mesma que a obra vai receber — e é ajustável já na criação. */}

@@ -79,20 +79,42 @@ export const useCreateObra = () => {
                 new_value: input.name,
             }]);
 
-            // 2) Unidades (custo = área × R$/m²) — os triggers recalculam os totais do projeto
-            if (totalUnits > 0 && input.custoM2 > 0) {
+            // 2) Unidades — cria SEMPRE que houver quantidade (mesmo sem custo/m²: nesse
+            // caso o custo de cada casa é o RATEIO do valor total — por área se houver,
+            // senão igual por casa). Os triggers recalculam os totais do projeto a partir
+            // das casas (fn_sync_units_to_project = SUM(cost)/COUNT, não divide por área).
+            if (totalUnits > 0) {
                 const units: any[] = [];
                 let n = 1;
                 for (const t of input.unitTypes) {
                     for (let i = 0; i < (t.quantidade || 0); i++) {
+                        let cost: number;
+                        if (input.custoM2 > 0) {
+                            cost = Math.round((t.area || 0) * input.custoM2 * 100) / 100;
+                        } else if (totalCost > 0) {
+                            cost = totalArea > 0
+                                ? Math.round(totalCost * ((t.area || 0) / totalArea) * 100) / 100
+                                : Math.round((totalCost / totalUnits) * 100) / 100;
+                        } else {
+                            cost = 0;
+                        }
                         units.push({
                             project_id: projectId,
                             identifier: `Unidade ${n}`,
-                            area: t.area,
-                            cost: Math.round((t.area || 0) * input.custoM2 * 100) / 100,
+                            area: t.area || 0,
+                            cost,
                             status: 'Available',
                         });
                         n++;
+                    }
+                }
+                // A última casa absorve a sobra do arredondamento pra somar o total exato.
+                if (totalCost > 0 && units.length > 0) {
+                    const soma = units.reduce((s, u) => s + u.cost, 0);
+                    const diff = Math.round((totalCost - soma) * 100) / 100;
+                    if (Math.abs(diff) >= 0.01) {
+                        const last = units[units.length - 1];
+                        last.cost = Math.round((last.cost + diff) * 100) / 100;
                     }
                 }
                 const { error: uErr } = await supabase.from('units').insert(units);
