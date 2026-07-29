@@ -87,26 +87,42 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
     // Mapa { path -> signed URL } gerado pela edge function (service role).
     // O portal é anon e não acessa o Storage diretamente.
     const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+    // Link protegido por senha (opcional, definido pelo dono). Enquanto não abrir,
+    // o servidor não manda dado nenhum. A senha certa fica na sessão (não pede de novo).
+    const [requiresPassword, setRequiresPassword] = useState(false);
+    const [pwInput, setPwInput] = useState('');
+    const [pwError, setPwError] = useState(false);
+    const [checking, setChecking] = useState(false);
 
-    useEffect(() => {
-        const fetchProject = async () => {
+    const doFetch = async (pw: string) => {
             try {
+                setChecking(true);
                 // Validate projectId format (UUID)
                 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
                 if (!projectId || !uuidRegex.test(projectId)) {
                     throw new Error(`ID de projeto inválido: ${projectId}`);
                 }
 
-                // Portal do Investidor é PÚBLICO (sem login). Em vez de ler as
-                // tabelas direto (o que exigia abrir o banco para o role anon),
-                // chamamos a edge function `investor-portal`, que devolve só os
-                // dados desta obra usando a service role no servidor.
+                // Portal do Investidor é PÚBLICO. A edge function devolve só esta obra
+                // (service role); se o dono protegeu com senha, exige a senha aqui.
                 const { data, error: fnError } = await supabase.functions.invoke('investor-portal', {
-                    body: { projectId },
+                    body: { projectId, password: pw },
                 });
 
                 if (fnError) throw fnError;
                 if (data?.error) throw new Error(data.error);
+
+                // Link protegido: sem/errada a senha, o servidor não manda dado nenhum.
+                if (data?.requiresPassword) {
+                    setRequiresPassword(true);
+                    setPwError(!!pw);   // só marca "errada" se a pessoa tentou uma senha
+                    if (pw) sessionStorage.removeItem('link_pw_' + projectId);
+                    setLoading(false);
+                    setChecking(false);
+                    return;
+                }
+                setRequiresPassword(false);
+                if (pw) sessionStorage.setItem('link_pw_' + projectId, pw);
 
                 const projectData = data?.project;
                 if (!projectData) throw new Error('Projeto não encontrado no banco de dados');
@@ -192,7 +208,9 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         naoAporta: s.nao_aporta || false,
                     })),
                     logs: [],
-                    documents: [],
+                    documents: ((data.documents || []) as any[]).map((d: any) => ({
+                        id: d.id, title: d.title, category: d.category, url: d.url, createdAt: d.created_at,
+                    })),
                     diary: [],
                     stageEvidence: (evidenceData || []).map((e: any) => ({
                         stage: e.stage,
@@ -235,10 +253,14 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                 setError(err.message || 'Erro ao carregar projeto');
             } finally {
                 setLoading(false);
+                setChecking(false);
             }
-        };
+    };
 
-        fetchProject();
+    useEffect(() => {
+        const saved = sessionStorage.getItem('link_pw_' + projectId) || '';
+        doFetch(saved);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projectId]);
 
     // Componente auxiliar para link com assinatura.
@@ -264,6 +286,36 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     <i className="fa-solid fa-spinner fa-spin text-4xl text-blue-400 mb-4"></i>
                     <p className="text-slate-400">Carregando informações do projeto...</p>
                 </div>
+            </div>
+        );
+    }
+
+    // Link protegido: pede a senha antes de qualquer dado (o servidor nem manda a obra).
+    if (requiresPassword && !project) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4">
+                <form
+                    onSubmit={(e) => { e.preventDefault(); if (pwInput) doFetch(pwInput); }}
+                    className="w-full max-w-sm bg-slate-800/60 rounded-3xl border border-slate-700 p-8 text-center"
+                >
+                    <div className="w-14 h-14 mx-auto rounded-2xl bg-blue-500/15 text-blue-400 flex items-center justify-center mb-4">
+                        <i className="fa-solid fa-lock text-2xl"></i>
+                    </div>
+                    <h1 className="text-xl font-black text-white mb-1">Relatório protegido</h1>
+                    <p className="text-slate-400 text-sm mb-5">Digite a senha que o responsável pela obra te passou.</p>
+                    <input
+                        type="password" autoFocus value={pwInput}
+                        onChange={(e) => { setPwInput(e.target.value); setPwError(false); }}
+                        placeholder="Senha"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-center outline-none focus:border-blue-500"
+                    />
+                    {pwError && <p className="text-rose-400 text-xs font-bold mt-2">Senha incorreta. Tente de novo.</p>}
+                    <button type="submit" disabled={checking || !pwInput}
+                        className="w-full mt-4 px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl font-black text-sm flex items-center justify-center gap-2">
+                        {checking ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-unlock"></i>}
+                        {checking ? 'Verificando…' : 'Abrir relatório'}
+                    </button>
+                </form>
             </div>
         );
     }
@@ -731,6 +783,34 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                         })}
                                 </tbody>
                             </table>
+                        </div>
+                    </Collapsible>
+                )}
+
+                {/* DOCUMENTOS — só chegam em link protegido por senha (o servidor só
+                    manda os documentos quando há senha). Contrato, planta, licença, etc. */}
+                {project.documents.length > 0 && (
+                    <Collapsible title="Documentos" icon="fa-folder-open" iconColor="text-amber-400">
+                        <div className="space-y-2">
+                            {project.documents.map((d) => {
+                                const url = d.url?.startsWith('http') ? d.url : signedUrls[d.url];
+                                return (
+                                    <a key={d.id}
+                                        href={url || undefined}
+                                        target="_blank" rel="noopener noreferrer"
+                                        className={`flex items-center justify-between gap-3 bg-slate-900/40 border border-slate-700 rounded-2xl px-4 py-3 transition ${url ? 'hover:border-blue-500/50' : 'opacity-50 pointer-events-none'}`}
+                                    >
+                                        <span className="flex items-center gap-3 min-w-0">
+                                            <i className="fa-solid fa-file-lines text-slate-400 shrink-0"></i>
+                                            <span className="min-w-0">
+                                                <span className="block text-white font-bold text-sm truncate">{d.title}</span>
+                                                <span className="block text-[11px] text-slate-500">{d.category}</span>
+                                            </span>
+                                        </span>
+                                        <i className={`fa-solid ${url ? 'fa-download text-blue-400' : 'fa-spinner fa-spin text-slate-600'} shrink-0`}></i>
+                                    </a>
+                                );
+                            })}
                         </div>
                     </Collapsible>
                 )}

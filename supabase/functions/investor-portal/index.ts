@@ -17,6 +17,13 @@ const corsHeaders = {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Hash da senha do link: SHA-256 de "<projectId>:<senha>" em hex. MESMA fórmula
+// usada no navegador ao DEFINIR a senha (ShareReportModal) — tem que bater byte a byte.
+async function sha256Hex(s: string): Promise<string> {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 Deno.serve(async (req) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
@@ -35,7 +42,9 @@ Deno.serve(async (req) => {
             return json({ error: "Servidor não configurado." }, 500);
         }
 
-        const { projectId } = await req.json().catch(() => ({ projectId: null }));
+        const body = await req.json().catch(() => ({} as { projectId?: string; password?: string }));
+        const projectId = body?.projectId;
+        const password = typeof body?.password === "string" ? body.password : "";
         if (!projectId || typeof projectId !== "string" || !UUID_RE.test(projectId)) {
             return json({ error: "ID de projeto inválido." }, 400);
         }
@@ -54,6 +63,17 @@ Deno.serve(async (req) => {
         if (projErr) throw projErr;
         if (!project) return json({ error: "Projeto não encontrado." }, 404);
 
+        // Senha do link (opcional). Se o dono protegeu, EXIGE a senha certa antes de
+        // devolver qualquer dado — senão o link vaza a obra inteira só com a URL.
+        // Sem/errada → { requiresPassword: true } e nada mais (não revela nem o nome).
+        const pwHash = (project as { link_password_hash?: string | null }).link_password_hash;
+        if (pwHash) {
+            const given = password ? await sha256Hex(projectId + ":" + password) : "";
+            if (given !== pwHash) return json({ requiresPassword: true });
+        }
+        // Nunca devolver o hash da senha pro cliente (o link é público).
+        delete (project as { link_password_hash?: string | null }).link_password_hash;
+
         // Plano do DONO da obra (project_members.role='owner'). O portal é
         // público, então a trava de plano (marca ObraPro + seções pagas) tem
         // que ser decidida aqui no servidor — senão bastaria editar a URL para
@@ -69,7 +89,7 @@ Deno.serve(async (req) => {
         const ownerPlan = rawPlan === "pro" || rawPlan === "business" ? rawPlan : "free";
 
         // Busca paralela das tabelas-filhas, sempre filtrando por project_id.
-        const [unitsRes, evidenceRes, expensesRes, budgetRes, contributionsRes, acquisitionRes, investorsRes, profitSharesRes, itemsRes] = await Promise.all([
+        const [unitsRes, evidenceRes, expensesRes, budgetRes, contributionsRes, acquisitionRes, investorsRes, profitSharesRes, itemsRes, documentsRes] = await Promise.all([
             admin.from("units").select("*").eq("project_id", projectId),
             admin.from("stage_evidences").select("*").eq("project_id", projectId),
             admin.from("expenses").select("*").eq("project_id", projectId).is("deleted_at", null),
@@ -87,6 +107,8 @@ Deno.serve(async (req) => {
             admin.from("profit_shares").select("id, investor_id, name, percentage, nao_aporta").eq("project_id", projectId),
             // Itens do orçamento (id + nome): o link mostra o gasto por item ao abrir a etapa.
             admin.from("project_items").select("id, name").eq("project_id", projectId),
+            // Documentos da obra (só quando o dono liga a seção + protege com senha).
+            admin.from("documents").select("id, title, category, url, created_at").eq("project_id", projectId),
         ]);
 
         const budget = budgetRes.data ?? null;
@@ -131,6 +153,10 @@ Deno.serve(async (req) => {
         for (const ev of evidences) {
             for (const p of ev.photos ?? []) if (isPath(p)) docPaths.add(p);
         }
+        // Documentos (contrato/planta/etc.) ficam no bucket project-documents, igual às fotos.
+        // SÓ viajam em link PROTEGIDO por senha (privacidade). Link aberto → sem documentos.
+        const documentRows = pwHash ? ((documentsRes.data ?? []) as { url?: string }[]) : [];
+        for (const d of documentRows) if (isPath(d.url)) docPaths.add(d.url as string);
 
         const expensePaths = new Set<string>();
         for (const e of expenseRows) {
@@ -171,6 +197,7 @@ Deno.serve(async (req) => {
             investors: investorsRes.data ?? [],
             profitShares: profitSharesRes.data ?? [],
             items: itemsRes.data ?? [],
+            documents: pwHash ? (documentsRes.data ?? []) : [],
             budget,
             macros,
             subMacros,

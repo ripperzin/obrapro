@@ -4,6 +4,15 @@ import { Project } from '../types';
 import { generateProjectPDF } from '../utils/pdfGenerator';
 import { ReportOptions, DEFAULT_REPORT_OPTIONS, OPTIONAL_SECTIONS, PAID_SECTIONS, buildInvestorUrl, clampReportOptions } from '../utils/reportOptions';
 import { usePlan } from './PlanProvider';
+import { supabase } from '../supabaseClient';
+import { useQueryClient } from '@tanstack/react-query';
+
+// Hash da senha do link: SHA-256 de "<projectId>:<senha>". MESMA fórmula da edge
+// function investor-portal (tem que bater). O banco guarda só o hash, nunca a senha.
+async function sha256Hex(s: string): Promise<string> {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 interface ShareReportModalProps {
     project: Project;
@@ -20,6 +29,38 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ project, userName, 
     );
     const [copied, setCopied] = useState(false);
     const [generating, setGenerating] = useState(false);
+    // Senha do link (protege o link inteiro + libera os documentos nele).
+    const queryClient = useQueryClient();
+    const [pwSet, setPwSet] = useState(!!project.hasLinkPassword);
+    const [pwValue, setPwValue] = useState('');
+    const [editingPw, setEditingPw] = useState(false);
+    const [savingPw, setSavingPw] = useState(false);
+
+    const salvarSenha = async () => {
+        if (pwValue.trim().length < 4) { alert('A senha precisa de ao menos 4 caracteres.'); return; }
+        setSavingPw(true);
+        try {
+            const hash = await sha256Hex(project.id + ':' + pwValue.trim());
+            const { error } = await supabase.from('projects').update({ link_password_hash: hash }).eq('id', project.id);
+            if (error) throw error;
+            setPwSet(true); setEditingPw(false); setPwValue('');
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+        } catch (e: any) {
+            alert('Não consegui salvar a senha: ' + (e?.message || e));
+        } finally { setSavingPw(false); }
+    };
+    const removerSenha = async () => {
+        if (!window.confirm('Remover a senha? O link fica aberto e os documentos deixam de aparecer nele.')) return;
+        setSavingPw(true);
+        try {
+            const { error } = await supabase.from('projects').update({ link_password_hash: null }).eq('id', project.id);
+            if (error) throw error;
+            setPwSet(false); setEditingPw(false); setPwValue('');
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+        } catch (e: any) {
+            alert('Não consegui remover a senha: ' + (e?.message || e));
+        } finally { setSavingPw(false); }
+    };
 
     const isPaidSection = (key: keyof ReportOptions) =>
         !ent.canShareFullReport && PAID_SECTIONS.includes(key);
@@ -138,6 +179,35 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ project, userName, 
                             </button>
                         </p>
                     )}
+
+                    {/* Proteger o link com senha — e liberar os DOCUMENTOS no link. */}
+                    <div className="mt-3 pt-4 border-t border-slate-800">
+                        <div className="flex items-center gap-2">
+                            <i className="fa-solid fa-lock text-slate-400"></i>
+                            <span className="text-sm font-bold text-white">Proteger com senha</span>
+                            {pwSet && <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full">Protegido</span>}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1 mb-2">
+                            Com senha, quem abrir o link precisa digitá-la — e os <b className="text-slate-300">documentos</b> da obra (contrato, planta…) aparecem no link. Sem senha, o link fica aberto e sem documentos.
+                        </p>
+                        {pwSet && !editingPw ? (
+                            <div className="flex items-center gap-3">
+                                <button onClick={() => { setEditingPw(true); setPwValue(''); }} className="text-xs font-bold text-blue-400 hover:text-blue-300">Trocar senha</button>
+                                <span className="text-slate-600">·</span>
+                                <button onClick={removerSenha} disabled={savingPw} className="text-xs font-bold text-slate-400 hover:text-rose-400">Remover</button>
+                            </div>
+                        ) : (
+                            <div className="flex gap-2">
+                                <input type="text" value={pwValue} onChange={e => setPwValue(e.target.value)} placeholder="Senha (mín. 4)"
+                                    className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-blue-500" />
+                                <button onClick={salvarSenha} disabled={savingPw || pwValue.trim().length < 4}
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl font-bold text-sm">
+                                    {savingPw ? '…' : (pwSet ? 'Salvar' : 'Proteger')}
+                                </button>
+                                {pwSet && <button type="button" onClick={() => setEditingPw(false)} className="px-2 text-slate-400 hover:text-white text-sm">Cancelar</button>}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Ações */}

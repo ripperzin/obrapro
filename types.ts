@@ -417,6 +417,8 @@ export interface Project {
   expenses: Expense[];
   logs: LogEntry[];
   documents: ProjectDocument[];
+  /** Link do sócio protegido por senha? (o hash mora no banco; aqui só o sim/não) */
+  hasLinkPassword?: boolean;
   diary: DiaryEntry[];
   stageEvidence: StageEvidence[];
   budget?: ProjectBudget & { macros: ProjectMacro[] }; // Orçamento com macros
