@@ -369,7 +369,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                     {!dirty && (
                         <p className="text-[10px] text-slate-500 leading-snug">
                             {parcelas.length > 0 && <>Clique no ✓ de cada valor para dar como <b>pago</b> — isso registra o aporte de verdade (entra no caixa). Aportes fora do plano aparecem como linhas <span className="text-emerald-500">avulso</span>. </>}
-                            {temDespesaRow && <>As linhas <span className="text-amber-500/90">em despesas</span> são as compras que o sócio pagou do próprio bolso (também contam como aporte) — some o mês inteiro; para mexer nelas, vá na aba <b>Despesas</b>.</>}
+                            {temDespesaRow && <>As linhas <span className="text-amber-500/90">em despesas</span> são as compras e as <b>taxas do terreno</b> que o sócio pagou do próprio bolso (também contam como aporte) — some o mês inteiro; para mexer, vá na aba <b>Despesas</b> ou <b>Terreno</b>.</>}
                         </p>
                     )}
                     {foraDaMatriz.total > 0 && (

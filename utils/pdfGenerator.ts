@@ -542,7 +542,7 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
                 }
                 if (mRows.some(r => r.kind === 'despesa')) {
                     doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'normal');
-                    doc.text('"em despesas" = compras que o sócio pagou do próprio bolso (também contam como aporte).', M + 2, y + 1);
+                    doc.text('"em despesas" = compras e taxas do terreno que o sócio pagou do próprio bolso (também contam como aporte).', M + 2, y + 1);
                     y += 5;
                 }
                 if (foraDaMatriz.total > 0.5) {

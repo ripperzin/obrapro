@@ -683,7 +683,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
 
                             {rows.some(r => r.kind === 'despesa') && (
                                 <p className="text-[10px] text-slate-500 leading-snug mb-3">
-                                    As linhas <span className="text-amber-500/90">em despesas</span> são compras que o sócio pagou do próprio bolso — também contam como aporte.
+                                    As linhas <span className="text-amber-500/90">em despesas</span> são compras e taxas do terreno que o sócio pagou do próprio bolso — também contam como aporte.
                                 </p>
                             )}
 

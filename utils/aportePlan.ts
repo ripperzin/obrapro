@@ -214,16 +214,22 @@ export const buildAporteMatrix = (
   // --- despesa que o sócio pagou do bolso: também é aporte. Agrupada por MÊS
   //     (há obra com 151 lançamentos — uma linha por despesa afogaria a tabela).
   const porMes = new Map<string, { cells: { [id: string]: AporteMatrixCell }; qtd: number }>();
-  (project.expenses || []).forEach((e: any) => {
-    const sid = e.paidByInvestorId;
-    if (!sid || !temColuna.has(sid)) return;
-    const ym = (e.date || '').slice(0, 7);
+  const somaNoMes = (sid: string, date: string, value: number) => {
+    const ym = (date || '').slice(0, 7);
     if (!ym) return;
     if (!porMes.has(ym)) porMes.set(ym, { cells: {}, qtd: 0 });
     const g = porMes.get(ym)!;
     if (!g.cells[sid]) g.cells[sid] = novaCell();
-    g.cells[sid].value += e.value || 0;
+    g.cells[sid].value += value || 0;
     g.qtd += 1;
+  };
+  (project.expenses || []).forEach((e: any) => {
+    if (e.paidByInvestorId && temColuna.has(e.paidByInvestorId)) somaNoMes(e.paidByInvestorId, e.date, e.value || 0);
+  });
+  // Custos de terreno que o sócio pagou do bolso TAMBÉM contam como aporte dele —
+  // aparecem na mesma linha mensal "em despesas" (senão só entravam no total de baixo).
+  (project.acquisitionCosts || []).forEach((a: any) => {
+    if (a.paidByInvestorId && temColuna.has(a.paidByInvestorId)) somaNoMes(a.paidByInvestorId, a.date, a.value || 0);
   });
   const despesaRows: AporteMatrixRow[] = [...porMes.entries()].map(([ym, g]) => ({
     kind: 'despesa', key: `ds-${ym}`, date: `${ym}-31`, ym, qtd: g.qtd, cells: g.cells,
@@ -238,6 +244,10 @@ export const buildAporteMatrix = (
   (project.expenses || []).forEach((e: any) => {
     if (!e.paidByInvestorId || temColuna.has(e.paidByInvestorId)) return;
     porSocioFora.set(e.paidByInvestorId, (porSocioFora.get(e.paidByInvestorId) || 0) + (e.value || 0));
+  });
+  (project.acquisitionCosts || []).forEach((a: any) => {
+    if (!a.paidByInvestorId || temColuna.has(a.paidByInvestorId)) return;
+    porSocioFora.set(a.paidByInvestorId, (porSocioFora.get(a.paidByInvestorId) || 0) + (a.value || 0));
   });
 
   return {
