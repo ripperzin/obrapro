@@ -12,7 +12,8 @@ const ResultadoEmpreendimento: React.FC<Props> = ({ project, bare = false }) => 
     const f = computeProjectFinance(project);
 
     const isCompleted = project.progress >= 100;
-    const disponiveis = f.unidadesTotais - f.unidadesVendidas;
+    const disponiveis = f.unidadesDisponiveis; // permuta não é estoque à venda
+    const vendaveis = f.unidadesVendidas + f.unidadesDisponiveis; // total SEM permuta
 
     const projPositivo = f.lucroProjetado >= 0;
     const realPositivo = f.lucroReal >= 0;
@@ -77,7 +78,7 @@ const ResultadoEmpreendimento: React.FC<Props> = ({ project, bare = false }) => 
                         <div className="space-y-1.5 text-sm">
                             <div className="flex justify-between">
                                 <span className="text-slate-400">Vendido</span>
-                                <span className="text-white font-bold">{f.unidadesVendidas}/{f.unidadesTotais} casas</span>
+                                <span className="text-white font-bold">{f.unidadesVendidas}/{vendaveis} casas</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-slate-400">Liquidado</span>

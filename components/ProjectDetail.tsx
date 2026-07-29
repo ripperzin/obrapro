@@ -21,7 +21,7 @@ import AddExpenseModal from './AddExpenseModal';
 import ImportExpensesModal from './ImportExpensesModal';
 import ManageAttachmentsModal from './ManageAttachmentsModal';
 import ScheduleView from './ScheduleView';
-import CashSummaryCards from './CashSummaryCards';
+import ObraCostCards from './ObraCostCards';
 import RecentMovements from './RecentMovements';
 import AquisicaoSection from './AquisicaoSection';
 import ResultadoEmpreendimento from './ResultadoEmpreendimento';
@@ -271,7 +271,7 @@ const UnitsSection: React.FC<{
           <div className="grid grid-cols-3 gap-2 md:gap-3">
             <div className="glass rounded-xl border border-slate-700 p-3">
               <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 truncate">Vendidas</p>
-              <p className="text-white font-black text-base md:text-lg">{unitsFin.unidadesVendidas}/{unitsFin.unidadesTotais}</p>
+              <p className="text-white font-black text-base md:text-lg">{unitsFin.unidadesVendidas}/{unitsFin.unidadesVendidas + unitsFin.unidadesDisponiveis}</p>
             </div>
             <div className="glass rounded-xl border border-slate-700 p-3">
               <p className="text-[9px] font-black uppercase tracking-widest text-cyan-400 truncate">Lucro projetado</p>
@@ -2250,9 +2250,10 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
             {/* DINHEIRO — some pro apontador (só o campo: avanço + foto acima). */}
             {canSeeMoney && (
               <>
-                {/* Caixa da obra: Aportado - Gasto - Aquisição = Saldo em caixa */}
+                {/* Custo da obra: Construção + Terreno = Custo total. O CAIXA (fluxo) vive
+                    na aba Sócios — aqui a Gestão fala de CUSTO, sem repetir o mesmo card. */}
                 <div className="mb-8">
-                  <CashSummaryCards project={project} />
+                  <ObraCostCards project={project} />
                 </div>
 
                 {/* Últimas movimentações + última atualização da obra */}
