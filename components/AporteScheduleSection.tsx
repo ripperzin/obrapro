@@ -21,8 +21,6 @@ interface Props {
     socios: SocioCol[];
     onUpdate?: (projectId: string, updates: Partial<Project>) => void;
     onRegisterAporte?: () => void;
-    /** Bloco "Configurar sócios" (cadastro/cotas) — mora DENTRO deste card, no topo. */
-    configSlot?: React.ReactNode;
 }
 
 // Célula em confirmação: o sócio quase nunca paga exatamente o planejado nem no dia
@@ -42,7 +40,7 @@ const inputCls = 'bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 te
 // Card "Sócios": a matriz Data × Sócios serve de plano E de registro. Cada célula
 // tem valor + botão "pago" (ao marcar, cria o aporte real → caixa/extrato). Aportes
 // avulsos (fora do plano) aparecem como linhas verdes. Mesma tabela no app e no link.
-const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onRegisterAporte, configSlot }) => {
+const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onRegisterAporte }) => {
     const addContribution = useAddContribution();
     const deleteContribution = useDeleteContribution();
 
@@ -192,8 +190,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
         return (
             <div className="glass rounded-2xl border border-slate-700 p-5">
                 <h3 className="font-black text-white flex items-center gap-2"><i className="fa-solid fa-users text-blue-400"></i> Sócios</h3>
-                <p className="text-slate-400 text-sm mt-2 mb-4">Cadastre os sócios (e as cotas, ou as casas de cada um) em <b>Configurar sócios</b> para montar a divisão e o cronograma de aportes.</p>
-                {configSlot && <div className="-mx-5 -mb-5 border-t border-slate-700/60">{configSlot}</div>}
+                <p className="text-slate-400 text-sm mt-2">Cadastre os sócios (e as cotas, ou as casas de cada um) em <b>Configurar sócios</b> para montar a divisão e o cronograma de aportes.</p>
             </div>
         );
     }
@@ -210,9 +207,6 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
 
             {open && (
                 <div className="px-4 sm:px-5 pb-5 space-y-4">
-                    {/* Cadastro dos sócios: primeira coisa do card. */}
-                    {configSlot && <div className="-mx-4 sm:-mx-5 border-b border-slate-700/60">{configSlot}</div>}
-
                     {/* Ação do dia a dia (lançar o que entrou) em destaque; MONTAR o plano
                         é coisa de uma vez só e fica recolhida atrás de "Planejar aportes". */}
                     <div className="flex flex-wrap items-center gap-2">

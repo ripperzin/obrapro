@@ -239,7 +239,8 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
             };
         });
     }
-    const semDono = splitMode === 'unit' ? units.filter((u) => !u.ownerInvestorId) : [];
+    // Permuta não tem dono de propósito (é do dono da terra) → fora do aviso de "sem dono".
+    const semDono = splitMode === 'unit' ? units.filter((u) => !u.ownerInvestorId && u.status !== 'Permuta') : [];
 
     // Colunas da matriz de aportes: sócios que aportam (meta/aportado do acerto,
     // lucro/cota do sociosView). Naoaportantes já saem do acerto.shares.
@@ -254,8 +255,8 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
         };
     });
 
-    // Cadastro dos sócios (como divide + quem são + cotas). Mora DENTRO do card
-    // "Sócios", no topo: é coisa de configurar uma vez, não do dia a dia.
+    // Cadastro dos sócios (como divide + quem são + cotas). Fica no SEU PRÓPRIO card,
+    // separado do card "Sócios" (aportes): é coisa de configurar uma vez, não do dia a dia.
     const configSlot = (
         <div className="bg-slate-900/20">
                     <button
@@ -433,17 +434,20 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
     return (
         <div className="flex flex-col gap-6 animate-fade-in">
             {/* Caixa da obra */}
-            <div className="order-2"><CashSummaryCards project={project} /></div>
+            <div className="order-1"><CashSummaryCards project={project} /></div>
 
-            {/* ▸ Sócios: a matriz (plano de aportes + aportes reais + resumo por sócio).
-                   O cadastro ("Configurar sócios") vai DENTRO deste card, no topo. */}
+            {/* Card SEPARADO: Configurar sócios (cadastro/cotas/valor acordado). */}
+            <div className="order-2 glass rounded-2xl border border-slate-700 overflow-hidden">
+                {configSlot}
+            </div>
+
+            {/* ▸ Sócios: a matriz (plano de aportes + aportes reais + resumo por sócio). */}
             <div className="order-3">
                 <AporteScheduleSection
                     project={project}
                     socios={socioCols}
                     onUpdate={onUpdate}
                     onRegisterAporte={() => setShowAporte(true)}
-                    configSlot={configSlot}
                 />
                 {semDono.length > 0 && (
                     <p className="text-[10px] text-slate-500 mt-2 leading-snug text-center">
