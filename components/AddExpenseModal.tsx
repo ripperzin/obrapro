@@ -46,6 +46,7 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
     useEffect(() => {
         if (isOpen) {
             const saved = localStorage.getItem(DRAFT_KEY);
+            let restored = false;
             if (saved) {
                 try {
                     const data = JSON.parse(saved);
@@ -62,12 +63,21 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                             macros: undefined,
                             subMacros: undefined
                         }));
+                        restored = true;
                     }
                 } catch (e) {
                     console.error('Error restoring draft', e);
                 }
-            } else {
-                // Reset handled by initialized state logic usually
+            }
+            if (!restored) {
+                // Sem rascunho pra recuperar → abre EM BRANCO. Antes o formulário
+                // herdava a despesa anterior (ficava no estado do componente após salvar),
+                // reaparecendo com valor e ANEXOS ao lançar a próxima.
+                setFormData({
+                    description: '', value: 0, date: new Date().toISOString().split('T')[0],
+                    attachmentUrl: undefined, attachments: [], macroId: '', itemId: '', paidByInvestorId: ''
+                });
+                setItemQuery('');
             }
             setResolvedUrls({});
             setIsInitialized(true);
