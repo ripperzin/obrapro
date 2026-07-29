@@ -89,7 +89,14 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
         setParcelas([...parcelas, { id: generateId(), date: new Date(base).toISOString().slice(0, 10), values: {} }]);
         setOpen(true);
     };
-    const removeParcela = (id: string) => setParcelas(parcelas.filter((p) => p.id !== id));
+    // Excluir parcela GRAVA na hora (não só no estado local) — senão, ao trocar de aba,
+    // o componente recarrega do banco e a parcela "volta". Persiste o plano já sem ela.
+    const removeParcela = (id: string) => {
+        const next = parcelas.filter((p) => p.id !== id);
+        setPlan({ parcelas: next });
+        dirtyRef.current = false; setDirty(false);
+        onUpdate?.(project.id, { aportePlan: { parcelas: next } });
+    };
     const setDate = (id: string, date: string) => setParcelas(parcelas.map((p) => p.id === id ? { ...p, date } : p));
     const setValue = (id: string, sid: string, v: number) => setParcelas(parcelas.map((p) => p.id === id ? { ...p, values: { ...p.values, [sid]: v } } : p));
     const salvar = () => { onUpdate?.(project.id, { aportePlan: plan }); dirtyRef.current = false; setDirty(false); };
