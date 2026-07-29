@@ -26,7 +26,7 @@ import RecentMovements from './RecentMovements';
 import AquisicaoSection from './AquisicaoSection';
 import ResultadoEmpreendimento from './ResultadoEmpreendimento';
 import SociosSection from './SociosSection';
-import { computeProjectFinance, computeGastoAvancoVerdito } from '../utils/projectFinance';
+import { computeProjectFinance, computeGastoAvancoVerdito, computeUnitResult } from '../utils/projectFinance';
 import { usePlan } from './PlanProvider';
 
 import { supabase } from '../supabaseClient';
@@ -352,32 +352,27 @@ const UnitsSection: React.FC<{
           .sort((a, b) => (a.identifier || '').localeCompare(b.identifier || '', 'pt-BR', { numeric: true, sensitivity: 'base' }))
           .map(unit => {
           const isCompleted = project.progress === 100;
-          const totalExpenses = project.expenses.reduce((sum, exp) => sum + exp.value, 0);
-          const terrenoTotal = (project.acquisitionCosts || []).reduce((sum, a) => sum + (a.value || 0), 0);
+          const isPermuta = unit.status === 'Permuta';
 
-          // Área total REAL (soma das unidades) para ratear o custo por m² entre as casas
-          const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
-          const areaShare = totalUnitsArea > 0 ? unit.area / totalUnitsArea : 0;
-
-          // Cada casa carrega a fatia da sua área na obra E no terreno (empreendimento completo)
-          const terrenoRateio = areaShare * terrenoTotal;
-          const custoObraRealizado = areaShare * totalExpenses;
-          // Custo realizado da casa = obra realizada (rateada) + terreno rateado. "Até agora" enquanto a obra corre; final ao concluir.
-          const custoRealizado = custoObraRealizado + terrenoRateio;
-          // Custo total estimado da casa = obra orçada + terreno rateado
-          const custoEstimadoTotal = unit.cost + terrenoRateio;
+          // Fonte ÚNICA do resultado por casa (mesma régua do empreendimento e da permuta):
+          // casa de permuta tem fatia 0; terreno pago com casas sai do custo. Antes isto era
+          // recalculado à mão aqui e divergia — agora usa computeUnitResult.
+          const res = computeUnitResult(project, unit);
+          const terrenoRateio = res.terrenoRateio;
+          const custoRealizado = res.custoRealizado;
+          const custoEstimadoTotal = res.custoAlocado;
 
           const isEditing = editingUnitId === unit.id;
 
           // PROJETADO: venda estimada (ou a de venda, se não houver estimativa) − custo obra orçado − terreno.
-          const vendaProj = (unit.valorEstimadoVenda && unit.valorEstimadoVenda > 0) ? unit.valorEstimadoVenda : (unit.saleValue || 0);
+          const vendaProj = res.venda;
           const temProjecao = vendaProj > 0;
-          const lucroProj = vendaProj - custoEstimadoTotal; // custoEstimadoTotal = unit.cost + terrenoRateio
+          const lucroProj = vendaProj - custoEstimadoTotal;
           const margemProj = temProjecao ? (lucroProj / vendaProj) * 100 : 0;
 
           // REAL: só quando vendida. Lucro real fica TRAVADO até a obra concluir.
-          const vendido = (unit.saleValue || 0) > 0;
-          const lucroRealCasa = (unit.saleValue || 0) - custoRealizado; // custoRealizado = obra rateada + terreno
+          const vendido = res.vendida;
+          const lucroRealCasa = (unit.saleValue || 0) - custoRealizado;
           const margemRealCasa = vendido ? (lucroRealCasa / (unit.saleValue || 1)) * 100 : 0;
 
           return (
@@ -395,8 +390,8 @@ const UnitsSection: React.FC<{
                 <div className={`flex-1 ${!expandedUnitIds.has(unit.id) ? 'flex items-center gap-4' : ''}`}>
                   <div className="flex items-center gap-3">
                     <h5 className="font-black text-white text-lg">{unit.identifier}</h5>
-                    <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${unit.status === 'Sold' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
-                      {unit.status === 'Sold' ? 'Vendida' : 'À Venda'}
+                    <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${unit.status === 'Sold' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : isPermuta ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
+                      {unit.status === 'Sold' ? 'Vendida' : isPermuta ? 'Permuta' : 'À Venda'}
                     </div>
                   </div>
                   <p className={`text-[10px] text-slate-500 font-bold uppercase ${!expandedUnitIds.has(unit.id) ? 'ml-2' : 'mt-1'}`}>
@@ -479,6 +474,27 @@ const UnitsSection: React.FC<{
                     </div>
                   )}
 
+                  {/* PERMUTA — marcar a casa como dada em troca do terreno */}
+                  {isEditing && (
+                    <div className="sm:col-span-2 flex items-center justify-between gap-3 bg-slate-800/40 rounded-xl border border-slate-700/60 px-4 py-2.5">
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+                          <i className="fa-solid fa-handshake mr-1"></i> Permuta (dada pelo terreno)
+                        </span>
+                        <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Não vende e não é de sócio; o custo de construí-la é o preço da terra.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateUnit(unit.id, isPermuta
+                          ? { status: 'Available' }
+                          : { status: 'Permuta', ownerInvestorId: undefined, saleValue: undefined, valorEstimadoVenda: undefined })}
+                        className={`w-12 h-7 rounded-full flex items-center transition-all shrink-0 ${isPermuta ? 'bg-amber-500 justify-end' : 'bg-slate-600 justify-start'} p-1`}
+                      >
+                        <span className="w-5 h-5 bg-white rounded-full block"></span>
+                      </button>
+                    </div>
+                  )}
+
                   {/* ÁREA (m²) — editável; alimenta o rateio de custo entre as casas e o custo/m² real */}
                   {isEditing && (
                     <div className="sm:col-span-2 flex items-center justify-between gap-2 bg-slate-800/40 rounded-xl border border-slate-700/60 px-4 py-2.5">
@@ -531,7 +547,7 @@ const UnitsSection: React.FC<{
                             <span className="text-slate-300">{formatCurrency(unit.cost)}</span>
                           )}
                         </div>
-                        {terrenoTotal > 0 && (
+                        {terrenoRateio > 0 && (
                           <div className="flex justify-between">
                             <span className="text-slate-400">− Terreno <span className="text-slate-600 text-xs">(rateio)</span></span>
                             <span className="text-slate-300">{formatCurrency(terrenoRateio)}</span>
@@ -1700,12 +1716,15 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
     const oldUnit = project.units.find(u => u.id === unitId)!;
 
     let finalUpdates = { ...updates };
-    const currentSaleValue = updates.hasOwnProperty('saleValue') ? updates.saleValue : oldUnit.saleValue;
-
-    if (currentSaleValue && currentSaleValue > 0) {
-      finalUpdates.status = 'Sold';
-    } else {
-      finalUpdates.status = 'Available';
+    // Se o update já traz um status (ligar/desligar permuta), respeita — não deriva de saleValue.
+    if (!updates.hasOwnProperty('status')) {
+      if (oldUnit.status === 'Permuta') {
+        // Permuta NÃO é derivada do valor de venda: só sai quando desmarcada explicitamente.
+        finalUpdates.status = 'Permuta';
+      } else {
+        const currentSaleValue = updates.hasOwnProperty('saleValue') ? updates.saleValue : oldUnit.saleValue;
+        finalUpdates.status = (currentSaleValue && currentSaleValue > 0) ? 'Sold' : 'Available';
+      }
     }
 
     const newUnits = project.units.map(u => u.id === unitId ? { ...u, ...finalUpdates } : u);

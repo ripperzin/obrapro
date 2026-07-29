@@ -172,7 +172,7 @@ const fetchData = async (id: string) => {
         aportePlan: p.aporte_plan || undefined,
         units: (units || []).map((u: any) => ({ id: u.id, identifier: u.identifier, area: u.area, cost: u.cost, status: u.status, valorEstimadoVenda: u.valor_estimado_venda, saleValue: u.sale_value, saleDate: u.sale_date, ownerInvestorId: u.owner_investor_id || undefined })),
         expenses: (exps || []).map((e: any) => ({ id: e.id, description: e.description, value: e.value, date: e.date, userId: e.user_id, userName: e.user_name, macroId: e.macro_id, subMacroId: e.sub_macro_id, itemId: e.item_id || undefined, attachmentUrl: e.attachment_url, attachments: e.attachments || [], paidByInvestorId: e.paid_by_investor_id || undefined })),
-        acquisitionCosts: (acqs || []).map((a: any) => ({ id: a.id, projectId: a.project_id, category: a.category, description: a.description, value: a.value, date: a.date, paidFromProject: a.paid_from_project, paidByInvestorId: a.paid_by_investor_id || undefined })),
+        acquisitionCosts: (acqs || []).map((a: any) => ({ id: a.id, projectId: a.project_id, category: a.category, description: a.description, value: a.value, date: a.date, paidFromProject: a.paid_from_project, paidByInvestorId: a.paid_by_investor_id || undefined, paidWithUnits: a.paid_with_units || false })),
         stageEvidence: (evs || []).map((e: any) => ({ stage: e.stage, photos: e.photos || [], date: e.date, notes: e.notes, user: e.user_name })),
         contributions: (contribs || []).map((c: any) => ({ id: c.id, projectId: c.project_id, investorId: c.investor_id, value: c.value, date: c.date })),
         investors: (invs || []).map((i: any) => ({ id: i.id, projectId: i.project_id, name: i.name })),
@@ -632,8 +632,8 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
             y += linhas.length * 4 + 2;
         }
 
-        // A vender (mesma linha do componente do app)
-        const disponiveis = f.unidadesTotais - f.unidadesVendidas;
+        // A vender (mesma linha do componente do app) — permuta não é estoque
+        const disponiveis = f.unidadesDisponiveis;
         if (disponiveis > 0) {
             doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'normal');
             doc.text(`A vender: ${fmtShort(f.vendasPotencial)}  •  ${disponiveis} casa${disponiveis > 1 ? 's' : ''} disponíve${disponiveis > 1 ? 'is' : 'l'}`, M, y);

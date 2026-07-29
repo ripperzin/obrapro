@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Project, User, ACQUISITION_CATEGORY_LABELS, AcquisitionCategory } from '../types';
+import { Project, User, AcquisitionCost, ACQUISITION_CATEGORY_LABELS, AcquisitionCategory } from '../types';
 import { formatCurrency } from '../utils';
 import { openAttachment } from '../utils/storage';
 import AddAcquisitionModal from './AddAcquisitionModal';
@@ -12,8 +12,13 @@ interface Props {
 
 const AquisicaoSection: React.FC<Props> = ({ project, user }) => {
     const [showModal, setShowModal] = useState(false);
+    const [editingCost, setEditingCost] = useState<AcquisitionCost | undefined>(undefined);
     const costs = [...(project.acquisitionCosts || [])].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     const deleteCost = useDeleteAcquisitionCost();
+
+    const openNew = () => { setEditingCost(undefined); setShowModal(true); };
+    const openEdit = (c: AcquisitionCost) => { setEditingCost(c); setShowModal(true); };
+    const closeModal = () => { setShowModal(false); setEditingCost(undefined); };
 
     const total = costs.reduce((s, c) => s + (c.value || 0), 0);
     const catLabel = (c: string) => ACQUISITION_CATEGORY_LABELS[c as AcquisitionCategory] || c;
@@ -24,7 +29,7 @@ const AquisicaoSection: React.FC<Props> = ({ project, user }) => {
         <div className="space-y-4">
             {costs.length === 0 ? (
                 <button
-                    onClick={() => setShowModal(true)}
+                    onClick={openNew}
                     className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-amber-400 text-xs font-bold py-2 transition"
                 >
                     <i className="fa-solid fa-map-location-dot"></i>
@@ -39,7 +44,7 @@ const AquisicaoSection: React.FC<Props> = ({ project, user }) => {
                             Terreno
                         </h3>
                         <button
-                            onClick={() => setShowModal(true)}
+                            onClick={openNew}
                             className="bg-amber-600 text-white px-4 py-2.5 rounded-full font-black text-sm hover:bg-amber-700 transition shadow-lg shadow-amber-600/30 flex items-center gap-2"
                         >
                             <i className="fa-solid fa-plus"></i> <span className="hidden sm:inline">Adicionar</span>
@@ -63,7 +68,11 @@ const AquisicaoSection: React.FC<Props> = ({ project, user }) => {
                                 <div className="min-w-0">
                                     <p className="text-white font-bold truncate">
                                         {catLabel(c.category)}
-                                        {c.paidByInvestorId ? (
+                                        {c.paidWithUnits ? (
+                                            <span className="ml-2 text-[9px] uppercase tracking-wider bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">
+                                                <i className="fa-solid fa-handshake mr-0.5"></i> pago com casas
+                                            </span>
+                                        ) : c.paidByInvestorId ? (
                                             <span className="ml-2 text-[9px] uppercase tracking-wider bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">
                                                 aporte de {investorName(c.paidByInvestorId) || 'sócio'}
                                             </span>
@@ -83,6 +92,13 @@ const AquisicaoSection: React.FC<Props> = ({ project, user }) => {
                                     )}
                                     <span className="text-amber-400 font-black">{formatCurrency(c.value)}</span>
                                     <button
+                                        onClick={() => openEdit(c)}
+                                        className="text-slate-500 hover:text-amber-400 transition"
+                                        title="Editar"
+                                    >
+                                        <i className="fa-solid fa-pen"></i>
+                                    </button>
+                                    <button
                                         onClick={() => { if (window.confirm('Excluir este custo de terreno?')) deleteCost.mutate(c.id); }}
                                         className="text-slate-500 hover:text-rose-400 transition"
                                         title="Excluir"
@@ -96,7 +112,7 @@ const AquisicaoSection: React.FC<Props> = ({ project, user }) => {
                 </>
             )}
 
-            {showModal && <AddAcquisitionModal project={project} user={user} onClose={() => setShowModal(false)} />}
+            {showModal && <AddAcquisitionModal project={project} user={user} editing={editingCost} onClose={closeModal} />}
         </div>
     );
 };

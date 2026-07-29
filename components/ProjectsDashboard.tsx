@@ -129,7 +129,7 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
           <div className="block md:hidden space-y-4">
             {projects.map(p => {
               const sold = p.units.filter(u => u.status === 'Sold').length;
-              const total = p.units.length;
+              const total = p.units.filter(u => u.status !== 'Permuta').length; // vendáveis
               return (
                 <SwipeableProjectItem
                   key={p.id}

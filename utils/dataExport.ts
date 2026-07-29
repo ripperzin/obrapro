@@ -36,7 +36,7 @@ export const buildProjectWorkbook = (project: Project): XLSX.WorkBook => {
     Unidade: u.identifier,
     'Área (m²)': u.area || 0,
     'Custo orçado': u.cost || 0,
-    Status: u.status === 'Sold' ? 'Vendida' : 'À venda',
+    Status: u.status === 'Sold' ? 'Vendida' : u.status === 'Permuta' ? 'Permuta (terreno)' : 'À venda',
     'Valor de venda': u.saleValue || u.valorEstimadoVenda || 0,
     'Data da venda': formatDateBR(u.saleDate),
     Dono: investorName(u.ownerInvestorId),

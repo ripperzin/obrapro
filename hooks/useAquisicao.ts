@@ -9,6 +9,7 @@ export interface AddAcquisitionInput {
     date: string;
     paidFromProject: boolean;
     paidByInvestorId?: string;
+    paidWithUnits?: boolean;
     attachments?: string[];
     userId?: string;
     userName?: string;
@@ -26,10 +27,32 @@ export const useAddAcquisitionCost = () => {
                 date: input.date,
                 paid_from_project: input.paidFromProject,
                 paid_by_investor_id: input.paidByInvestorId || null,
+                paid_with_units: input.paidWithUnits || false,
                 attachments: input.attachments || [],
                 user_id: input.userId || null,
                 user_name: input.userName || null,
             }]).select().single();
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+    });
+};
+
+export const useUpdateAcquisitionCost = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (input: AddAcquisitionInput & { id: string }) => {
+            const { data, error } = await supabase.from('acquisition_costs').update({
+                category: input.category,
+                description: input.description || null,
+                value: input.value,
+                date: input.date,
+                paid_from_project: input.paidFromProject,
+                paid_by_investor_id: input.paidByInvestorId || null,
+                paid_with_units: input.paidWithUnits || false,
+                attachments: input.attachments || [],
+            }).eq('id', input.id).select().single();
             if (error) throw error;
             return data;
         },

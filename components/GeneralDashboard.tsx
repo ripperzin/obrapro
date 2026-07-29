@@ -143,10 +143,11 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
          if (u.status === 'Available') {
             acc.availableCount += 1;
             acc.totalPotentialSale += (u.valorEstimadoVenda || 0);
-         } else {
+         } else if (u.status === 'Sold') {
             acc.soldCount += 1;
             acc.realizedValue += (u.saleValue || 0);
          }
+         // Permuta: nem estoque nem vendida (é do dono da terra) → fora da contagem.
       });
       return acc;
    }, { availableCount: 0, soldCount: 0, totalPotentialSale: 0, realizedValue: 0 });
@@ -166,9 +167,11 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    activeProjects.forEach(project => {
       const isCompleted = project.progress === 100;
       const totalExpenses = project.expenses.reduce((sum, exp) => sum + exp.value, 0);
-      const totalUnitsArea = project.units.reduce((sum, u) => sum + u.area, 0);
+      // PERMUTA: casa dada pelo terreno sai da base do rateio (o custo de construí-la é
+      // carregado pelas casas que ficam) e o terreno pago com casas NÃO entra no custo.
+      const totalUnitsArea = project.units.filter(u => u.status !== 'Permuta').reduce((sum, u) => sum + u.area, 0);
       // Terreno + custos de aquisição entram no custo da casa (rateio por área) — senão o ROI infla.
-      const aquisicaoTotal = (project.acquisitionCosts || []).reduce((sum, a) => sum + (a.value || 0), 0);
+      const aquisicaoTotal = (project.acquisitionCosts || []).filter(a => !a.paidWithUnits).reduce((sum, a) => sum + (a.value || 0), 0);
 
       const firstExpenseDate = project.expenses.length > 0
          ? project.expenses.reduce((min, e) => e.date < min ? e.date : min, project.expenses[0].date)
@@ -412,7 +415,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
             )}
             {visibleProjects.map(p => {
                const sold = p.units.filter(u => u.status === 'Sold').length;
-               const total = p.units.length;
+               const total = p.units.filter(u => u.status !== 'Permuta').length; // vendáveis (permuta é do dono da terra)
                return (
                   <SwipeableProjectItem
                      key={p.id}
@@ -537,7 +540,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                   {visibleProjects.map(p => {
                      const sold = p.units.filter(u => u.status === 'Sold').length;
-                     const total = p.units.length;
+                     const total = p.units.filter(u => u.status !== 'Permuta').length; // vendáveis
                      return (
                         <div
                            key={p.id}

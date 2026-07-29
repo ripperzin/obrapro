@@ -19,7 +19,7 @@ export interface Unit {
     identifier: string;
     area: number;
     cost: number;
-    status: 'Available' | 'Sold';
+    status: 'Available' | 'Sold' | 'Permuta';
     saleValue?: number;
     saleDate?: string;
     valorEstimadoVenda?: number;

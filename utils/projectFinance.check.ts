@@ -177,5 +177,58 @@ check(
     fTS.saldoCaixa
 );
 
+// ---------------------------------------------------------------------------
+// PERMUTA (terreno pago com casas): a casa de permuta puxa CUSTO (construção) mas não
+// receita; o terreno pago com casas NÃO é custo em dinheiro (fica só como informação).
+// Regra: lucro = receita das VENDIDAS − custo de construir TODAS as casas. Nunca cobra a terra 2×.
+console.log('\n10. PERMUTA — 4 casas iguais, casa 4 é permuta do terreno, terreno pago com casas');
+const permuta = obra({
+    progress: 100,
+    units: [
+        casa({ identifier: '1', area: 100, cost: 100000, status: 'Sold', saleValue: 200000 }),
+        casa({ identifier: '2', area: 100, cost: 100000, status: 'Sold', saleValue: 200000 }),
+        casa({ identifier: '3', area: 100, cost: 100000, status: 'Sold', saleValue: 200000 }),
+        casa({ identifier: '4', area: 100, cost: 100000, status: 'Permuta' }),
+    ],
+    expenses: [despesa(400000)], // construiu as 4 casas
+    acquisitionCosts: [{ id: 't', value: 300000, paidWithUnits: true } as any], // terreno pago com a casa 4
+});
+const fP = computeProjectFinance(permuta);
+check('aquisição TOTAL (só p/ exibir)', fP.aquisicaoTotal, 300000);
+check('aquisição que pesa no custo (terreno pago c/ casa fora)', fP.aquisicaoCusto, 0);
+check('custo total do empreendimento (constrói 4, sem terreno em dinheiro)', fP.custoTotalEmpreendimento, 400000);
+check('estoque à venda (permuta não é estoque)', fP.vendasPotencial, 0);
+check('vendas realizadas (3 casas)', fP.vendasRealizadas, 600000);
+check('custo das vendidas (construir TODAS as 4)', fP.custoRealVendidas, 400000);
+check('lucro real (600k − 400k, NÃO desconta 300k do terreno)', fP.lucroReal, 200000);
+check('lucro projetado bate com o realizado', fP.lucroProjetado, 200000);
+check('unidades vendidas', fP.unidadesVendidas, 3, (n) => String(n));
+// A soma das casas TEM que fechar com o total (a permuta entra com custo 0 no realizado)
+const somaP = permuta.units!.filter((u) => u.status === 'Sold')
+    .reduce((s, u) => s + computeUnitResult(permuta, u).custoRealizado, 0);
+check('soma das casas vendidas × custo das vendidas', somaP, fP.custoRealVendidas);
+const permutaCasa = computeUnitResult(permuta, permuta.units![3]);
+check('casa de permuta: fatia 0 → custo realizado 0', permutaCasa.custoRealizado, 0);
+
+// ---------------------------------------------------------------------------
+// PERMUTA com venda PARCIAL: sobra 1 casa à venda. O custo de construir a permuta
+// se distribui entre as casas que ficam (vendidas + à venda), não some do total.
+console.log('\n11. PERMUTA com venda parcial (1 vendida, 1 à venda, 1 permuta)');
+const permutaParcial = obra({
+    progress: 100,
+    units: [
+        casa({ identifier: '1', area: 100, cost: 100000, status: 'Sold', saleValue: 300000 }),
+        casa({ identifier: '2', area: 100, cost: 100000, status: 'Available', valorEstimadoVenda: 300000 }),
+        casa({ identifier: '3', area: 100, cost: 100000, status: 'Permuta' }),
+    ],
+    expenses: [despesa(300000)], // construiu as 3
+    acquisitionCosts: [{ id: 't', value: 200000, paidWithUnits: true } as any],
+});
+const fPP = computeProjectFinance(permutaParcial);
+// base do rateio = 2 casas (1 e 2); cada uma fatia 1/2. A vendida carrega metade do gasto (300k) = 150k.
+check('custo da vendida (metade do gasto das 3 casas)', fPP.custoRealVendidas, 150000);
+check('lucro real da vendida (300k − 150k)', fPP.lucroReal, 150000);
+check('estoque à venda = 1 casa (300k)', fPP.vendasPotencial, 300000);
+
 console.log(falhas === 0 ? '\n==> TODOS OS TESTES PASSARAM\n' : `\n==> ${falhas} TESTE(S) FALHARAM\n`);
 process.exit(falhas === 0 ? 0 : 1);

@@ -199,6 +199,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         date: a.date || '',
                         paidFromProject: a.paid_from_project ?? true,
                         paidByInvestorId: a.paid_by_investor_id || undefined,
+                        paidWithUnits: a.paid_with_units || false,
                     })),
                     profitShares: ((data.profitShares || []) as any[]).map((s: any) => ({
                         id: s.id || '',

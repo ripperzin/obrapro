@@ -13,7 +13,8 @@ export interface ProjectFinance {
     aportadoTotal: number;      // aportado + aporteViaDespesa + aquisicaoViaSocio (total colocado pelos sócios)
     gasto: number;              // despesas de obra (total, quem quer que tenha pago)
     gastoDoCaixa: number;       // despesas pagas pelo caixa (gasto - aporteViaDespesa)
-    aquisicaoTotal: number;     // terreno + custos iniciais (todos)
+    aquisicaoTotal: number;     // terreno + custos iniciais (TODOS — só p/ exibir)
+    aquisicaoCusto: number;     // aquisição que PESA no custo (exclui terreno pago com casas/permuta)
     aquisicaoPaga: number;      // aquisição paga pelo CAIXA da obra (saiu do caixa)
     aquisicaoFinanciada: number;// aquisição que alguém realmente pagou = aquisicaoPaga + aquisicaoViaSocio (exclui "já era meu"); é a dedução do card de caixa que fecha a conta
     saidaTotal: number;         // gastoDoCaixa + aquisiçãoPaga (tudo que saiu do caixa)
@@ -36,8 +37,10 @@ export interface ProjectFinance {
     margemPct: number;                // lucro / vendas estimadas (%)
 
     // REALIZADO (só o que aconteceu — casas efetivamente vendidas)
-    unidadesTotais: number;           // nº de unidades
+    unidadesTotais: number;           // nº de unidades (todas)
     unidadesVendidas: number;         // nº de unidades vendidas
+    unidadesDisponiveis: number;      // nº de unidades à venda (status Available)
+    unidadesPermuta: number;          // nº de unidades dadas em permuta (terreno)
     areaTotal: number;                // soma da área das unidades
     areaVendida: number;              // soma da área das unidades vendidas
     custoRealVendidas: number;        // custo (obra+terreno) das casas vendidas
@@ -66,11 +69,16 @@ export interface ProjectFinance {
  * sem metragem por cabeça) faz as fatias somarem ≠ 100% e o total não fecha.
  */
 const rateioPorCasa = (units: Unit[]): ((u: Unit) => number) => {
-    if (units.length === 0) return () => 0;
-    const areaTotal = units.reduce((s, u) => s + (u.area || 0), 0);
-    const todasComMetragem = units.every((u) => (u.area || 0) > 0);
-    if (todasComMetragem && areaTotal > 0) return (u) => (u.area || 0) / areaTotal;
-    return () => 1 / units.length;
+    // PERMUTA: a casa dada pelo terreno NÃO entra na base do rateio (fatia 0). O custo de
+    // construí-la continua no gasto e passa a ser carregado pelas casas que ficam (vendidas /
+    // à venda) — isso é, na prática, o preço da terra. Assim "lucro = receita das vendidas −
+    // custo de construir TODAS as casas" sem cobrar o terreno em dinheiro por cima.
+    const base = units.filter((u) => u.status !== 'Permuta');
+    if (base.length === 0) return () => 0;
+    const areaTotal = base.reduce((s, u) => s + (u.area || 0), 0);
+    const todasComMetragem = base.every((u) => (u.area || 0) > 0);
+    if (todasComMetragem && areaTotal > 0) return (u) => (u.status === 'Permuta' ? 0 : (u.area || 0) / areaTotal);
+    return (u) => (u.status === 'Permuta' ? 0 : 1 / base.length);
 };
 
 export function computeProjectFinance(project: Project): ProjectFinance {
@@ -84,7 +92,10 @@ export function computeProjectFinance(project: Project): ProjectFinance {
     // Despesa paga direto por um sócio: não saiu do caixa; conta como aporte dele
     const aporteViaDespesa = expenses.filter((e) => e.paidByInvestorId).reduce((s, e) => s + (e.value || 0), 0);
     const gastoDoCaixa = gasto - aporteViaDespesa;
-    const aquisicaoTotal = acq.reduce((s, a) => s + (a.value || 0), 0);
+    const aquisicaoTotal = acq.reduce((s, a) => s + (a.value || 0), 0); // TODOS (só p/ exibir)
+    // PERMUTA: terreno "pago com casas" (paidWithUnits) NÃO é custo em dinheiro — sai do
+    // custo/rateio/lucro do empreendimento; fica só no aquisicaoTotal (informação).
+    const aquisicaoCusto = acq.filter((a) => !a.paidWithUnits).reduce((s, a) => s + (a.value || 0), 0);
     const aquisicaoPaga = acq.filter((a) => a.paidFromProject).reduce((s, a) => s + (a.value || 0), 0);
     // Terreno pago direto por um sócio (fora do caixa, mas com pagador): conta como aporte dele,
     // igual a uma despesa paga do bolso. O "já era meu" (fora do caixa e SEM sócio) não entra aqui.
@@ -98,14 +109,21 @@ export function computeProjectFinance(project: Project): ProjectFinance {
     const gastoPct = orcamentoObra > 0 ? (gasto / orcamentoObra) * 100 : 0;
     const progresso = project.progress || 0;
 
-    const custoTotalEmpreendimento = orcamentoObra + aquisicaoTotal;
+    // Custo de construir as casas de permuta (o preço da terra em espécie). O rateioPorCasa
+    // já tira a permuta da base, então no ORÇADO esse custo some das casas precificadas —
+    // somamos aqui para carregá-lo de volta no rateio de "terra" e o lucro não inflar.
+    const custoPermutaOrcado = units.filter((u) => u.status === 'Permuta').reduce((s, u) => s + (u.cost || 0), 0);
+    const terrenoRateavel = aquisicaoCusto + custoPermutaOrcado; // base do rateio de "terra" (orçado)
+
+    const custoTotalEmpreendimento = orcamentoObra + aquisicaoCusto;
     const areaTotal = units.reduce((s, u) => s + (u.area || 0), 0);
 
     const vendasRealizadas = units
         .filter((u) => u.status === 'Sold')
         .reduce((s, u) => s + (u.saleValue || 0), 0);
+    // Estoque à venda = SÓ 'Available' (permuta não é estoque: já tem dono, o da terra).
     const vendasPotencial = units
-        .filter((u) => u.status !== 'Sold')
+        .filter((u) => u.status === 'Available')
         .reduce((s, u) => s + (u.valorEstimadoVenda || 0), 0);
 
     // PROJETADO — só entram as casas QUE TÊM PREÇO (vendida = valor real; senão o
@@ -113,10 +131,11 @@ export function computeProjectFinance(project: Project): ProjectFinance {
     // contra a projeção — senão dava "prejuízo fantasma" só por ainda não ter preço.
     // Cada casa carrega sua fatia do terreno por área. Com TODAS precificadas, o
     // custo somado volta a ser orçamento + terreno (a projeção do empreendimento cheio).
-    const precoProjetado = (u: Unit) => (u.status === 'Sold' ? (u.saleValue || 0) : (u.valorEstimadoVenda || 0));
+    // Permuta não tem preço de venda (é do dono da terra) → fora da projeção.
+    const precoProjetado = (u: Unit) => (u.status === 'Permuta' ? 0 : u.status === 'Sold' ? (u.saleValue || 0) : (u.valorEstimadoVenda || 0));
     const unidadesComPreco = units.filter((u) => precoProjetado(u) > 0);
     const fatiaDaCasa = rateioPorCasa(units);
-    const terrenoDaUnidade = (u: Unit) => fatiaDaCasa(u) * aquisicaoTotal;
+    const terrenoDaUnidade = (u: Unit) => fatiaDaCasa(u) * terrenoRateavel;
 
     const vendasEstimadasTotais = unidadesComPreco.reduce((s, u) => s + precoProjetado(u), 0);
     const custoObraProjetado = unidadesComPreco.reduce((s, u) => s + (u.cost || 0), 0);
@@ -129,10 +148,11 @@ export function computeProjectFinance(project: Project): ProjectFinance {
     const areaVendida = soldUnits.reduce((s, u) => s + (u.area || 0), 0);
     const fatiaVendidas = soldUnits.reduce((s, u) => s + fatiaDaCasa(u), 0);
     const isConcluida = progresso >= 100;
-    // Custo rateado das despesas já lançadas (subdimensionado enquanto a obra corre)
-    const custoRateadoVendidas = fatiaVendidas * (gasto + aquisicaoTotal);
-    // Custo orçado das casas vendidas (estimativa confiável) + fatia do terreno
-    const custoOrcadoVendidas = soldUnits.reduce((s, u) => s + (u.cost || 0), 0) + fatiaVendidas * aquisicaoTotal;
+    // Custo rateado das despesas já lançadas (subdimensionado enquanto a obra corre).
+    // gasto JÁ inclui a construção das casas de permuta (real) → aqui só + aquisicaoCusto (taxas).
+    const custoRateadoVendidas = fatiaVendidas * (gasto + aquisicaoCusto);
+    // Custo orçado das casas vendidas (estimativa confiável) + fatia da "terra" (taxas + orçado da permuta)
+    const custoOrcadoVendidas = soldUnits.reduce((s, u) => s + (u.cost || 0), 0) + fatiaVendidas * terrenoRateavel;
     // Obra marcada como concluída mas SEM despesa lançada não tem custo real para
     // ratear: o rateio daria zero e a venda inteira viraria lucro. Nesse caso o
     // orçado ainda é o melhor palpite — e o número segue marcado como estimado.
@@ -152,6 +172,7 @@ export function computeProjectFinance(project: Project): ProjectFinance {
         gasto,
         gastoDoCaixa,
         aquisicaoTotal,
+        aquisicaoCusto,
         aquisicaoPaga,
         aquisicaoFinanciada,
         saidaTotal,
@@ -170,6 +191,8 @@ export function computeProjectFinance(project: Project): ProjectFinance {
         margemPct,
         unidadesTotais: units.length,
         unidadesVendidas: soldUnits.length,
+        unidadesDisponiveis: units.filter((u) => u.status === 'Available').length,
+        unidadesPermuta: units.filter((u) => u.status === 'Permuta').length,
         areaTotal,
         areaVendida,
         custoRealVendidas,
@@ -218,17 +241,23 @@ export interface UnitResult {
 
 export function computeUnitResult(project: Project, unit: Unit): UnitResult {
     const units = project.units || [];
-    const terrenoTotal = (project.acquisitionCosts || []).reduce((s, a) => s + (a.value || 0), 0);
+    const acq = project.acquisitionCosts || [];
+    // PERMUTA: terreno pago com casas sai do custo; a "terra" que pesa = taxas em dinheiro
+    // (aquisicaoCusto) + o orçado de construir as casas de permuta (custoPermutaOrcado).
+    const aquisicaoCusto = acq.filter((a) => !a.paidWithUnits).reduce((s, a) => s + (a.value || 0), 0);
+    const custoPermutaOrcado = units.filter((u) => u.status === 'Permuta').reduce((s, u) => s + (u.cost || 0), 0);
+    const terrenoRateavel = aquisicaoCusto + custoPermutaOrcado;
     const gastoTotal = (project.expenses || []).reduce((s, e) => s + (e.value || 0), 0);
 
     // Mesma régua de rateio do empreendimento (por m², ou igual entre as casas
     // se faltar metragem) — se as duas divergirem, a soma das casas não fecha
-    // com o total da obra.
+    // com o total da obra. A permuta recebe fatia 0 (não é dona de custo).
     const fatia = rateioPorCasa(units)(unit);
-    const terrenoRateio = fatia * terrenoTotal;
+    const terrenoRateio = fatia * terrenoRateavel;              // orçado (taxas + preço da terra em espécie)
     const custoObra = unit.cost || 0;
     const custoAlocado = custoObra + terrenoRateio;              // estimado (orçado + terreno)
-    const custoRealizado = fatia * gastoTotal + terrenoRateio;   // real rateado + terreno
+    // Real: gasto JÁ traz a construção da permuta → aqui só + as taxas (aquisicaoCusto), não o terrenoRateavel.
+    const custoRealizado = fatia * gastoTotal + fatia * aquisicaoCusto;
 
     const vendida = unit.status === 'Sold';
     const venda = vendida

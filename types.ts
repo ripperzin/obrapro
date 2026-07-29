@@ -165,7 +165,7 @@ export interface Unit {
   identifier: string;
   area: number;
   cost: number;
-  status: 'Available' | 'Sold';
+  status: 'Available' | 'Sold' | 'Permuta'; // Permuta = casa dada em troca do terreno (não vende, não é de sócio, mas custa construção)
   valorEstimadoVenda?: number; // Campo novo opcional
   saleValue?: number;
   saleDate?: string;
@@ -327,6 +327,7 @@ export interface AcquisitionCost {
   date: string;
   paidFromProject: boolean; // saiu do caixa da obra?
   paidByInvestorId?: string; // Se preenchido: pago direto por esse sócio (não sai do caixa; vira aporte dele). Espelha expenses.paidByInvestorId.
+  paidWithUnits?: boolean; // PERMUTA: terreno pago com casas (status Permuta) — não é custo em dinheiro; sai do custo/rateio/lucro, fica só como informação.
   attachments?: string[];
   userId?: string;
   userName?: string;
