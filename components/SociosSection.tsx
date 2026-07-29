@@ -3,7 +3,8 @@ import { Project, User } from '../types';
 import { generateId } from '../utils';
 import { computeProjectFinance, computeUnitResult, computeAporteShares } from '../utils/projectFinance';
 import { useSaveProfitShares } from '../hooks/useProfitShares';
-import { useAddInvestor, useUpdateInvestor, useDeleteInvestor } from '../hooks/useAportes';
+import { useAddInvestor, useUpdateInvestor, useDeleteInvestor, useSetInvestorAcordado } from '../hooks/useAportes';
+import MoneyInput from './MoneyInput';
 import CashSummaryCards from './CashSummaryCards';
 import AporteScheduleSection, { SocioCol } from './AporteScheduleSection';
 import AddContributionModal from './AddContributionModal';
@@ -75,6 +76,7 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
     const addInvestor = useAddInvestor();
     const updateInvestor = useUpdateInvestor();
     const deleteInvestor = useDeleteInvestor();
+    const setAcordado = useSetInvestorAcordado();
 
     const soma = rows.reduce((s, r) => s + (parseFloat(r.percentage) || 0), 0);
     const somaOk = Math.abs(soma - 100) < 0.01;
@@ -396,6 +398,32 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
                                 <i className={`fa-solid ${sociosCheios ? 'fa-lock text-amber-400' : 'fa-plus'} mr-1`}></i> Adicionar sócio
                             </button>
                         </div>
+
+                        {/* META DE APORTE À MÃO — o "valor acordado" da sociedade. Preenchido manda
+                            por cima do automático; em branco = o app calcula pelo custo. */}
+                        {investors.length > 0 && (
+                            <div className="border-t border-slate-700/60 pt-4 space-y-2">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Meta de aporte (valor combinado)</p>
+                                <p className="text-[11px] text-slate-500 leading-snug">
+                                    Quanto cada sócio combinou pôr no total. Deixe <b>em branco</b> para o app calcular sozinho pelo custo das casas dele.
+                                </p>
+                                {investors.map((inv) => (
+                                    <div key={inv.id} className="flex items-center justify-between gap-2 bg-slate-800/40 rounded-xl px-4 py-2">
+                                        <span className="text-white font-bold text-sm truncate min-w-0">{inv.name}</span>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <MoneyInput
+                                                value={inv.valorAcordado || 0}
+                                                onBlur={(val) => setAcordado.mutate({ id: inv.id, valorAcordado: val > 0 ? val : null })}
+                                                className="w-32 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-right text-xs font-bold text-white outline-none focus:border-blue-500"
+                                            />
+                                            <span className={`text-[9px] uppercase font-black w-8 text-right ${inv.valorAcordado ? 'text-blue-400' : 'text-slate-600'}`}>
+                                                {inv.valorAcordado ? 'à mão' : 'auto'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
 
                     </div>
                 )}

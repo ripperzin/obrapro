@@ -175,7 +175,7 @@ const fetchData = async (id: string) => {
         acquisitionCosts: (acqs || []).map((a: any) => ({ id: a.id, projectId: a.project_id, category: a.category, description: a.description, value: a.value, date: a.date, paidFromProject: a.paid_from_project, paidByInvestorId: a.paid_by_investor_id || undefined, paidWithUnits: a.paid_with_units || false })),
         stageEvidence: (evs || []).map((e: any) => ({ stage: e.stage, photos: e.photos || [], date: e.date, notes: e.notes, user: e.user_name })),
         contributions: (contribs || []).map((c: any) => ({ id: c.id, projectId: c.project_id, investorId: c.investor_id, value: c.value, date: c.date })),
-        investors: (invs || []).map((i: any) => ({ id: i.id, projectId: i.project_id, name: i.name })),
+        investors: (invs || []).map((i: any) => ({ id: i.id, projectId: i.project_id, name: i.name, valorAcordado: i.valor_acordado ?? undefined })),
         profitShares: (shares || []).map((s: any) => ({ id: s.id, projectId: s.project_id, investorId: s.investor_id || undefined, name: s.name, percentage: s.percentage || 0, naoAporta: s.nao_aporta || false })),
         logs: [], documents: [], diary: [],
         budget: bud ? {

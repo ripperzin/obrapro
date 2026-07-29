@@ -10,7 +10,7 @@
  *
  * Ao mexer em projectFinance.ts, rode isto antes de commitar.
  */
-import { computeProjectFinance, computeUnitResult } from './projectFinance';
+import { computeProjectFinance, computeUnitResult, computeAporteShares } from './projectFinance';
 import { Project, Unit } from '../types';
 
 let falhas = 0;
@@ -229,6 +229,32 @@ const fPP = computeProjectFinance(permutaParcial);
 check('custo da vendida (metade do gasto das 3 casas)', fPP.custoRealVendidas, 150000);
 check('lucro real da vendida (300k − 150k)', fPP.lucroReal, 150000);
 check('estoque à venda = 1 casa (300k)', fPP.vendasPotencial, 300000);
+
+// ---------------------------------------------------------------------------
+// META À MÃO (investors.valorAcordado): quando preenchida, é a meta do sócio;
+// vazia = automático. E o que o sócio paga (dinheiro/despesa/terreno) conta como aporte.
+console.log('\n12. Meta de aporte "à mão" (valor acordado) manda por cima do automático');
+const comAcordado = obra({
+    splitMode: 'unit',
+    units: [
+        casa({ identifier: '1', area: 100, cost: 100000, status: 'Available', ownerInvestorId: 'A' }),
+        casa({ identifier: '2', area: 100, cost: 100000, status: 'Available', ownerInvestorId: 'B' }),
+    ],
+    investors: [
+        { id: 'A', name: 'Ana', valorAcordado: 300000 } as any,   // à mão
+        { id: 'B', name: 'Bruno' } as any,                         // automático
+    ],
+    contributions: [{ id: 'c1', value: 50000, investorId: 'A' } as any],
+    expenses: [],
+    acquisitionCosts: [],
+}) as any;
+const acerto = computeAporteShares(comAcordado);
+const ana = acerto.shares.find((s: any) => s.investorId === 'A')!;
+const bruno = acerto.shares.find((s: any) => s.investorId === 'B')!;
+check('Ana: meta = valor acordado à mão (300k)', ana.meta, 300000);
+check('Ana: aportado (dinheiro dela)', ana.aportado, 50000);
+check('Ana: falta (300k − 50k)', ana.falta, 250000);
+check('Bruno: meta automática (custo da casa dele = 100k)', bruno.meta, 100000);
 
 console.log(falhas === 0 ? '\n==> TODOS OS TESTES PASSARAM\n' : `\n==> ${falhas} TESTE(S) FALHARAM\n`);
 process.exit(falhas === 0 ? 0 : 1);

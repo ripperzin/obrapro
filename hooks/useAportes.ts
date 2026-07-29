@@ -47,6 +47,22 @@ export const useUpdateInvestor = () => {
     });
 };
 
+// Meta de aporte "à mão": grava o valor combinado do sócio (null = volta ao automático).
+export const useSetInvestorAcordado = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (input: { id: string; valorAcordado: number | null }) => {
+            const { error } = await supabase
+                .from('investors')
+                .update({ valor_acordado: input.valorAcordado })
+                .eq('id', input.id);
+            if (error) throw error;
+            return input.id;
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+    });
+};
+
 export interface AddContributionInput {
     projectId: string;
     investorId: string;

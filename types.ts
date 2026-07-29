@@ -287,6 +287,7 @@ export interface Investor {
   name: string;
   email?: string;
   phone?: string;
+  valorAcordado?: number; // Meta de aporte combinada à mão (capital que o sócio se comprometeu a pôr). Vazio = automático (meta vem do custo).
   createdAt?: string;
 }
 

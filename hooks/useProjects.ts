@@ -233,6 +233,7 @@ export const fetchProjects = async (): Promise<Project[]> => {
             name: i.name,
             email: i.email,
             phone: i.phone,
+            valorAcordado: i.valor_acordado ?? undefined,
             createdAt: i.created_at
         })),
         contributions: (contributionMap[p.id] || []).map((c: any) => ({

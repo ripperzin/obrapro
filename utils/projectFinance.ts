@@ -310,6 +310,7 @@ export function computeAporteShares(project: Project): AporteAcerto {
     const units = project.units || [];
     const f = computeProjectFinance(project);
     const baseTotal = f.custoTotalEmpreendimento; // orçamento obra + aquisição
+    const investors = project.investors || [];
 
     // Quanto cada investidor já colocou (dinheiro + despesas pagas do bolso + terreno pago do bolso)
     const aportadoDe = (investorId?: string): number => {
@@ -320,15 +321,24 @@ export function computeAporteShares(project: Project): AporteAcerto {
         return dinheiro + viaDespesa + viaTerreno;
     };
 
+    // Meta combinada "à mão" (investors.valorAcordado). Preenchida (>0) manda por cima do
+    // cálculo automático; vazia = automático. É o "Total acordado" da planilha da sociedade.
+    const acordadoDe = (investorId?: string): number | null => {
+        if (!investorId) return null;
+        const v = investors.find((i) => i.id === investorId)?.valorAcordado;
+        return v != null && v > 0 ? v : null;
+    };
+
     let shares: AporteShare[] = [];
 
     if (mode === 'unit') {
-        const investors = project.investors || [];
-        const donos = investors.filter((inv) => units.some((u) => u.ownerInvestorId === inv.id));
+        // Donos de casa OU sócios com valor acordado à mão (mesmo sem casa) entram no acerto.
+        const donos = investors.filter((inv) => units.some((u) => u.ownerInvestorId === inv.id) || acordadoDe(inv.id) != null);
         shares = donos.map((inv) => {
-            const meta = units
+            const metaAuto = units
                 .filter((u) => u.ownerInvestorId === inv.id)
                 .reduce((s, u) => s + computeUnitResult(project, u).custoAlocado, 0);
+            const meta = acordadoDe(inv.id) ?? metaAuto;
             const aportado = aportadoDe(inv.id);
             return { investorId: inv.id, name: inv.name, meta, aportado, falta: meta - aportado };
         });
@@ -337,7 +347,8 @@ export function computeAporteShares(project: Project): AporteAcerto {
         const totalPct = contribuintes.reduce((s, r) => s + (r.percentage || 0), 0);
         shares = contribuintes.map((s) => {
             const cota = totalPct > 0 ? (s.percentage || 0) / totalPct : 0;
-            const meta = cota * baseTotal;
+            const metaAuto = cota * baseTotal;
+            const meta = acordadoDe(s.investorId) ?? metaAuto;
             const aportado = aportadoDe(s.investorId);
             return { investorId: s.investorId, name: s.name, meta, aportado, falta: meta - aportado };
         });

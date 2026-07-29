@@ -190,6 +190,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         id: i.id,
                         projectId: projectData.id,
                         name: i.name,
+                        valorAcordado: i.valor_acordado ?? undefined,
                     })),
                     acquisitionCosts: (acquisitionData || []).map((a: any) => ({
                         id: '',
