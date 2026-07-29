@@ -9,11 +9,13 @@ export interface ProjectFinance {
     // Caixa / transparência
     aportado: number;           // aportes em DINHEIRO (entraram no caixa)
     aporteViaDespesa: number;   // despesas pagas direto por sócios (não passaram pelo caixa)
-    aportadoTotal: number;      // aportado + aporteViaDespesa (total colocado pelos sócios)
+    aquisicaoViaSocio: number;  // custos de terreno pagos direto por sócios (não passaram pelo caixa; contam como aporte deles)
+    aportadoTotal: number;      // aportado + aporteViaDespesa + aquisicaoViaSocio (total colocado pelos sócios)
     gasto: number;              // despesas de obra (total, quem quer que tenha pago)
     gastoDoCaixa: number;       // despesas pagas pelo caixa (gasto - aporteViaDespesa)
     aquisicaoTotal: number;     // terreno + custos iniciais (todos)
-    aquisicaoPaga: number;      // aquisição paga pela obra (saiu do caixa)
+    aquisicaoPaga: number;      // aquisição paga pelo CAIXA da obra (saiu do caixa)
+    aquisicaoFinanciada: number;// aquisição que alguém realmente pagou = aquisicaoPaga + aquisicaoViaSocio (exclui "já era meu"); é a dedução do card de caixa que fecha a conta
     saidaTotal: number;         // gastoDoCaixa + aquisiçãoPaga (tudo que saiu do caixa)
     saldoCaixa: number;         // aportado (dinheiro) - saidaTotal
 
@@ -82,9 +84,13 @@ export function computeProjectFinance(project: Project): ProjectFinance {
     // Despesa paga direto por um sócio: não saiu do caixa; conta como aporte dele
     const aporteViaDespesa = expenses.filter((e) => e.paidByInvestorId).reduce((s, e) => s + (e.value || 0), 0);
     const gastoDoCaixa = gasto - aporteViaDespesa;
-    const aportadoTotal = aportado + aporteViaDespesa;
     const aquisicaoTotal = acq.reduce((s, a) => s + (a.value || 0), 0);
     const aquisicaoPaga = acq.filter((a) => a.paidFromProject).reduce((s, a) => s + (a.value || 0), 0);
+    // Terreno pago direto por um sócio (fora do caixa, mas com pagador): conta como aporte dele,
+    // igual a uma despesa paga do bolso. O "já era meu" (fora do caixa e SEM sócio) não entra aqui.
+    const aquisicaoViaSocio = acq.filter((a) => !a.paidFromProject && a.paidByInvestorId).reduce((s, a) => s + (a.value || 0), 0);
+    const aquisicaoFinanciada = aquisicaoPaga + aquisicaoViaSocio;
+    const aportadoTotal = aportado + aporteViaDespesa + aquisicaoViaSocio;
     const saidaTotal = gastoDoCaixa + aquisicaoPaga;   // só o que saiu do caixa
     const saldoCaixa = aportado - saidaTotal;          // dinheiro que entrou - dinheiro que saiu
 
@@ -141,11 +147,13 @@ export function computeProjectFinance(project: Project): ProjectFinance {
     return {
         aportado,
         aporteViaDespesa,
+        aquisicaoViaSocio,
         aportadoTotal,
         gasto,
         gastoDoCaixa,
         aquisicaoTotal,
         aquisicaoPaga,
+        aquisicaoFinanciada,
         saidaTotal,
         saldoCaixa,
         orcamentoObra,
@@ -269,16 +277,18 @@ export function computeAporteShares(project: Project): AporteAcerto {
     const mode = project.splitMode === 'unit' ? 'unit' : 'percent';
     const contributions = project.contributions || [];
     const expenses = project.expenses || [];
+    const acq = project.acquisitionCosts || [];
     const units = project.units || [];
     const f = computeProjectFinance(project);
     const baseTotal = f.custoTotalEmpreendimento; // orçamento obra + aquisição
 
-    // Quanto cada investidor já colocou (dinheiro + despesas pagas do bolso)
+    // Quanto cada investidor já colocou (dinheiro + despesas pagas do bolso + terreno pago do bolso)
     const aportadoDe = (investorId?: string): number => {
         if (!investorId) return 0;
         const dinheiro = contributions.filter((c) => c.investorId === investorId).reduce((s, c) => s + (c.value || 0), 0);
         const viaDespesa = expenses.filter((e) => e.paidByInvestorId === investorId).reduce((s, e) => s + (e.value || 0), 0);
-        return dinheiro + viaDespesa;
+        const viaTerreno = acq.filter((a) => a.paidByInvestorId === investorId).reduce((s, a) => s + (a.value || 0), 0);
+        return dinheiro + viaDespesa + viaTerreno;
     };
 
     let shares: AporteShare[] = [];

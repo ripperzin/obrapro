@@ -326,6 +326,7 @@ export interface AcquisitionCost {
   value: number;
   date: string;
   paidFromProject: boolean; // saiu do caixa da obra?
+  paidByInvestorId?: string; // Se preenchido: pago direto por esse sócio (não sai do caixa; vira aporte dele). Espelha expenses.paidByInvestorId.
   attachments?: string[];
   userId?: string;
   userName?: string;

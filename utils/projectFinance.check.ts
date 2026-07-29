@@ -151,5 +151,31 @@ check(
     fCaixa.saldoCaixa
 );
 
+// ---------------------------------------------------------------------------
+// Sócio que paga um custo do terreno do próprio bolso (corretagem, cartório):
+// não sai do caixa, mas conta como aporte dele — igual a uma despesa paga do bolso.
+console.log('\n9. Terreno pago por um SÓCIO conta como aporte dele (não mexe no caixa)');
+const terrenoSocio = obra({
+    contributions: [{ id: 'c1', value: 500000, investorId: 'i1' } as any],
+    expenses: [despesa(200000)],
+    acquisitionCosts: [
+        { id: 'a1', value: 100000, paidFromProject: true } as any,               // do caixa
+        { id: 'a2', value: 30000, paidFromProject: false, paidByInvestorId: 'i1' } as any, // do bolso do sócio
+        { id: 'a3', value: 40000, paidFromProject: false } as any,               // "já era meu" (ninguém pagou agora)
+    ],
+});
+const fTS = computeProjectFinance(terrenoSocio);
+check('aquisição paga pelo caixa', fTS.aquisicaoPaga, 100000);
+check('aquisição paga por sócio', fTS.aquisicaoViaSocio, 30000);
+check('aportado total (dinheiro + terreno do bolso)', fTS.aportadoTotal, 530000);
+check('saldo em caixa (só o que passou pelo caixa)', fTS.saldoCaixa, 200000); // 500k - 200k gasto - 100k terreno do caixa
+check('aquisição financiada (caixa + sócio, exclui "já era meu")', fTS.aquisicaoFinanciada, 130000);
+// A conta do card de caixa: Aportado - Gasto - Aquisição(financiada) = Saldo
+check(
+    'Aportado - Gasto - Aquisição financiada = Saldo',
+    fTS.aportadoTotal - fTS.gasto - fTS.aquisicaoFinanciada,
+    fTS.saldoCaixa
+);
+
 console.log(falhas === 0 ? '\n==> TODOS OS TESTES PASSARAM\n' : `\n==> ${falhas} TESTE(S) FALHARAM\n`);
 process.exit(falhas === 0 ? 0 : 1);

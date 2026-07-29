@@ -18,6 +18,7 @@ const AquisicaoSection: React.FC<Props> = ({ project, user }) => {
     const total = costs.reduce((s, c) => s + (c.value || 0), 0);
     const catLabel = (c: string) => ACQUISITION_CATEGORY_LABELS[c as AcquisitionCategory] || c;
     const fmtDate = (d?: string) => (d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '');
+    const investorName = (id?: string) => (project.investors || []).find((inv) => inv.id === id)?.name;
 
     return (
         <div className="space-y-4">
@@ -62,9 +63,13 @@ const AquisicaoSection: React.FC<Props> = ({ project, user }) => {
                                 <div className="min-w-0">
                                     <p className="text-white font-bold truncate">
                                         {catLabel(c.category)}
-                                        {!c.paidFromProject && (
+                                        {c.paidByInvestorId ? (
+                                            <span className="ml-2 text-[9px] uppercase tracking-wider bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">
+                                                aporte de {investorName(c.paidByInvestorId) || 'sócio'}
+                                            </span>
+                                        ) : !c.paidFromProject ? (
                                             <span className="ml-2 text-[9px] uppercase tracking-wider bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">fora do caixa</span>
-                                        )}
+                                        ) : null}
                                     </p>
                                     <p className="text-slate-500 text-xs truncate">
                                         {fmtDate(c.date)}{c.description ? ` · ${c.description}` : ''}

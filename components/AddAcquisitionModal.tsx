@@ -19,14 +19,23 @@ const inputClass =
 const labelClass = 'text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 block';
 
 const AddAcquisitionModal: React.FC<Props> = ({ project, user, onClose }) => {
+    const investors = project.investors || [];
+
     const [category, setCategory] = useState<AcquisitionCategory>('terreno');
     const [value, setValue] = useState(0);
     const [date, setDate] = useState(todayIso());
     const [description, setDescription] = useState('');
-    const [paidFromProject, setPaidFromProject] = useState(true);
+    // Fonte única de "quem pagou": 'caixa' | '__fora__' | <id do sócio>
+    //   caixa     → saiu do caixa (dos aportes)
+    //   __fora__  → fora do caixa, sem sócio ("já era meu")
+    //   <id>      → sócio pagou do próprio bolso → conta como aporte dele
+    const [payer, setPayer] = useState<string>('caixa');
     const [attachment, setAttachment] = useState<string | undefined>(undefined);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const paidFromProject = payer === 'caixa';
+    const paidByInvestorId = payer !== 'caixa' && payer !== '__fora__' ? payer : undefined;
 
     const addAcquisition = useAddAcquisitionCost();
 
@@ -45,6 +54,7 @@ const AddAcquisitionModal: React.FC<Props> = ({ project, user, onClose }) => {
                 value,
                 date,
                 paidFromProject,
+                paidByInvestorId,
                 attachments: attachment ? [attachment] : [],
                 userId: user.id,
                 userName: user.login,
@@ -95,20 +105,42 @@ const AddAcquisitionModal: React.FC<Props> = ({ project, user, onClose }) => {
                         <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex: lote 12, quadra B" className={inputClass} />
                     </div>
 
-                    {/* Toggle pago pela obra */}
-                    <button
-                        type="button"
-                        onClick={() => setPaidFromProject(!paidFromProject)}
-                        className="w-full flex items-center justify-between bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-left"
-                    >
+                    {/* Quem pagou. Com sócios cadastrados vira um seletor (igual ao da despesa):
+                        se um sócio pagou do bolso, o valor conta como aporte dele. Sem sócios,
+                        mantém o botão simples caixa × fora do caixa. */}
+                    {investors.length > 0 ? (
                         <div>
-                            <p className="text-white font-bold text-sm">Pago pela obra?</p>
-                            <p className="text-slate-500 text-[11px]">{paidFromProject ? 'Saiu do caixa (dos aportes)' : 'Já era seu / entrada de sócio'}</p>
+                            <label className={labelClass}>Pago por</label>
+                            <select value={payer} onChange={(e) => setPayer(e.target.value)} className={inputClass}>
+                                <option value="caixa">Caixa da obra (saiu dos aportes)</option>
+                                {investors.map((inv) => (
+                                    <option key={inv.id} value={inv.id}>{inv.name} (do próprio bolso)</option>
+                                ))}
+                                <option value="__fora__">Já era meu / fora do caixa</option>
+                            </select>
+                            <p className="text-[11px] text-slate-500 mt-1">
+                                {payer === 'caixa'
+                                    ? 'Sai do caixa da obra.'
+                                    : payer === '__fora__'
+                                        ? 'Não mexe no caixa — não conta como aporte de ninguém.'
+                                        : 'Não sai do caixa — conta como aporte deste sócio.'}
+                            </p>
                         </div>
-                        <span className={`w-12 h-7 rounded-full flex items-center transition-all ${paidFromProject ? 'bg-amber-500 justify-end' : 'bg-slate-600 justify-start'} p-1`}>
-                            <span className="w-5 h-5 bg-white rounded-full block"></span>
-                        </span>
-                    </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => setPayer(paidFromProject ? '__fora__' : 'caixa')}
+                            className="w-full flex items-center justify-between bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-left"
+                        >
+                            <div>
+                                <p className="text-white font-bold text-sm">Pago pela obra?</p>
+                                <p className="text-slate-500 text-[11px]">{paidFromProject ? 'Saiu do caixa (dos aportes)' : 'Já era seu / fora do caixa'}</p>
+                            </div>
+                            <span className={`w-12 h-7 rounded-full flex items-center transition-all ${paidFromProject ? 'bg-amber-500 justify-end' : 'bg-slate-600 justify-start'} p-1`}>
+                                <span className="w-5 h-5 bg-white rounded-full block"></span>
+                            </span>
+                        </button>
+                    )}
 
                     <div>
                         <label className={labelClass}>Comprovante (opcional)</label>

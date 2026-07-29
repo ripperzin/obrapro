@@ -172,7 +172,7 @@ const fetchData = async (id: string) => {
         aportePlan: p.aporte_plan || undefined,
         units: (units || []).map((u: any) => ({ id: u.id, identifier: u.identifier, area: u.area, cost: u.cost, status: u.status, valorEstimadoVenda: u.valor_estimado_venda, saleValue: u.sale_value, saleDate: u.sale_date, ownerInvestorId: u.owner_investor_id || undefined })),
         expenses: (exps || []).map((e: any) => ({ id: e.id, description: e.description, value: e.value, date: e.date, userId: e.user_id, userName: e.user_name, macroId: e.macro_id, subMacroId: e.sub_macro_id, itemId: e.item_id || undefined, attachmentUrl: e.attachment_url, attachments: e.attachments || [], paidByInvestorId: e.paid_by_investor_id || undefined })),
-        acquisitionCosts: (acqs || []).map((a: any) => ({ id: a.id, projectId: a.project_id, category: a.category, description: a.description, value: a.value, date: a.date, paidFromProject: a.paid_from_project })),
+        acquisitionCosts: (acqs || []).map((a: any) => ({ id: a.id, projectId: a.project_id, category: a.category, description: a.description, value: a.value, date: a.date, paidFromProject: a.paid_from_project, paidByInvestorId: a.paid_by_investor_id || undefined })),
         stageEvidence: (evs || []).map((e: any) => ({ stage: e.stage, photos: e.photos || [], date: e.date, notes: e.notes, user: e.user_name })),
         contributions: (contribs || []).map((c: any) => ({ id: c.id, projectId: c.project_id, investorId: c.investor_id, value: c.value, date: c.date })),
         investors: (invs || []).map((i: any) => ({ id: i.id, projectId: i.project_id, name: i.name })),
@@ -324,7 +324,7 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         // como card (e na legenda) só quando foi paga PELA OBRA (regra do app/link).
         y = pageBreak(40, y);
 
-        const temAquisicaoPaga = f.aquisicaoPaga > 0;
+        const temAquisicaoPaga = f.aquisicaoFinanciada > 0;
         const legendaCaixa = temAquisicaoPaga ? 'Aportado - Gasto - Aquisição = Saldo' : 'Aportado - Gasto = Saldo';
 
         doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
@@ -338,7 +338,7 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
             { lbl: 'APORTADO', val: fmtShort(f.aportadoTotal), c: C.emerald, brd: C.emerald },
             { lbl: 'GASTO', val: fmtShort(f.gasto), c: C.red, brd: C.red },
             ...(temAquisicaoPaga
-                ? [{ lbl: 'AQUISIÇÃO', val: fmtShort(f.aquisicaoPaga), c: C.amber, brd: C.amber }]
+                ? [{ lbl: 'AQUISIÇÃO', val: fmtShort(f.aquisicaoFinanciada), c: C.amber, brd: C.amber }]
                 : []),
             { lbl: 'SALDO EM CAIXA', val: fmtShort(f.saldoCaixa), c: f.saldoCaixa >= 0 ? C.green : C.red, brd: f.saldoCaixa >= 0 ? C.green : C.red },
         ];
@@ -435,7 +435,8 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
                 const aporteSocio = (project.investors || []).map(inv => {
                     const dinheiro = (project.contributions || []).filter(c => c.investorId === inv.id).reduce((s, c) => s + (c.value || 0), 0);
                     const bolso = (project.expenses || []).filter(e => e.paidByInvestorId === inv.id).reduce((s, e) => s + (e.value || 0), 0);
-                    return { name: inv.name, total: dinheiro + bolso };
+                    const terreno = (project.acquisitionCosts || []).filter(a => a.paidByInvestorId === inv.id).reduce((s, a) => s + (a.value || 0), 0);
+                    return { name: inv.name, total: dinheiro + bolso + terreno };
                 }).filter(l => l.total > 0).sort((a, b) => b.total - a.total);
 
                 if (aporteSocio.length > 0) {

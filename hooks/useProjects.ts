@@ -255,6 +255,7 @@ export const fetchProjects = async (): Promise<Project[]> => {
             value: a.value,
             date: a.date,
             paidFromProject: a.paid_from_project,
+            paidByInvestorId: a.paid_by_investor_id || undefined,
             attachments: a.attachments || [],
             userId: a.user_id,
             userName: a.user_name,

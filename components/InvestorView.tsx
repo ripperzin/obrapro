@@ -198,6 +198,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         value: a.value || 0,
                         date: a.date || '',
                         paidFromProject: a.paid_from_project ?? true,
+                        paidByInvestorId: a.paid_by_investor_id || undefined,
                     })),
                     profitShares: ((data.profitShares || []) as any[]).map((s: any) => ({
                         id: s.id || '',
@@ -444,7 +445,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         <i className="fa-solid fa-hand-holding-dollar mr-2 text-emerald-400"></i>
                         Caixa da Obra
                     </h2>
-                    <div className={`grid ${finance.aquisicaoPaga > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-2 md:gap-4`}>
+                    <div className={`grid ${finance.aquisicaoFinanciada > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-2 md:gap-4`}>
                         <div className="bg-slate-800/50 rounded-xl p-2 md:p-3 text-center">
                             <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Aportado</p>
                             <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
@@ -463,13 +464,13 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                 </span>
                             </div>
                         </div>
-                        {finance.aquisicaoPaga > 0 && (
+                        {finance.aquisicaoFinanciada > 0 && (
                             <div className="bg-slate-800/50 rounded-xl p-2 md:p-3 text-center">
                                 <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Aquisição</p>
                                 <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
                                     <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
                                     <span className="text-amber-400 font-black text-sm md:text-base leading-none">
-                                        {formatCurrencyAbbrev(finance.aquisicaoPaga).replace('R$', '').trim()}
+                                        {formatCurrencyAbbrev(finance.aquisicaoFinanciada).replace('R$', '').trim()}
                                     </span>
                                 </div>
                             </div>
@@ -574,11 +575,12 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     const acerto = computeAporteShares(project);
                     const aporteDinheiro = (id?: string) => (project.contributions || []).filter(c => c.investorId === id).reduce((s, c) => s + (c.value || 0), 0);
                     const aporteViaDespesa = (id?: string) => (project.expenses || []).filter(e => e.paidByInvestorId === id).reduce((s, e) => s + (e.value || 0), 0);
+                    const aporteViaTerreno = (id?: string) => (project.acquisitionCosts || []).filter(a => a.paidByInvestorId === id).reduce((s, a) => s + (a.value || 0), 0);
 
                     // Fallback: sem base de meta → só lista quem aportou (comportamento antigo).
                     if (acerto.semBase) {
                         const linhas = (project.investors || [])
-                            .map(inv => ({ name: inv.name, total: aporteDinheiro(inv.id) + aporteViaDespesa(inv.id) }))
+                            .map(inv => ({ name: inv.name, total: aporteDinheiro(inv.id) + aporteViaDespesa(inv.id) + aporteViaTerreno(inv.id) }))
                             .filter(l => l.total > 0)
                             .sort((a, b) => b.total - a.total);
                         if (linhas.length === 0) return null;

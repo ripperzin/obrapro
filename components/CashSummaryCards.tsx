@@ -21,11 +21,12 @@ const Money: React.FC<{ value: number; className?: string }> = ({ value, classNa
  */
 const CashSummaryCards: React.FC<Props> = ({ project }) => {
   const finance = computeProjectFinance(project);
-  // Aportado = dinheiro + despesas pagas direto por sócios (aporteViaDespesa).
-  // Gasto = total da obra. Saldo = aportadoTotal − gasto − aquisição paga (== saldoCaixa).
+  // Aportado = dinheiro + despesas E terreno pagos direto por sócios (aporteViaDespesa + aquisicaoViaSocio).
+  // Gasto = total da obra. Saldo = aportadoTotal − gasto − aquisição financiada (== saldoCaixa).
+  // Aquisição no card = aquisicaoFinanciada (caixa + bolso do sócio) para a conta fechar; o "já era meu" fica de fora.
   const totalAportado = finance.aportadoTotal;
   const totalGasto = finance.gasto;
-  const totalAquisicaoPaga = finance.aquisicaoPaga;
+  const totalAquisicaoPaga = finance.aquisicaoFinanciada;
   const saldo = finance.saldoCaixa;
   const saldoPositivo = saldo >= 0;
   const temAquisicao = totalAquisicaoPaga > 0;

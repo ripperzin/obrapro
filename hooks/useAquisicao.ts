@@ -8,6 +8,7 @@ export interface AddAcquisitionInput {
     value: number;
     date: string;
     paidFromProject: boolean;
+    paidByInvestorId?: string;
     attachments?: string[];
     userId?: string;
     userName?: string;
@@ -24,6 +25,7 @@ export const useAddAcquisitionCost = () => {
                 value: input.value,
                 date: input.date,
                 paid_from_project: input.paidFromProject,
+                paid_by_investor_id: input.paidByInvestorId || null,
                 attachments: input.attachments || [],
                 user_id: input.userId || null,
                 user_name: input.userName || null,
