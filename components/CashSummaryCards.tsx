@@ -65,7 +65,7 @@ const CashSummaryCards: React.FC<Props> = ({ project }) => {
       <div className={cardBase}>
         <div className="flex items-center gap-1.5 mb-1 md:mb-2">
           <i className="fa-solid fa-wallet text-rose-400 text-xs hidden sm:inline"></i>
-          <span className={label}>Gasto</span>
+          <span className={label}>Construção</span>
         </div>
         <Money value={totalGasto} className="text-white" />
         {m2Real > 0 && (
