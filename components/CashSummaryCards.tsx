@@ -30,7 +30,10 @@ const CashSummaryCards: React.FC<Props> = ({ project }) => {
   const saldo = finance.saldoCaixa;
   const saldoPositivo = saldo >= 0;
   const temAquisicao = totalAquisicaoPaga > 0;
-  const temAporteViaDespesa = finance.aporteViaDespesa > 0;
+  // Parte do aporte que NÃO foi dinheiro = despesas pagas do bolso + taxas/terreno pagos
+  // pelo sócio. Vão juntas em "despesas" (a pedido do Victor) — senão o terreno some da quebra.
+  const aporteViaDespesa = finance.aporteViaDespesa + finance.aquisicaoViaSocio;
+  const temAporteViaDespesa = aporteViaDespesa > 0;
 
   // Custo REAL por m² = gasto ÷ área (0 quando não dá pra saber: sem metragem ou
   // sem gasto). Enquanto a obra não fechou, é PARCIAL — sobe conforme gasta (ex.:
@@ -53,7 +56,7 @@ const CashSummaryCards: React.FC<Props> = ({ project }) => {
         <Money value={totalAportado} className="text-white" />
         {temAporteViaDespesa && (
           <p className="hidden md:block text-[9px] text-emerald-400/70 mt-1 font-bold uppercase tracking-wider whitespace-nowrap">
-            {formatCurrencyAbbrev(finance.aportado)} dinheiro · {formatCurrencyAbbrev(finance.aporteViaDespesa)} despesas
+            {formatCurrencyAbbrev(finance.aportado)} dinheiro · {formatCurrencyAbbrev(aporteViaDespesa)} despesas
           </p>
         )}
       </div>
@@ -78,7 +81,7 @@ const CashSummaryCards: React.FC<Props> = ({ project }) => {
         <div className={cardBase}>
           <div className="flex items-center gap-1.5 mb-1 md:mb-2">
             <i className="fa-solid fa-map-location-dot text-amber-400 text-xs hidden sm:inline"></i>
-            <span className={label}>Terreno</span>
+            <span className={label}>Terreno + taxas</span>
           </div>
           <Money value={totalAquisicaoPaga} className="text-white" />
         </div>

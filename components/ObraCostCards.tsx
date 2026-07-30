@@ -50,7 +50,7 @@ const ObraCostCards: React.FC<Props> = ({ project }) => {
         <div className={cardBase}>
           <div className="flex items-center gap-1.5 mb-1 md:mb-2">
             <i className="fa-solid fa-map-location-dot text-amber-400 text-xs hidden sm:inline"></i>
-            <span className={label}>Terreno</span>
+            <span className={label}>Terreno + taxas</span>
           </div>
           <Money value={terreno} className="text-white" />
           {temPermuta && (

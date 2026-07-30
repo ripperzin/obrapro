@@ -179,7 +179,10 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
     const investorsDisponiveis = investors.filter((i) => !rows.some((r) => r.investorId === i.id));
 
     const aportadoDinheiro = (id: string) => (project.contributions || []).filter((c) => c.investorId === id).reduce((s, c) => s + (c.value || 0), 0);
-    const aportadoViaDespesa = (id: string) => (project.expenses || []).filter((e) => e.paidByInvestorId === id).reduce((s, e) => s + (e.value || 0), 0);
+    // "Via despesa" inclui as taxas/terreno que o sócio pagou do bolso (mesmo critério do acerto).
+    const aportadoViaDespesa = (id: string) =>
+        (project.expenses || []).filter((e) => e.paidByInvestorId === id).reduce((s, e) => s + (e.value || 0), 0) +
+        (project.acquisitionCosts || []).filter((a) => a.paidByInvestorId === id).reduce((s, a) => s + (a.value || 0), 0);
     const aportadoTotal = (id?: string) => (id ? aportadoDinheiro(id) + aportadoViaDespesa(id) : 0);
 
     // ---- Acerto de aportes (meta/falta por sócio) + montagem da visão única ----
