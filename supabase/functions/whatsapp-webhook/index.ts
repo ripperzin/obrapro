@@ -8,7 +8,7 @@ import {
     Project,
     verificarAlertas,
     calcularCamposCanonicos,
-    STAGE_NAMES
+    stageNameForProgress
 } from "./utils.ts"
 
 console.log("🚀 WhatsApp Webhook Online")
@@ -134,7 +134,7 @@ Verifique se cadastrou corretamente (ex: ${senderNumber} ou ${possibleNumbers[1]
                     tipo: 'OBRA_ESPECIFICA',
                     nome: p.name,
                     start: p.startDate,
-                    etapa: STAGE_NAMES[p.progress],
+                    etapa: stageNameForProgress(p.progress),
                     progresso: p.progress,
                     financeiro: {
                         gasto: p.expenses.reduce((s, e) => s + e.value, 0),

@@ -67,10 +67,25 @@ export interface ChatResponse {
 // CONSTANTES
 // ==========================================
 
-export const STAGE_NAMES: Record<number, string> = {
-    0: 'Planejamento', 15: 'Fundação', 30: 'Estrutura e Alvenaria',
-    60: 'Elétrica e Hidráulica', 75: 'Acabamentos',
-    90: 'Finalização', 100: 'Concluída'
+// Régua de 8 etapas + concluída. ESPELHO de types.ts CONSTRUCTION_STAGES (o Deno
+// não lê o TS do front) — mudou lá, mudar aqui. Keys = fronteira de progresso.
+export const STAGE_BOUNDARIES: { value: number; name: string }[] = [
+    { value: 0,  name: 'Projetos e serviços preliminares' },
+    { value: 4,  name: 'Terraplenagem e fundações' },
+    { value: 16, name: 'Estrutura e alvenaria' },
+    { value: 39, name: 'Cobertura e impermeabilização' },
+    { value: 48, name: 'Instalações elétricas e hidráulicas' },
+    { value: 62, name: 'Revestimentos, pisos e forros' },
+    { value: 80, name: 'Esquadrias, pintura e acabamentos' },
+    { value: 95, name: 'Área externa, ligações e entrega' },
+];
+
+// Nome da etapa ATUAL a partir do progresso: a de MAIOR fronteira <= progresso
+// (não indexar por valor exato — progresso 45 não tem chave e cairia em undefined).
+export const stageNameForProgress = (progress: number): string => {
+    if (progress >= 100) return 'Obra Concluída';
+    const cur = [...STAGE_BOUNDARIES].reverse().find((s) => progress >= s.value) || STAGE_BOUNDARIES[0];
+    return cur.name;
 };
 
 const KEYWORDS = {

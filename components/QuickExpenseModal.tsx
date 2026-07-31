@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { Project } from '../types';
+import { Project, getStageName } from '../types';
 import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import AttachmentUpload from './AttachmentUpload';
@@ -208,21 +208,16 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             return;
         }
 
-        // Auto-select 'Geral/Outros' if no category is selected
+        // Sem etapa escolhida? Default = etapa ATUAL da obra (onde o trabalho está)
+        // — a régua de 9 etapas não tem "Geral/Outros"; cair na última (Entrega)
+        // classificava errado. Último recurso: a primeira etapa.
         let finalMacroId = selectedMacroId;
         if (!finalMacroId && macros.length > 0) {
-            const defaultMacro = macros.find(m =>
-                m.name.toLowerCase().trim() === 'geral/outros' ||
-                m.name.toLowerCase().trim() === 'outros' ||
-                m.name.toLowerCase().includes('geral')
-            );
-            if (defaultMacro) {
-                finalMacroId = defaultMacro.id;
-            } else {
-                // Fallback: If no 'Geral/Outros' found but macros exist, use the last one (usually Outros/99)
-                // This is a safety net
-                finalMacroId = macros[macros.length - 1].id;
-            }
+            const proj = projects.find(p => p.id === projectId);
+            const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+            const curName = proj ? getStageName(proj.progress, proj) : '';
+            const curMacro = curName ? macros.find(m => norm(m.name) === norm(curName)) : undefined;
+            finalMacroId = (curMacro || macros[0]).id;
         }
 
         onSave(projectId, {
