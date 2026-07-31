@@ -31,6 +31,14 @@ const ObraCostCards: React.FC<Props> = ({ project }) => {
   const temTerreno = terreno > 0;
   const temPermuta = pagoComCasas > 0.5;
 
+  // R$/m² REAL (parcial): custo ÷ área das casas. Enquanto a obra não fechou é
+  // PARCIAL (sobe conforme gasta). Fica 0 quando não dá pra saber (obra sem a
+  // metragem das casas cadastrada) — aí a linha some. Mesma base do card do Caixa.
+  const areaTotal = f.areaTotal;
+  const m2Construcao = areaTotal > 0 && construcao > 0 ? Math.round((construcao / areaTotal) * 100) / 100 : 0;
+  const m2Total = areaTotal > 0 && total > 0 ? Math.round((total / areaTotal) * 100) / 100 : 0;
+  const parcial = project.progress >= 100 ? '' : ' (parcial)';
+
   const cardBase = 'glass rounded-xl md:rounded-2xl p-2.5 md:p-5 border border-slate-700 min-w-0';
   const label = 'text-[8px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest text-slate-400 truncate';
 
@@ -43,6 +51,12 @@ const ObraCostCards: React.FC<Props> = ({ project }) => {
           <span className={label}>Construção</span>
         </div>
         <Money value={construcao} className="text-white" />
+        {m2Construcao > 0 && (
+          <p className="hidden md:block text-[9px] text-slate-400 mt-1 font-bold uppercase tracking-wider whitespace-nowrap">
+            <i className="fa-solid fa-ruler-combined mr-1 text-slate-500"></i>
+            {formatCurrency(m2Construcao)}/m² real{parcial}
+          </p>
+        )}
       </div>
 
       {/* Terreno (só quando há) */}
@@ -71,6 +85,12 @@ const ObraCostCards: React.FC<Props> = ({ project }) => {
           </span>
         </div>
         <Money value={total} className="text-blue-400" />
+        {m2Total > 0 && (
+          <p className="hidden md:block text-[9px] text-blue-400/70 mt-1 font-bold uppercase tracking-wider whitespace-nowrap">
+            <i className="fa-solid fa-ruler-combined mr-1"></i>
+            {formatCurrency(m2Total)}/m² real{parcial}
+          </p>
+        )}
       </div>
     </div>
   );
