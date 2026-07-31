@@ -180,12 +180,9 @@ const UnitsSection: React.FC<{
   const handleSubmitNewUnit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    console.log('=== DEBUG: Formulário enviado ===');
-    console.log('FormData:', formData);
 
     try {
       await onAddUnit(formData);
-      console.log('=== DEBUG: Unidade adicionada com sucesso ===');
       handleSetShowAdd(false);
       setFormData({
         identifier: '',
@@ -195,7 +192,7 @@ const UnitsSection: React.FC<{
         status: 'Available'
       });
     } catch (error) {
-      console.error('=== DEBUG: Erro ao adicionar unidade ===', error);
+      console.error('Erro ao adicionar unidade:', error);
     } finally {
       setIsSaving(false);
     }
@@ -1693,8 +1690,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
   };
 
   const handleAddUnit = async (unitOrUnits: Omit<Unit, 'id'> | Omit<Unit, 'id'>[]): Promise<void> => {
-    console.log('=== DEBUG: handleAddUnit chamado ===');
-
     const unitsToAdd = Array.isArray(unitOrUnits) ? unitOrUnits : [unitOrUnits];
 
     const newUnitsFromServer: Unit[] = unitsToAdd.map(u => ({
@@ -1718,7 +1713,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
     } else {
       logChange('Inclusão', 'Unidades (Lote)', '-', `${newUnitsFromServer.length} unidades adicionadas`);
     }
-    console.log('=== DEBUG: handleAddUnit concluído ===');
   };
 
   const handleUpdateUnit = (unitId: string, updates: Partial<Unit>) => {

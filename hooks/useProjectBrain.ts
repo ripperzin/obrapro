@@ -258,12 +258,6 @@ function extractEntities(text: string, projects: Project[], history: ChatMessage
     const comparacaoMatch = KEYWORDS.COMPARACAO.filter(k => normalized.includes(k));
     const temComparacao = comparacaoMatch.length > 0;
 
-    console.log('🔎 DEBUG COMPARAÇÃO:', {
-        textoNormalizado: normalized,
-        keywordsComparacaoEncontradas: comparacaoMatch,
-        temComparacao
-    });
-
     if (temComparacao) {
         return {
             obra: null,
@@ -290,7 +284,6 @@ function extractEntities(text: string, projects: Project[], history: ChatMessage
             const found = projects.find(p => normalizar(p.name).includes(num));
             if (found) {
                 obra = { id: found.id, nome: found.name };
-                console.log(`🏠 Obra identificada por NÚMERO (${num}):`, found.name);
                 break;
             }
         }
@@ -308,7 +301,6 @@ function extractEntities(text: string, projects: Project[], history: ChatMessage
                 const regex = new RegExp(`\\b${part}\\b`, 'i');
                 if (regex.test(normalized)) {
                     obra = { id: project.id, nome: project.name };
-                    console.log(`🏠 Obra identificada por NOME PARCIAL (${part}):`, project.name);
                     break;
                 }
             }
@@ -329,7 +321,6 @@ function extractEntities(text: string, projects: Project[], history: ChatMessage
     if (multiObraMatch.length > 0 || panoramaMatch.length > 0) {
         escopoConfirmado = 'MULTI_OBRA';
         obra = null; // Se pediu panorama de todas, ignora obra específica mencionada
-        console.log('🌐 MULTI_OBRA ATIVADO: Plural/Panorama detectado', { multiObraMatch, panoramaMatch });
     }
 
     // 3. RECUPERAR CONTEXTO DO HISTÓRICO (Sticky Context)
@@ -342,7 +333,6 @@ function extractEntities(text: string, projects: Project[], history: ChatMessage
                 // Verifica se o nome Exato ou partes significativas aparecem
                 if (normalizar(lastAssistantMsg.content).includes(normalizar(p.name))) {
                     obra = { id: p.id, nome: p.name };
-                    console.log(`🧠 Contexto Adesivo: Continuando conversa sobre`, p.name);
                     break;
                 }
             }
@@ -426,7 +416,6 @@ function extractEntities(text: string, projects: Project[], history: ChatMessage
         if (idMatch) dadosAcao.identificador = idMatch[0].trim();
     }
 
-    console.log('🔍 Entidades (v2.2):', { obra: obra?.nome, insumo, periodo: periodo?.label, consulta, escopoConfirmado, acao });
     return { obra, insumo, periodo, consulta, acao, escopoConfirmado, dadosAcao };
 }
 
@@ -440,8 +429,6 @@ export const useProjectBrain = (): { loading: boolean; processMessage: (message:
 
     const processMessage = async (message: string, history: ChatMessage[], currentProjectId?: string | null): Promise<ChatResponse> => {
         setLoading(true);
-        console.log("🧠 Brain v2.1: Processando - COMPARAÇÃO PRIMEIRO");
-        console.log("📦 currentProjectId recebido:", currentProjectId);
 
         try {
             const entities = extractEntities(message, projects, history);

@@ -16,7 +16,7 @@ import MobileNav from './components/MobileNav';
 import { SyncStatus } from './components/SyncStatus';
 import { PlanProvider } from './components/PlanProvider';
 import { entitlementsFor, effectivePlan } from './hooks/useEntitlements';
-import { canEditProject, ProjectRole, MyRoles } from './lib/permissions';
+import { ProjectRole, MyRoles } from './lib/permissions';
 
 // Pages (Lazy - Deferred until after login)
 const ProjectsDashboard = lazy(() => import('./components/ProjectsDashboard'));
@@ -153,7 +153,6 @@ const App: React.FC = () => {
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[Auth] Event:', event);
 
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
         // O Supabase re-emite SIGNED_IN a cada foco de aba. Só é login NOVO quando o
@@ -213,7 +212,6 @@ const App: React.FC = () => {
             // OFFLINE FALLBACK: Try to load from cache
             const cachedProfileStr = localStorage.getItem(`profile_cache_${session.user.id}`);
             if (cachedProfileStr) {
-              console.log('[Offline] Using cached profile');
               const cachedProfile = JSON.parse(cachedProfileStr);
 
               if (mounted) {
@@ -276,7 +274,6 @@ const App: React.FC = () => {
           // OFFLINE FALLBACK (CATCH BLOCK): Try to load from cache
           const cachedProfileStr = localStorage.getItem(`profile_cache_${session?.user?.id}`);
           if (cachedProfileStr) {
-            console.log('[Offline] Using cached profile (catch)');
             const cachedProfile = JSON.parse(cachedProfileStr);
 
             if (mounted) {
@@ -582,7 +579,6 @@ const App: React.FC = () => {
   };
 
   const handleVoiceAction = (action: string, data?: any) => {
-    console.log('AI Action:', action, data);
 
     // Se a IA identificou um projeto, vamos focar nele automaticamente
     if (data?.projectId) {
@@ -816,7 +812,7 @@ const App: React.FC = () => {
                   onAdd={addProject}
                   onUpdate={updateProjectHandler}
                   onDelete={deleteProject}
-                  isAdmin={canEditProject(currentUser)}
+                  myRoles={myRoles}
                   userId={currentUser.id}
                   userName={currentUser.login}
                 />
@@ -833,7 +829,6 @@ const App: React.FC = () => {
                 onUpdate={updateProjectHandler}
                 onDelete={deleteProject}
                 onAddExpense={addExpenseToProject}
-                isAdmin={canEditProject(currentUser)}
                 myRoles={myRoles}
               />
             )}

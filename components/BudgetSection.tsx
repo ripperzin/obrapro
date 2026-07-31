@@ -396,7 +396,6 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             // Cai aqui quem abriu a obra SEM casas (useCreateObra só cria o orçamento
             // quando já há custo) e cadastrou as casas depois.
             if (!budgetData && totalUnitsValue > 0) {
-                console.log('⚡ Criando orçamento padrão automaticamente...');
 
                 // 1. Create Budget Header
                 const { data: newBudget, error: createError } = await supabase
@@ -422,7 +421,6 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                 // 3. Verificação de Sincronia: Unidades vs Orçamento
                 // Se houver diferença significativa (> 1 real), atualizar e recalcular
                 if (Math.abs(budgetData.total_estimated - totalUnitsValue) > 1) {
-                    console.log(`⚡ Sincronizando Orçamento: R$ ${budgetData.total_estimated} -> R$ ${totalUnitsValue}`);
 
                     // Atualizar Total do Orçamento
                     await supabase
@@ -469,7 +467,6 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
 
                 // RETROACTIVE FIX: Se existir orçamento mas SEM macros, popular agora
                 if ((!macrosData || macrosData.length === 0)) {
-                    console.log('⚡ Reparando orçamento vazio...');
                     const success = await populateBudgetFromTemplate(budgetData.id, totalUnitsValue);
                     if (success) {
                         // Refetch macros

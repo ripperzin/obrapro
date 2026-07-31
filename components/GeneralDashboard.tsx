@@ -21,7 +21,7 @@ import QuickExpenseModal from './QuickExpenseModal';
 import SwipeableProjectItem from './SwipeableProjectItem';
 import NewObraModal from './NewObraModal';
 import { usePlan } from './PlanProvider';
-import { MyRoles } from '../lib/permissions';
+import { MyRoles, canEditProject } from '../lib/permissions';
 // (o "lucro projetado" saiu do Resumo Geral — não precisamos mais de computeProjectFinance aqui)
 
 interface GeneralDashboardProps {
@@ -33,8 +33,7 @@ interface GeneralDashboardProps {
    onUpdate?: (id: string, updates: Partial<Project>, logMsg?: string) => void;
    onDelete?: (id: string) => void;
    onAddExpense?: (projectId: string, expense: Omit<Expense, 'id' | 'userId' | 'userName'>) => void;
-   isAdmin?: boolean;
-   myRoles?: MyRoles; // cargo por obra — pra esconder dinheiro do apontador
+   myRoles?: MyRoles; // cargo por obra — esconde dinheiro do apontador e trava editar/excluir
 }
 
 const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
@@ -46,7 +45,6 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    onUpdate,
    onDelete,
    onAddExpense,
-   isAdmin = false,
    myRoles
 }) => {
    const [showModal, setShowModal] = useState(false);
@@ -62,6 +60,9 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    // Esconde o dinheiro do portfólio só se a pessoa é APONTADOR em TODAS as obras
    // visíveis (não penaliza quem é dono/gestor em alguma). Cargo desconhecido = vê.
    const hideMoney = activeProjects.length > 0 && activeProjects.every(p => myRoles?.[p.id] === 'apontador');
+   // Editar/excluir é por CARGO na obra: o apontador não pode (antes vinha um
+   // isAdmin global sempre-true, e ele via os botões em toda obra).
+   const canEdit = (p: Project) => canEditProject(undefined, p, myRoles?.[p.id]);
    const visibleProjects = showArchived ? archivedProjects : activeProjects;
    // Vagas de obra ativa acabaram? O botão continua lá, com cadeado.
    const obrasCheias = activeProjects.length >= ent.maxObrasAtivas;
@@ -398,7 +399,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
          <div className="space-y-4 block md:hidden">
             <div className="flex justify-between items-center">
                <h3 className="text-slate-400 font-bold text-xs uppercase tracking-widest">{showArchived ? 'Arquivadas' : 'Seus Projetos'}</h3>
-               {isAdmin && !hideMoney && onAddProject && !showArchived && (
+               {!hideMoney && onAddProject && !showArchived && (
                   <button
                      onClick={() => openAddModal()}
                      className="px-4 py-2 bg-blue-600/20 border border-blue-500/40 rounded-xl text-blue-400 flex items-center gap-2 hover:bg-blue-600/30 transition-all active:scale-95"
@@ -426,7 +427,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                      onEdit={(p) => openEditModal({ stopPropagation: () => { } } as any, p)}
                      onDelete={(id) => requestDelete({ stopPropagation: () => { } } as any, id)}
                      onArchive={(p) => toggleArchive(null, p)}
-                     isAdmin={isAdmin}
+                     isAdmin={canEdit(p)}
                   />
                );
             })}
@@ -560,7 +561,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                               })()}
                               <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60"></div>
                               <div className="absolute top-4 right-4 flex gap-2">
-                                 {isAdmin && !hideMoney && (
+                                 {canEdit(p) && (
                                     <>
                                        {!p.archived && (
                                           <button onClick={(e) => openEditModal(e, p)} className="w-8 h-8 rounded-lg bg-slate-900/80 backdrop-blur-md text-blue-400 flex items-center justify-center border border-slate-700 hover:bg-blue-600 hover:text-white transition" title="Editar">

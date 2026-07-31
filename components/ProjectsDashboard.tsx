@@ -7,6 +7,7 @@ import ConfirmModal from './ConfirmModal';
 import SwipeableProjectItem from './SwipeableProjectItem';
 import NewObraModal from './NewObraModal';
 import { usePlan } from './PlanProvider';
+import { canEditProject, MyRoles } from '../lib/permissions';
 
 interface ProjectsDashboardProps {
   projects: Project[];
@@ -14,12 +15,16 @@ interface ProjectsDashboardProps {
   onAdd: (project: any) => void;
   onUpdate?: (id: string, updates: Partial<Project>, logMsg?: string) => void;
   onDelete?: (id: string) => void;
-  isAdmin: boolean;
+  // Cargo do usuário por obra — quem edita/exclui é por CARGO (o apontador não).
+  myRoles?: MyRoles;
   userId?: string;
   userName?: string;
 }
 
-const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelect, onAdd, onUpdate, onDelete, isAdmin, userId, userName }) => {
+const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelect, onAdd, onUpdate, onDelete, myRoles, userId, userName }) => {
+  // Pode editar/excluir ESTA obra? Só quem não é apontador nela (canEditProject
+  // olha o cargo). Antes vinha um isAdmin global sempre-true -> apontador via os botões.
+  const canEdit = (p: Project) => canEditProject(undefined, p, myRoles?.[p.id]);
   const [showModal, setShowModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
 
@@ -139,7 +144,7 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                   onSelect={onSelect}
                   onEdit={(p) => openEditModal({ stopPropagation: () => { } } as any, p)}
                   onDelete={(id) => requestDelete({ stopPropagation: () => { } } as any, id)}
-                  isAdmin={isAdmin}
+                  isAdmin={canEdit(p)}
                 />
               );
             })}
@@ -177,7 +182,7 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                     <span className="px-4 py-2 bg-slate-50 rounded-full text-xs font-black text-slate-600 border border-slate-100">
                       {p.progress}%
                     </span>
-                    {isAdmin && (
+                    {canEdit(p) && (
                       <>
                         <button
                           onClick={(e) => openEditModal(e, p)}

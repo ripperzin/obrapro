@@ -40,3 +40,5 @@ tmp_*.ts
 .claude/settings.local.json
 planilhas despesas/
 print/
+
+scratchpad/
