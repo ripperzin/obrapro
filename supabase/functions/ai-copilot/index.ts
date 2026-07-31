@@ -45,6 +45,22 @@ const planGateError = async (req: Request, allowed: string[], msg: string): Prom
     const { data: me } = await admin.from("profiles").select("role, plan, trial_until").eq("id", user.id).single();
     if (me?.role === "admin") return null;
     if (allowed.includes(effectivePlanOf(me?.plan, me?.trial_until))) return null;
+
+    // O plano PRÓPRIO não libera. Mas talvez seja FUNCIONÁRIO de uma obra cujo
+    // DONO libera — ele usa as features do plano do patrão (espelha o ownerPlan
+    // do app). Libera se o caller é membro de ALGUMA obra com dono no plano certo.
+    const { data: mem } = await admin.from("project_members").select("project_id").eq("user_id", user.id);
+    const projectIds = [...new Set((mem ?? []).map((m: { project_id: string }) => m.project_id))];
+    if (projectIds.length) {
+        const { data: owners } = await admin.from("project_members").select("user_id").eq("role", "owner").in("project_id", projectIds);
+        const ownerIds = [...new Set((owners ?? []).map((o: { user_id: string }) => o.user_id))];
+        if (ownerIds.length) {
+            const { data: ops } = await admin.from("profiles").select("plan, trial_until").in("id", ownerIds);
+            for (const op of (ops ?? []) as { plan: string; trial_until: string | null }[]) {
+                if (allowed.includes(effectivePlanOf(op.plan, op.trial_until))) return null;
+            }
+        }
+    }
     return msg;
 };
 
