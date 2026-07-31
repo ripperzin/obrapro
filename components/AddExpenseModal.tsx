@@ -7,6 +7,7 @@ import AttachmentUpload from './AttachmentUpload';
 import { ReceiptScanner } from './ReceiptScanner';
 import { ReceiptData } from '../lib/gemini';
 import { getSignedUrl, uploadFile } from '../utils/storage';
+import { useToast } from './ToastProvider';
 
 interface AddExpenseModalProps {
     isOpen: boolean;
@@ -26,6 +27,7 @@ interface AddExpenseModalProps {
 const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
 const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSave, macros, items, stageItems = [], investors = [], defaultPayerId, onCreateItem }) => {
+    const toast = useToast();
     const [formData, setFormData] = useState({
         description: '',
         value: 0,
@@ -163,7 +165,7 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
         e.preventDefault();
 
         if (!formData.macroId) {
-            alert('Por favor, selecione uma Categoria para a despesa.');
+            toast.error('Selecione a etapa da despesa.');
             return;
         }
 

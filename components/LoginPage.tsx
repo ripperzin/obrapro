@@ -1,12 +1,14 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { useToast } from './ToastProvider';
 
 interface LoginPageProps {
   onLoginSuccess: (session: any) => void;
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,7 +66,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     if (error) {
       setError(error.message);
     } else {
-      alert('Cadastro realizado! Você já pode tentar logar.');
+      toast.success('Cadastro realizado! Você já pode entrar.');
     }
     setLoading(false);
   };

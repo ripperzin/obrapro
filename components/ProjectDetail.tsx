@@ -29,6 +29,7 @@ import ResultadoEmpreendimento from './ResultadoEmpreendimento';
 import SociosSection from './SociosSection';
 import { computeProjectFinance, computeGastoAvancoVerdito, computeUnitResult } from '../utils/projectFinance';
 import { usePlan } from './PlanProvider';
+import { useToast } from './ToastProvider';
 
 import { supabase } from '../supabaseClient';
 
@@ -676,6 +677,7 @@ const ExpensesSection: React.FC<{
   const [attachmentManagerId, setAttachmentManagerId] = useState<string | null>(null);
   const [tempDescription, setTempDescription] = useState('');
   const { ent, openUpgrade } = usePlan();
+  const toast = useToast();
 
   // Sync showAdd with URL action parameter for persistence across re-renders
   useEffect(() => {
@@ -836,7 +838,7 @@ const ExpensesSection: React.FC<{
       return data.id;
     } catch (err) {
       console.error('Erro ao criar item:', err);
-      alert('Erro ao criar item. Tente novamente.');
+      toast.error('Erro ao criar item. Tente novamente.');
       return null;
     }
   };
@@ -946,6 +948,7 @@ const ExpensesSection: React.FC<{
         onClose={() => handleSetShowAdd(false)}
         onSave={(exp) => {
           onAddExpense(exp);
+          toast.success('Despesa lançada');
           handleSetShowAdd(false);
         }}
         macros={projectMacros}

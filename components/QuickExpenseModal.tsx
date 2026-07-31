@@ -8,6 +8,7 @@ import { supabase } from '../supabaseClient';
 import { ReceiptScanner } from './ReceiptScanner';
 import { ReceiptData } from '../lib/gemini';
 import { getSignedUrl, uploadFile } from '../utils/storage';
+import { useToast } from './ToastProvider';
 
 interface QuickExpenseModalProps {
     isOpen: boolean;
@@ -40,6 +41,7 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     initialValue = 0,
     initialOriginalText = ''
 }) => {
+    const toast = useToast();
     const [projectId, setProjectId] = useState(preSelectedProjectId || '');
     const [description, setDescription] = useState(initialDescription);
     const [value, setValue] = useState(initialValue);
@@ -199,12 +201,12 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!projectId) {
-            alert('Selecione uma obra.');
+            toast.error('Selecione uma obra.');
             return;
         }
 
         if (loadingCategories) {
-            alert('Aguarde o carregamento das categorias...');
+            toast.info('Aguarde o carregamento das categorias…');
             return;
         }
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
+import { useToast } from './ToastProvider';
 import DateInput from './DateInput';
 import MoneyInput from './MoneyInput';
 import { formatCurrency } from '../utils';
@@ -56,6 +57,7 @@ const Section: React.FC<{
  * (modo "já em andamento"). Usado no ProjectsDashboard e no GeneralDashboard.
  */
 const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName }) => {
+    const toast = useToast();
     const [mode, setMode] = useState<'nova' | 'andamento'>('nova');
     const [name, setName] = useState('');
     const [city, setCity] = useState('');
@@ -207,7 +209,7 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
-        if (!city.trim() || !uf) { alert('Informe a cidade e o estado (UF) da obra.'); return; }
+        if (!city.trim() || !uf) { toast.error('Informe a cidade e o estado (UF) da obra.'); return; }
         // Método "valor total" (só na nova do zero): as casas vêm do nº informado
         // (área 0, custo = rateio do total no useCreateObra) e não há custo/m².
         const usaValorTotal = mode === 'nova' && budgetMethod === 'total';
@@ -249,7 +251,7 @@ const NewObraModal: React.FC<Props> = ({ onClose, onCreated, userId, userName })
             onClose();
             if (res?.id) onCreated(res.id);
         } catch (err: any) {
-            alert('Erro ao criar obra: ' + (err.message || err));
+            toast.error('Erro ao criar obra: ' + (err.message || err));
             setSaving(false);
         }
     };

@@ -9,6 +9,7 @@ import CashSummaryCards from './CashSummaryCards';
 import AporteScheduleSection, { SocioCol } from './AporteScheduleSection';
 import AddContributionModal from './AddContributionModal';
 import { usePlan } from './PlanProvider';
+import { useToast } from './ToastProvider';
 
 interface Row {
     _key: string;   // chave local estável (para o estado de edição por linha)
@@ -50,6 +51,7 @@ const inputClass = 'bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 te
  */
 const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
     const { ent, openUpgrade } = usePlan();
+    const toast = useToast();
     const f = computeProjectFinance(project);
     const isCompleted = project.progress >= 100;
     const investors = project.investors || [];
@@ -125,7 +127,7 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
             });
             await deleteInvestor.mutateAsync(r.investorId);
         } catch (e: any) {
-            alert('Erro ao remover: ' + (e.message || e));
+            toast.error('Erro ao remover: ' + (e.message || e));
         }
     };
     const toggleNaoAporta = (idx: number) => setRows(rows.map((r, i) => (i === idx ? { ...r, naoAporta: !r.naoAporta } : r)));
@@ -163,7 +165,7 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
             });
             setRows(resolved.map((r) => ({ _key: generateId(), investorId: r.investorId, name: r.name, percentage: String(r.percentage), naoAporta: r.naoAporta })));
         } catch (e: any) {
-            alert('Erro ao salvar: ' + (e.message || e));
+            toast.error('Erro ao salvar: ' + (e.message || e));
         } finally {
             setSaving(false);
         }
@@ -171,7 +173,7 @@ const SociosSection: React.FC<Props> = ({ project, user, onUpdate }) => {
 
     // Confirma (trava) a linha em edição: valida o nome, persiste tudo e fecha.
     const confirmRow = async (idx: number) => {
-        if (!rows[idx]?.name.trim()) { alert('Dê um nome ao sócio.'); return; }
+        if (!rows[idx]?.name.trim()) { toast.error('Dê um nome ao sócio.'); return; }
         await handleSave();
         setEditingKey(null);
     };

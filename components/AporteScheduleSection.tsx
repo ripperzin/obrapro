@@ -6,6 +6,7 @@ import { generateAporteSchedule, buildAporteMatrix, labelMesAporte } from '../ut
 import { openAttachment } from '../utils/storage';
 import { useAddContribution, useDeleteContribution } from '../hooks/useAportes';
 import AttachmentUpload from './AttachmentUpload';
+import { useToast } from './ToastProvider';
 
 // Uma coluna da matriz = um sócio que aporta.
 export interface SocioCol {
@@ -41,6 +42,7 @@ const inputCls = 'bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 te
 // tem valor + botão "pago" (ao marcar, cria o aporte real → caixa/extrato). Aportes
 // avulsos (fora do plano) aparecem como linhas verdes. Mesma tabela no app e no link.
 const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onRegisterAporte }) => {
+    const toast = useToast();
     const addContribution = useAddContribution();
     const deleteContribution = useDeleteContribution();
 
@@ -78,7 +80,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
     const sugerir = (mode: 'iguais' | 'ritmo') => {
         const cols = socios.map((s) => ({ investorId: s.investorId, name: s.name, meta: s.meta, aportado: s.aportado, falta: s.meta - s.aportado }));
         const p = generateAporteSchedule(cols, project, { mode, nParcelas, startDate: inicio, intervalDays: intervalo });
-        if (!p) { alert('Gere o cronograma da obra primeiro (aba Orçamento → "Gerar cronograma") para distribuir os aportes pelo ritmo.'); return; }
+        if (!p) { toast.info('Gere o cronograma da obra primeiro (aba Orçamento → "Gerar cronograma") para distribuir os aportes pelo ritmo.'); return; }
         setParcelas(p.parcelas);
         setOpen(true);
     };
@@ -113,7 +115,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
 
     // Clique no ✓: abre a janela de confirmação (valor e data já preenchidos, editáveis).
     const pedirConfirmacao = (parcela: AporteParcela, s: SocioCol) => {
-        if (dirty) { alert('Salve o cronograma antes de dar baixa nos aportes.'); return; }
+        if (dirty) { toast.info('Salve o cronograma antes de dar baixa nos aportes.'); return; }
         const planned = parcela.values?.[s.investorId] || 0;
         setConfirmCell({
             parcelaId: parcela.id,
@@ -129,8 +131,8 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
     const confirmarPago = async () => {
         if (!confirmCell || busy) return;
         const value = parseFloat(String(confirmCell.value).replace(',', '.')) || 0;
-        if (value <= 0) { alert('Informe o valor do aporte.'); return; }
-        if (!confirmCell.date) { alert('Informe a data do aporte.'); return; }
+        if (value <= 0) { toast.error('Informe o valor do aporte.'); return; }
+        if (!confirmCell.date) { toast.error('Informe a data do aporte.'); return; }
         setBusy(true);
         try {
             const c: any = await addContribution.mutateAsync({
@@ -146,7 +148,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
             onUpdate?.(project.id, { aportePlan: { parcelas: next } });
             setConfirmCell(null);
         } catch (e: any) {
-            alert('Erro ao registrar o aporte: ' + (e?.message || e));
+            toast.error('Erro ao registrar o aporte: ' + (e?.message || e));
         } finally {
             setBusy(false);
         }
@@ -154,7 +156,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
 
     // Desfazer: apaga o aporte real (some do caixa e do extrato). Pergunta antes.
     const desfazerPago = async (parcela: AporteParcela, s: SocioCol) => {
-        if (dirty) { alert('Salve o cronograma antes de dar baixa nos aportes.'); return; }
+        if (dirty) { toast.info('Salve o cronograma antes de dar baixa nos aportes.'); return; }
         if (busy) return;
         const contribId = parcela.paidContrib?.[s.investorId];
         if (!contribId) return;
@@ -169,7 +171,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
             setPlan({ parcelas: next });   // sincroniza local (evita corrida entre cliques)
             onUpdate?.(project.id, { aportePlan: { parcelas: next } });
         } catch (e: any) {
-            alert('Erro ao desfazer o aporte: ' + (e?.message || e));
+            toast.error('Erro ao desfazer o aporte: ' + (e?.message || e));
         } finally {
             setBusy(false);
         }
@@ -179,7 +181,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
         if (busy || !window.confirm('Apagar este aporte?')) return;
         setBusy(true);
         try { for (const id of contribIds) await deleteContribution.mutateAsync(id); }
-        catch (e: any) { alert('Erro ao apagar: ' + (e?.message || e)); }
+        catch (e: any) { toast.error('Erro ao apagar: ' + (e?.message || e)); }
         finally { setBusy(false); }
     };
 

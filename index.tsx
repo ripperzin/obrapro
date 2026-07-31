@@ -11,6 +11,7 @@ if (!rootElement) {
 }
 
 import ErrorBoundary from './components/ErrorBoundary';
+import { ToastProvider } from './components/ToastProvider';
 
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { queryClient, persistOptions } from './lib/react-query';
@@ -28,7 +29,9 @@ root.render(
       }}
     >
       <ErrorBoundary>
-        <App />
+        <ToastProvider>
+          <App />
+        </ToastProvider>
       </ErrorBoundary>
     </PersistQueryClientProvider>
     <ReloadPrompt />
