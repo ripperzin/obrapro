@@ -7,6 +7,7 @@ import { formatCurrencyAbbrev } from '../utils'; // Import added
 import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import { usePlan } from './PlanProvider';
+import { useToast } from './ToastProvider';
 import { computeScheduleDates } from '../utils/schedule';
 import { useProjects } from '../hooks/useProjects';
 
@@ -160,6 +161,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
     const [editMacros, setEditMacros] = useState<ProjectMacro[]>([]);
     const [viewMode, setViewMode] = useState<'stage' | 'item'>('stage'); // "Por etapa" x "Por item"
     const { ent, openUpgrade } = usePlan();
+    const toast = useToast();
     const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
     // Previsto por item dentro da etapa (project_stage_items): {macroId,itemId,percentage}
     const [stageRows, setStageRows] = useState<{ macroId: string; itemId: string; percentage: number }[]>([]);
@@ -248,7 +250,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             ));
         } catch (e) {
             console.error('Erro ao salvar % do item:', e);
-            alert('Erro ao salvar o previsto do item.');
+            toast.error('Erro ao salvar o previsto do item.');
         }
     };
     // Adiciona um item ao previsto da etapa (nasce com 0% — não mexe nos outros).
@@ -262,7 +264,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             await reloadStageItems();
         } catch (e) {
             console.error('Erro ao adicionar item na etapa:', e);
-            alert('Erro ao adicionar item. Pode já estar na etapa.');
+            toast.error('Erro ao adicionar item. Pode já estar na etapa.');
         }
     };
     const handleRemoveStageItem = async (macroId: string, itemId: string) => {
@@ -359,7 +361,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             });
 
             if (rows.length === 0) {
-                alert('A obra escolhida não tem gasto por item suficiente para virar molde.');
+                toast.error('A obra escolhida não tem gasto por item suficiente para virar molde.');
                 return;
             }
 
@@ -373,7 +375,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             setMoldeItensSource(sourceName);
         } catch (e: any) {
             console.error('Erro ao aplicar molde de itens:', e);
-            alert('Erro ao puxar o previsto por item da obra escolhida.');
+            toast.error('Erro ao puxar o previsto por item da obra escolhida.');
         } finally {
             setAplicandoMolde(false);
         }
@@ -589,7 +591,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             onBudgetUpdate?.();
         } catch (error) {
             console.error('Erro ao atualizar macro:', error);
-            alert('Erro ao salvar alteração da macro');
+            toast.error('Erro ao salvar alteração da macro');
         }
     };
 
@@ -597,12 +599,12 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
     // da obra, proporcional ao peso (%) de cada etapa — a mesma fonte do avanço.
     const handleGenerateSchedule = async () => {
         if (!project.startDate || !project.deliveryDate) {
-            alert('Defina a data de início e a de entrega da obra para gerar o cronograma automaticamente.\n\nElas ficam no lápis (Editar) do card da obra, na tela Início.');
+            toast.error('Defina a data de início e a de entrega da obra para gerar o cronograma automaticamente.\n\nElas ficam no lápis (Editar) do card da obra, na tela Início.');
             return;
         }
         const updates = computeScheduleDates(macros, project.startDate, project.deliveryDate);
         if (updates.length === 0) {
-            alert('A data de entrega precisa ser posterior à data de início.');
+            toast.error('A data de entrega precisa ser posterior à data de início.');
             return;
         }
 
@@ -624,9 +626,9 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             ));
             fetchBudgetData(true);
             onBudgetUpdate?.();
-            alert('Cronograma gerado! Ajuste as datas de cada etapa aqui se precisar, ou veja no botão "Cronograma" da obra.');
+            toast.success('Cronograma gerado! Ajuste as datas de cada etapa aqui se precisar, ou veja no botão "Cronograma" da obra.');
         } catch (e: any) {
-            alert('Erro ao gerar cronograma: ' + (e.message || e));
+            toast.error('Erro ao gerar cronograma: ' + (e.message || e));
         }
     };
 
@@ -642,14 +644,14 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
     // Gera o cronograma repartindo o prazo pelo TEMPO real aprendido (não pelo custo).
     const handleGenerateScheduleFromObra = async (sourceId: string) => {
         if (!project.startDate || !project.deliveryDate) {
-            alert('Defina a data de início e a de entrega desta obra para gerar o cronograma.\n\nElas ficam no lápis (Editar) do card da obra, na tela Início.');
+            toast.error('Defina a data de início e a de entrega desta obra para gerar o cronograma.\n\nElas ficam no lápis (Editar) do card da obra, na tela Início.');
             return;
         }
         const source = (allProjects || []).find(p => p.id === sourceId);
         if (!source) return;
         const weights = learnStageDurations(source);
         if (!weights) {
-            alert('A obra escolhida não tem fotos datadas suficientes para aprender o ritmo (precisa de datas espalhadas ao longo da obra).');
+            toast.error('A obra escolhida não tem fotos datadas suficientes para aprender o ritmo (precisa de datas espalhadas ao longo da obra).');
             return;
         }
         // Substitui o peso das FASES pela duração real; o Canteiro (timeBased) segue
@@ -658,7 +660,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             m.timeBased ? m : { ...m, percentage: weights[m.displayOrder] ?? (m.percentage || 0) });
         const updates = computeScheduleDates(macrosRitmo, project.startDate, project.deliveryDate);
         if (updates.length === 0) {
-            alert('A data de entrega precisa ser posterior à data de início.');
+            toast.error('A data de entrega precisa ser posterior à data de início.');
             return;
         }
         const fmt = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR');
@@ -673,9 +675,9 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             ));
             fetchBudgetData(true);
             onBudgetUpdate?.();
-            alert(`Cronograma gerado pelo ritmo da obra "${source.name}"! Veja no botão "Cronograma" da obra; ajuste as datas se precisar.`);
+            toast.success(`Cronograma gerado pelo ritmo da obra "${source.name}"! Veja no botão "Cronograma" da obra; ajuste as datas se precisar.`);
         } catch (e: any) {
-            alert('Erro ao gerar cronograma: ' + (e.message || e));
+            toast.error('Erro ao gerar cronograma: ' + (e.message || e));
         }
     };
 
@@ -722,7 +724,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             onBudgetUpdate?.();
         } catch (error) {
             console.error('Erro ao criar orçamento:', error);
-            alert('Erro ao criar orçamento');
+            toast.error('Erro ao criar orçamento');
         }
         setSaving(false);
     };

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { Project } from '../types';
 import DateInput from './DateInput';
 import AttachmentUpload from './AttachmentUpload';
+import { useToast } from './ToastProvider';
 
 interface QuickDiaryModalProps {
     isOpen: boolean;
@@ -25,6 +26,7 @@ const QuickDiaryModal: React.FC<QuickDiaryModalProps> = ({
     const [content, setContent] = useState(initialContent);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [photoUrl, setPhotoUrl] = useState<string | undefined>(undefined);
+    const toast = useToast();
 
     useEffect(() => {
         if (isOpen) {
@@ -40,7 +42,7 @@ const QuickDiaryModal: React.FC<QuickDiaryModalProps> = ({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!projectId) {
-            alert('Selecione uma obra.');
+            toast.error('Selecione uma obra.');
             return;
         }
 

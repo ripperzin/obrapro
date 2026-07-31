@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Project, Unit } from '../types';
 import MoneyInput from './MoneyInput';
+import { useToast } from './ToastProvider';
 
 interface QuickUnitModalProps {
     isOpen: boolean;
@@ -32,6 +33,7 @@ const QuickUnitModal: React.FC<QuickUnitModalProps> = ({
     const [cost, setCost] = useState(initialCost);
     const [salePrice, setSalePrice] = useState(initialSalePrice);
     const [isSaving, setIsSaving] = useState(false);
+    const toast = useToast();
 
     useEffect(() => {
         if (isOpen) {
@@ -48,7 +50,7 @@ const QuickUnitModal: React.FC<QuickUnitModalProps> = ({
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!projectId) {
-            alert('Selecione uma obra.');
+            toast.error('Selecione uma obra.');
             return;
         }
 
@@ -64,7 +66,7 @@ const QuickUnitModal: React.FC<QuickUnitModalProps> = ({
             onClose();
         } catch (error) {
             console.error('Erro ao salvar unidade:', error);
-            alert('Erro ao salvar unidade.');
+            toast.error('Erro ao salvar unidade.');
         } finally {
             setIsSaving(false);
         }

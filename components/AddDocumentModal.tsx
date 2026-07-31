@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ProjectDocument, DOCUMENT_CATEGORIES } from '../types';
 import AttachmentUpload from './AttachmentUpload';
+import { useToast } from './ToastProvider';
 
 interface AddDocumentModalProps {
     isOpen: boolean;
@@ -13,6 +14,7 @@ const AddDocumentModal: React.FC<AddDocumentModalProps> = ({ isOpen, onClose, on
     const [title, setTitle] = useState('');
     const [category, setCategory] = useState<ProjectDocument['category']>('Técnico');
     const [url, setUrl] = useState('');
+    const toast = useToast();
 
     const DRAFT_KEY = 'draft_new_document';
 
@@ -46,7 +48,7 @@ const AddDocumentModal: React.FC<AddDocumentModalProps> = ({ isOpen, onClose, on
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!title || !url) {
-            alert('Preencha o título e anexe o arquivo.');
+            toast.error('Preencha o título e anexe o arquivo.');
             return;
         }
         onSave({ title, category, url });

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, UserRole, Project, isPlanId } from '../types';
 import { supabase } from '../supabaseClient';
 import { generateId } from '../utils';
+import { useToast } from './ToastProvider';
 
 interface UserManagementProps {
   // Props simplificadas, o componente agora busca seus dados
@@ -18,6 +19,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ projects, currentUser }
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   // Buscar perfis e permissões reais
   const fetchUsersData = async () => {
@@ -105,14 +107,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ projects, currentUser }
       }));
 
     } catch (err: any) {
-      alert('Erro ao alterar permissão: ' + err.message);
+      toast.error('Erro ao alterar permissão: ' + err.message);
     }
   };
 
   const handleCopyInviteLink = () => {
     const url = window.location.origin;
     navigator.clipboard.writeText(url);
-    alert('Link copiado! Envie para sua equipe se cadastrar.');
+    toast.success('Link copiado! Envie para sua equipe se cadastrar.');
   };
 
   if (loading) return <div className="p-8 text-white">Carregando usuários...</div>;

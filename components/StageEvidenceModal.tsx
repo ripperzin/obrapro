@@ -4,6 +4,7 @@ import { ProgressStage, STAGE_NAMES, StageEvidence } from '../types';
 import AttachmentUpload from './AttachmentUpload';
 import { openAttachment } from '../utils/storage';
 import { supabase } from '../supabaseClient';
+import { useToast } from './ToastProvider';
 
 interface StageEvidenceModalProps {
     isOpen: boolean;
@@ -29,6 +30,7 @@ const StageEvidenceModal: React.FC<StageEvidenceModalProps> = ({
     const [notes, setNotes] = useState('');
     const [stageDate, setStageDate] = useState(new Date().toISOString().split('T')[0]);
     const [saving, setSaving] = useState(false);
+    const toast = useToast();
 
     useEffect(() => {
         if (evidence) {
@@ -113,7 +115,7 @@ const StageEvidenceModal: React.FC<StageEvidenceModalProps> = ({
             onClose();
         } catch (err) {
             console.error(err);
-            alert('Erro ao salvar evidência.');
+            toast.error('Erro ao salvar evidência.');
         } finally {
             setSaving(false);
         }

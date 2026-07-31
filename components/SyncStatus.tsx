@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { useToast } from './ToastProvider';
 
 export const SyncStatus: React.FC = () => {
     const isOnline = useOnlineStatus();
     const queryClient = useQueryClient();
+    const toast = useToast();
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -41,7 +43,7 @@ export const SyncStatus: React.FC = () => {
         if (shouldClear) {
             queryClient.getMutationCache().clear();
             setIsOpen(false);
-            alert('Fila limpa com sucesso. Atualizando...');
+            toast.success('Fila limpa com sucesso. Atualizando...');
             window.location.reload();
         }
     };
@@ -61,7 +63,7 @@ export const SyncStatus: React.FC = () => {
             queryClient.resumePausedMutations();
         }
         
-        alert(`Sincronização forçada! Tentando reenviar itens pendentes...`);
+        toast.info(`Sincronização forçada! Tentando reenviar itens pendentes...`);
     };
 
     // Determine state

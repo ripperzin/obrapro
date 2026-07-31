@@ -4,6 +4,7 @@ import { Project } from '../types';
 import { generateProjectPDF } from '../utils/pdfGenerator';
 import { ReportOptions, DEFAULT_REPORT_OPTIONS, OPTIONAL_SECTIONS, PAID_SECTIONS, buildInvestorUrl, clampReportOptions } from '../utils/reportOptions';
 import { usePlan } from './PlanProvider';
+import { useToast } from './ToastProvider';
 import { supabase } from '../supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -24,6 +25,7 @@ interface ShareReportModalProps {
 // e a MESMA escolha vale para o link e para o PDF (ficam idênticos).
 const ShareReportModal: React.FC<ShareReportModalProps> = ({ project, userName, onClose }) => {
     const { ent, openUpgrade } = usePlan();
+    const toast = useToast();
     const [opts, setOpts] = useState<ReportOptions>(() =>
         clampReportOptions({ ...DEFAULT_REPORT_OPTIONS }, ent.canShareFullReport)
     );
@@ -37,7 +39,7 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ project, userName, 
     const [savingPw, setSavingPw] = useState(false);
 
     const salvarSenha = async () => {
-        if (pwValue.trim().length < 4) { alert('A senha precisa de ao menos 4 caracteres.'); return; }
+        if (pwValue.trim().length < 4) { toast.error('A senha precisa de ao menos 4 caracteres.'); return; }
         setSavingPw(true);
         try {
             const hash = await sha256Hex(project.id + ':' + pwValue.trim());
@@ -46,7 +48,7 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ project, userName, 
             setPwSet(true); setEditingPw(false); setPwValue('');
             queryClient.invalidateQueries({ queryKey: ['projects'] });
         } catch (e: any) {
-            alert('Não consegui salvar a senha: ' + (e?.message || e));
+            toast.error('Não consegui salvar a senha: ' + (e?.message || e));
         } finally { setSavingPw(false); }
     };
     const removerSenha = async () => {
@@ -58,7 +60,7 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ project, userName, 
             setPwSet(false); setEditingPw(false); setPwValue('');
             queryClient.invalidateQueries({ queryKey: ['projects'] });
         } catch (e: any) {
-            alert('Não consegui remover a senha: ' + (e?.message || e));
+            toast.error('Não consegui remover a senha: ' + (e?.message || e));
         } finally { setSavingPw(false); }
     };
 
@@ -92,7 +94,7 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ project, userName, 
             await generateProjectPDF(project, userName, opts, ent.canRemoveBranding);
         } catch (err) {
             console.error('Erro ao gerar PDF', err);
-            alert('Erro ao gerar PDF. Tente novamente.');
+            toast.error('Erro ao gerar PDF. Tente novamente.');
         } finally {
             setGenerating(false);
         }

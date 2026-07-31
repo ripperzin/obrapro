@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { DiaryEntry } from '../types';
 import DateInput from './DateInput';
 import AttachmentUpload from './AttachmentUpload';
+import { useToast } from './ToastProvider';
 
 interface AddDiaryEntryModalProps {
     isOpen: boolean;
@@ -18,6 +19,7 @@ const AddDiaryEntryModal: React.FC<AddDiaryEntryModalProps> = ({ isOpen, onClose
 
     // Auxiliary state for upload
     const [currentPhoto, setCurrentPhoto] = useState<string | undefined>(undefined);
+    const toast = useToast();
 
     const DRAFT_KEY = 'draft_new_diary';
 
@@ -62,7 +64,7 @@ const AddDiaryEntryModal: React.FC<AddDiaryEntryModalProps> = ({ isOpen, onClose
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!content) {
-            alert('Escreva o conteúdo do diário.');
+            toast.error('Escreva o conteúdo do diário.');
             return;
         }
         onAdd({

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { planLabel } from '../hooks/useEntitlements';
+import { useToast } from './ToastProvider';
 
 // Chama a edge function admin-actions e devolve a mensagem AMIGÁVEL de erro.
 // Sem isto, quando a function responde 4xx/5xx o supabase-js descarta o corpo
@@ -113,6 +114,7 @@ const NovoClienteForm: React.FC<{ open: boolean; setOpen: (v: boolean) => void; 
     const [password, setPassword] = useState('');
     const [plan, setPlan] = useState('free');
     const [saving, setSaving] = useState(false);
+    const toast = useToast();
     const inCls = 'bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-slate-500 focus:border-blue-500 focus:outline-none w-full';
 
     if (!open) return null;
@@ -122,19 +124,19 @@ const NovoClienteForm: React.FC<{ open: boolean; setOpen: (v: boolean) => void; 
         // Checagem rápida no navegador — evita ida ao servidor e dá o motivo na hora.
         // Obrigatórios: login, e-mail e senha. Nome e telefone são opcionais.
         const loginOk = /^[a-zA-Z0-9._-]{3,}$/.test(login.trim());
-        if (!loginOk) { alert('Login inválido: use letras, números, ponto, hífen ou _ (mín. 3 caracteres, sem espaço nem @).'); return; }
+        if (!loginOk) { toast.error('Login inválido: use letras, números, ponto, hífen ou _ (mín. 3 caracteres, sem espaço nem @).'); return; }
         const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
-        if (!emailOk) { alert('Informe um e-mail válido (pode ser fictício para teste, ex.: teste1@teste.com).'); return; }
-        if (password.length < 6) { alert('A senha precisa de ao menos 6 caracteres.'); return; }
+        if (!emailOk) { toast.error('Informe um e-mail válido (pode ser fictício para teste, ex.: teste1@teste.com).'); return; }
+        if (password.length < 6) { toast.error('A senha precisa de ao menos 6 caracteres.'); return; }
         setSaving(true);
         try {
             await invokeAdmin('create_user', { login: login.trim(), email: email.trim(), password, fullName, phone, plan });
-            alert(`Cliente criado! Ele pode entrar com o login "${login.trim()}" (ou o e-mail) e a senha definida.`);
+            toast.success(`Cliente criado! Ele pode entrar com o login "${login.trim()}" (ou o e-mail) e a senha definida.`);
             setLogin(''); setEmail(''); setFullName(''); setPhone(''); setPassword(''); setPlan('free');
             setOpen(false);
             onCriado();
         } catch (e: any) {
-            alert('Erro ao criar cliente: ' + (e.message || e));
+            toast.error('Erro ao criar cliente: ' + (e.message || e));
         } finally {
             setSaving(false);
         }
@@ -176,6 +178,7 @@ const OwnerPanel: React.FC = () => {
     const [erro, setErro] = useState<string | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);   // cliente em ação
     const [showNovo, setShowNovo] = useState(false);
+    const toast = useToast();
 
     const carregar = async () => {
         try {
@@ -199,7 +202,7 @@ const OwnerPanel: React.FC = () => {
             await carregar();
             return data;
         } catch (e: any) {
-            alert('Erro: ' + (e.message || e));
+            toast.error('Erro: ' + (e.message || e));
             return null;
         } finally {
             setBusyId(null);
@@ -211,7 +214,7 @@ const OwnerPanel: React.FC = () => {
         const dias = window.prompt(`Quantos dias de Completo grátis dar para ${c.full_name || c.email}?`, '15');
         if (dias === null) return;
         const n = parseInt(dias);
-        if (!(n > 0)) { alert('Informe um número de dias maior que zero.'); return; }
+        if (!(n > 0)) { toast.error('Informe um número de dias maior que zero.'); return; }
         acao('set_trial', { userId: c.id, days: n }, c.id);
     };
     const tirarCortesia = (c: Cliente) => { if (window.confirm('Remover a cortesia deste cliente?')) acao('set_trial', { userId: c.id, days: 0 }, c.id); };

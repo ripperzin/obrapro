@@ -5,6 +5,7 @@ import { generateProjectPDF } from '../utils/pdfGenerator';
 import { openAttachment } from '../utils/storage';
 import { DEFAULT_REPORT_OPTIONS } from '../utils/reportOptions';
 import { entitlementsFor } from '../hooks/useEntitlements';
+import { useToast } from './ToastProvider';
 
 interface Props {
     projects: Project[];
@@ -20,13 +21,14 @@ interface Props {
  */
 const DataExportPanel: React.FC<Props> = ({ projects, user }) => {
     const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+    const toast = useToast();
 
     const baixarPdf = async (p: Project) => {
         setPdfBusy(p.id);
         try {
             await generateProjectPDF(p, user.login, DEFAULT_REPORT_OPTIONS, entitlementsFor(user.plan).canRemoveBranding);
         } catch (e: any) {
-            alert('Não consegui gerar o PDF: ' + (e?.message || e));
+            toast.error('Não consegui gerar o PDF: ' + (e?.message || e));
         } finally {
             setPdfBusy(null);
         }

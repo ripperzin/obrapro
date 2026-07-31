@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Project, User, UserRole } from '../types';
 import { supabase } from '../supabaseClient';
 import { entitlementsFor } from '../hooks/useEntitlements';
+import { useToast } from './ToastProvider';
 
 // "Minha equipe" — a conta do DONO. Ele cria o funcionário (login + senha) e
 // marca em quais das OBRAS dele a pessoa entra, com o cargo em cada uma.
@@ -50,6 +51,7 @@ const TeamManagement: React.FC<Props> = ({ projects, user }) => {
   const [showForm, setShowForm] = useState(false);
   const [resetId, setResetId] = useState<string | null>(null);
   const [openIds, setOpenIds] = useState<Set<string>>(new Set()); // cards de obras expandidos
+  const toast = useToast();
   const toggleOpen = (id: string) => setOpenIds(prev => {
     const n = new Set(prev);
     n.has(id) ? n.delete(id) : n.add(id);
@@ -103,7 +105,7 @@ const TeamManagement: React.FC<Props> = ({ projects, user }) => {
         return { ...m, memberships: nm };
       }));
     } catch (e: any) {
-      alert('Não consegui mudar o acesso: ' + e.message);
+      toast.error('Não consegui mudar o acesso: ' + e.message);
     } finally {
       setBusy(null);
     }
@@ -270,15 +272,16 @@ const TeamManagement: React.FC<Props> = ({ projects, user }) => {
 const ResetSenha: React.FC<{ member: TeamMember; onDone: () => void }> = ({ member, onDone }) => {
   const [senha, setSenha] = useState('');
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
   const salvar = async () => {
-    if (senha.length < 6) { alert('A senha precisa de ao menos 6 caracteres.'); return; }
+    if (senha.length < 6) { toast.error('A senha precisa de ao menos 6 caracteres.'); return; }
     setBusy(true);
     try {
       await invokeTeam('set_member_password', { userId: member.id, password: senha });
-      alert(`Senha de ${member.fullName || member.login} trocada. Passe a nova senha para a pessoa.`);
+      toast.success(`Senha de ${member.fullName || member.login} trocada. Passe a nova senha para a pessoa.`);
       onDone();
     } catch (e: any) {
-      alert('Não consegui trocar a senha: ' + e.message);
+      toast.error('Não consegui trocar a senha: ' + e.message);
     } finally {
       setBusy(false);
     }
@@ -309,6 +312,7 @@ const NovoFuncionario: React.FC<{ onClose: () => void; onCriado: (id?: string) =
   const [senha, setSenha] = useState('');
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const toast = useToast();
 
   const salvar = async () => {
     setErro(null);
@@ -321,7 +325,7 @@ const NovoFuncionario: React.FC<{ onClose: () => void; onCriado: (id?: string) =
       // O login precisa ser único; se o pedido já existia, o servidor achou um
       // livre (joao -> joao2). Avisa qual ficou pra o Dono passar certo.
       if (data?.login && String(data.login).toLowerCase() !== pedido.toLowerCase()) {
-        alert(`O login "${pedido}" já existia. Criei como "${data.login}". A pessoa entra com "${data.login}".`);
+        toast.success(`O login "${pedido}" já existia. Criei como "${data.login}". A pessoa entra com "${data.login}".`);
       }
       onCriado(data?.id);
     } catch (e: any) {
