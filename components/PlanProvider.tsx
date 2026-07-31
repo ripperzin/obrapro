@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { User } from '../types';
+import { User, PlanId } from '../types';
 import { Entitlements, entitlementsFor } from '../hooks/useEntitlements';
 import UpgradeModal, { UpgradeFeature } from './UpgradeModal';
 
@@ -26,14 +26,19 @@ export const usePlan = (): PlanContextValue => {
   return ctx;
 };
 
-export const PlanProvider: React.FC<{ user: User | null; children: React.ReactNode }> = ({ user, children }) => {
+// planOverride: quando presente, o `ent` segue ESTE plano em vez do plano do
+// usuário logado. Usado pra aninhar um provider em volta da OBRA aberta com o
+// plano do DONO dela — assim o funcionário (free) usa as features do plano do
+// patrão DENTRO da obra, sem herdar features de conta (equipe/copiloto), que
+// ficam no provider global (plano do próprio usuário).
+export const PlanProvider: React.FC<{ user: User | null; planOverride?: PlanId; children: React.ReactNode }> = ({ user, planOverride, children }) => {
   const [feature, setFeature] = useState<UpgradeFeature | null>(null);
 
   const openUpgrade = useCallback((f: UpgradeFeature) => setFeature(f), []);
 
   const value = useMemo<PlanContextValue>(
-    () => ({ ent: entitlementsFor(user?.plan), openUpgrade }),
-    [user?.plan, openUpgrade]
+    () => ({ ent: entitlementsFor(planOverride ?? user?.plan), openUpgrade }),
+    [planOverride, user?.plan, openUpgrade]
   );
 
   return (

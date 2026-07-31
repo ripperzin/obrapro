@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import { User, UserRole, Project, ProgressStage, LogEntry, Unit, Expense, isPlanId } from './types';
+import { User, UserRole, Project, ProgressStage, LogEntry, Unit, Expense, isPlanId, PlanId } from './types';
 import { INITIAL_ADMIN } from './constants';
 import { generateId } from './utils';
 import { supabase } from './supabaseClient';
@@ -53,6 +53,10 @@ const App: React.FC = () => {
   // Cargo do usuário logado em cada obra (project_members.role). Alimenta o
   // controle de "apontador vê só o essencial" — ver lib/permissions.
   const [myRoles, setMyRoles] = useState<MyRoles>({});
+  // Plano do DONO de cada obra que eu acesso (project_owner_plans). O funcionário
+  // (free) usa as features do plano do PATRÃO dentro da obra dele — ver o provider
+  // aninhado no render do ProjectDetail. Pro dono, é o próprio plano (não muda nada).
+  const [ownerPlans, setOwnerPlans] = useState<Record<string, PlanId>>({});
   const [debugError, setDebugError] = useState<string | null>(null);
   // Qual usuário JÁ teve o perfil carregado. O Supabase re-emite SIGNED_IN a cada
   // foco de aba; sem isso, o app remontava a árvore inteira (fechava modal, perdia
@@ -342,7 +346,7 @@ const App: React.FC = () => {
   // pessoa a ler as próprias linhas. Cargo desconhecido = vê tudo (owner/gestor).
   useEffect(() => {
     const uid = currentUser?.id;
-    if (!uid) { setMyRoles({}); return; }
+    if (!uid) { setMyRoles({}); setOwnerPlans({}); return; }
     let cancel = false;
     (async () => {
       const { data, error } = await supabase
@@ -351,6 +355,17 @@ const App: React.FC = () => {
       const map: MyRoles = {};
       for (const r of data as { project_id: string; role: string }[]) map[r.project_id] = r.role as ProjectRole;
       setMyRoles(map);
+    })();
+    // Plano do dono de cada obra (SECURITY DEFINER). Se falhar, o app cai no plano
+    // do próprio usuário (ownerPlans vazio) — degradação segura, nunca quebra.
+    (async () => {
+      const { data, error } = await supabase.rpc('project_owner_plans');
+      if (cancel || error || !data) return;
+      const map: Record<string, PlanId> = {};
+      for (const r of data as { project_id: string; plan: string; trial_until: string | null }[]) {
+        map[r.project_id] = effectivePlan(r.plan, r.trial_until);
+      }
+      setOwnerPlans(map);
     })();
     return () => { cancel = true; };
   }, [currentUser?.id]);
@@ -778,17 +793,22 @@ const App: React.FC = () => {
           <div className="flex-1 px-4 md:p-8 pb-24 md:pb-8">
             {activeTab === 'projects' && (
               selectedProjectId ? (
-                <ProjectDetail
-                  project={selectedProject!}
-                  user={currentUser}
-                  myRole={myRoles[selectedProject!.id]}
-                  onUpdate={updateProjectHandler}
-                  onDeleteUnit={deleteUnit}
-                  onDeleteExpense={deleteExpense}
-                  onDeleteDocument={deleteDocument}
-                  onDeleteDiary={deleteDiary}
-                  onRefresh={async () => { await refreshProjects(); }}
-                />
+                // Provider aninhado: DENTRO da obra as features seguem o plano do
+                // DONO dela (o funcionário free usa o Construtora do patrão). O
+                // provider global (chrome/equipe/copiloto) segue o plano do usuário.
+                <PlanProvider user={currentUser} planOverride={ownerPlans[selectedProject!.id]}>
+                  <ProjectDetail
+                    project={selectedProject!}
+                    user={currentUser}
+                    myRole={myRoles[selectedProject!.id]}
+                    onUpdate={updateProjectHandler}
+                    onDeleteUnit={deleteUnit}
+                    onDeleteExpense={deleteExpense}
+                    onDeleteDocument={deleteDocument}
+                    onDeleteDiary={deleteDiary}
+                    onRefresh={async () => { await refreshProjects(); }}
+                  />
+                </PlanProvider>
               ) : (
                 <ProjectsDashboard
                   projects={filteredProjects}
