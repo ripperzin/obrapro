@@ -8,9 +8,13 @@ import { useDeleteAcquisitionCost } from '../hooks/useAquisicao';
 interface Props {
     project: Project;
     user: User;
+    // embedded: renderizado DENTRO de um ExpandableCard (aba Despesas) — o card
+    // já dá o título "Terreno" e o total no cabeçalho, então escondemos o h3 e o
+    // card de total; sobra o botão Adicionar (toolbar) + a lista.
+    embedded?: boolean;
 }
 
-const AquisicaoSection: React.FC<Props> = ({ project, user }) => {
+const AquisicaoSection: React.FC<Props> = ({ project, user, embedded }) => {
     const [showModal, setShowModal] = useState(false);
     const [editingCost, setEditingCost] = useState<AcquisitionCost | undefined>(undefined);
     const costs = [...(project.acquisitionCosts || [])].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -38,28 +42,42 @@ const AquisicaoSection: React.FC<Props> = ({ project, user }) => {
                 </button>
             ) : (
                 <>
-                    <div className="flex justify-between items-center">
-                        <h3 className="font-black text-white text-lg uppercase tracking-tight flex items-center gap-3">
-                            <i className="fa-solid fa-map-location-dot text-amber-400"></i>
-                            Terreno
-                        </h3>
-                        <button
-                            onClick={openNew}
-                            className="bg-amber-600 text-white px-4 py-2.5 rounded-full font-black text-sm hover:bg-amber-700 transition shadow-lg shadow-amber-600/30 flex items-center gap-2"
-                        >
-                            <i className="fa-solid fa-plus"></i> <span className="hidden sm:inline">Adicionar</span>
-                        </button>
-                    </div>
+                    {embedded ? (
+                        <div className="flex justify-end">
+                            <button
+                                onClick={openNew}
+                                className="bg-amber-600 text-white px-4 py-2.5 rounded-full font-black text-sm hover:bg-amber-700 transition shadow-lg shadow-amber-600/30 flex items-center gap-2"
+                            >
+                                <i className="fa-solid fa-plus"></i> <span className="hidden sm:inline">Adicionar</span>
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex justify-between items-center">
+                            <h3 className="font-black text-white text-lg uppercase tracking-tight flex items-center gap-3">
+                                <i className="fa-solid fa-map-location-dot text-amber-400"></i>
+                                Terreno
+                            </h3>
+                            <button
+                                onClick={openNew}
+                                className="bg-amber-600 text-white px-4 py-2.5 rounded-full font-black text-sm hover:bg-amber-700 transition shadow-lg shadow-amber-600/30 flex items-center gap-2"
+                            >
+                                <i className="fa-solid fa-plus"></i> <span className="hidden sm:inline">Adicionar</span>
+                            </button>
+                        </div>
+                    )}
 
                     <p className="text-[11px] text-slate-500">
                         Terreno e custos iniciais (escritura, registro, impostos). Não entram no orçamento de obra nem no progresso — contam no caixa (quando pagos pela obra) e no custo total do empreendimento.
                     </p>
 
-                    {/* Card do total — mesmo padrão do "Total Desembolsado" das despesas */}
-                    <div className="glass p-6 rounded-2xl border border-slate-700">
-                        <p className="text-[10px] text-slate-500 font-black uppercase mb-1">Total do Terreno</p>
-                        <p className="text-3xl font-black text-amber-400">{formatCurrency(total)}</p>
-                    </div>
+                    {/* Card do total — mesmo padrão do "Total Desembolsado" das despesas.
+                        Some quando embutido: o total já aparece no cabeçalho do card. */}
+                    {!embedded && (
+                        <div className="glass p-6 rounded-2xl border border-slate-700">
+                            <p className="text-[10px] text-slate-500 font-black uppercase mb-1">Total do Terreno</p>
+                            <p className="text-3xl font-black text-amber-400">{formatCurrency(total)}</p>
+                        </div>
+                    )}
 
                     {/* Cada lançamento = card, mesmo padrão da despesa lançada */}
                     <div className="space-y-3">

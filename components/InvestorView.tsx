@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Project, getStageName, getCurrentStagePhoto, getCurrentStageEvidence, PlanId, isPlanId } from '../types';
+import { Project, getStageName, getCurrentStagePhoto, getCurrentStageEvidence, PlanId, isPlanId, ACQUISITION_CATEGORY_LABELS, AcquisitionCategory } from '../types';
 import { supabase } from '../supabaseClient';
 import StageThumbnail from './StageThumbnail';
 import ResultadoEmpreendimento from './ResultadoEmpreendimento';
@@ -48,8 +48,9 @@ const Collapsible: React.FC<{
     icon?: string;
     iconColor?: string;
     defaultOpen?: boolean;
+    right?: React.ReactNode;   // slot à direita do cabeçalho (ex.: total, visível mesmo fechado)
     children: React.ReactNode;
-}> = ({ title, icon, iconColor = 'text-green-400', defaultOpen = false, children }) => {
+}> = ({ title, icon, iconColor = 'text-green-400', defaultOpen = false, right, children }) => {
     const [open, setOpen] = useState(defaultOpen);
     return (
         <div className="bg-slate-800/50 backdrop-blur rounded-3xl border border-slate-700 mb-8 overflow-hidden">
@@ -58,11 +59,14 @@ const Collapsible: React.FC<{
                 onClick={() => setOpen((o) => !o)}
                 className="w-full flex items-center justify-between gap-3 p-6 md:p-8 text-left hover:bg-slate-800/30 transition"
             >
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    {icon && <i className={`fa-solid ${icon} ${iconColor}`}></i>}
-                    {title}
+                <h2 className="text-lg font-bold text-white flex items-center gap-2 min-w-0">
+                    {icon && <i className={`fa-solid ${icon} ${iconColor} shrink-0`}></i>}
+                    <span className="truncate">{title}</span>
                 </h2>
-                <i className={`fa-solid fa-chevron-${open ? 'up' : 'down'} text-slate-500 shrink-0`}></i>
+                <div className="flex items-center gap-3 shrink-0">
+                    {right}
+                    <i className={`fa-solid fa-chevron-${open ? 'up' : 'down'} text-slate-500`}></i>
+                </div>
             </button>
             {open && <div className="px-6 md:px-8 pb-6 md:pb-8">{children}</div>}
         </div>
@@ -731,9 +735,63 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                     </Collapsible>
                 )}
 
-                {/* 7) EXTRATO DE DESPESAS (com "Pago por") — recolhível */}
+                {/* 7) EXTRATO DE DESPESAS — 2 cards recolhíveis (Terreno + Construção),
+                       mesmo padrão. Total de cada tipo no cabeçalho (visível fechado). */}
+                {options.despesas && (project.acquisitionCosts || []).length > 0 && (
+                    <Collapsible
+                        title="Terreno"
+                        icon="fa-map-location-dot"
+                        iconColor="text-amber-400"
+                        right={<span className="text-amber-400 font-black whitespace-nowrap">{formatCurrency((project.acquisitionCosts || []).reduce((s, c) => s + (c.value || 0), 0))}</span>}
+                    >
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider">
+                                        <th className="pb-3 pl-4">Data</th>
+                                        <th className="pb-3">Descrição</th>
+                                        <th className="pb-3">Pago por</th>
+                                        <th className="pb-3 text-right pr-4">Valor</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-sm">
+                                    {[...(project.acquisitionCosts || [])]
+                                        .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+                                        .map((c, idx) => {
+                                            const cat = ACQUISITION_CATEGORY_LABELS[c.category as AcquisitionCategory] || c.category;
+                                            const pagoPor = c.paidWithUnits
+                                                ? <span className="text-amber-300">com casas</span>
+                                                : c.paidByInvestorId
+                                                    ? <span className="text-fuchsia-300">{investorName(c.paidByInvestorId) || 'sócio'}</span>
+                                                    : c.paidFromProject === false
+                                                        ? <span className="text-slate-500">fora do caixa</span>
+                                                        : <span className="text-slate-400">Caixa da obra</span>;
+                                            return (
+                                                <tr key={idx} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
+                                                    <td className="py-4 pl-4 text-slate-400 whitespace-nowrap">
+                                                        {c.date ? new Date(c.date + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
+                                                    </td>
+                                                    <td className="py-4 text-white font-medium">{cat}</td>
+                                                    <td className="py-4 text-slate-300">{pagoPor}</td>
+                                                    <td className="py-4 text-right pr-4 text-amber-400 font-bold whitespace-nowrap">
+                                                        {formatCurrency(c.value)}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Collapsible>
+                )}
+
                 {options.despesas && project.expenses.length > 0 && (
-                    <Collapsible title="Extrato de Despesas" icon="fa-receipt" iconColor="text-slate-400">
+                    <Collapsible
+                        title="Construção"
+                        icon="fa-wallet"
+                        iconColor="text-rose-400"
+                        right={<span className="text-white font-black whitespace-nowrap">{formatCurrency(project.expenses.reduce((s, e) => s + (e.value || 0), 0))}</span>}
+                    >
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead>

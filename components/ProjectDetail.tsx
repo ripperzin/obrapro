@@ -24,6 +24,7 @@ import ScheduleView from './ScheduleView';
 import ObraCostCards from './ObraCostCards';
 import RecentMovements from './RecentMovements';
 import AquisicaoSection from './AquisicaoSection';
+import ExpandableCard from './ExpandableCard';
 import ResultadoEmpreendimento from './ResultadoEmpreendimento';
 import SociosSection from './SociosSection';
 import { computeProjectFinance, computeGastoAvancoVerdito, computeUnitResult } from '../utils/projectFinance';
@@ -653,8 +654,11 @@ const ExpensesSection: React.FC<{
   onUpdate: (e: Expense[]) => void,
   logChange: (a: string, f: string, o: string, n: string) => void,
   onDeleteExpense: (id: string) => void,
-  initialAction?: string | null
-}> = ({ project, user, myRole, onAddExpense, onUpdate, logChange, onDeleteExpense, initialAction }) => {
+  initialAction?: string | null,
+  // embedded: dentro de um ExpandableCard (o card já dá título "Construção" +
+  // total no cabeçalho) — esconde o h3 "Fluxo de Despesas" e os cards de resumo.
+  embedded?: boolean
+}> = ({ project, user, myRole, onAddExpense, onUpdate, logChange, onDeleteExpense, initialAction, embedded }) => {
   const [showAdd, setShowAdd] = useState(initialAction === 'new-expense');
   const [showImport, setShowImport] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
@@ -876,11 +880,13 @@ const ExpensesSection: React.FC<{
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <h3 className="font-black text-white text-lg uppercase tracking-tight flex items-center gap-3">
-          <i className="fa-solid fa-wallet text-green-400"></i>
-          Fluxo de Despesas
-        </h3>
+      <div className={`flex ${embedded ? 'justify-end' : 'justify-between'} items-center`}>
+        {!embedded && (
+          <h3 className="font-black text-white text-lg uppercase tracking-tight flex items-center gap-3">
+            <i className="fa-solid fa-wallet text-green-400"></i>
+            Fluxo de Despesas
+          </h3>
+        )}
         {canLancar && (
           <div className="flex items-center gap-2">
             {/* Importar/Exportar são de gestão (dinheiro) — só quem vê dinheiro. */}
@@ -918,21 +924,24 @@ const ExpensesSection: React.FC<{
         variant="danger"
       />
 
-      {/* Summary Cards — o Total (dinheiro) some pro apontador; a contagem fica. */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {canSeeMoney && (
+      {/* Summary Cards — o Total (dinheiro) some pro apontador; a contagem fica.
+          Somem quando embutido: total + contagem já aparecem no cabeçalho do card. */}
+      {!embedded && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {canSeeMoney && (
+            <div className="glass p-6 rounded-2xl border border-slate-700">
+              <p className="text-[10px] text-slate-500 font-black uppercase mb-1">Total Desembolsado</p>
+              <p className="text-3xl font-black text-white">{formatCurrency(project.expenses.reduce((a, b) => a + b.value, 0))}</p>
+            </div>
+          )}
           <div className="glass p-6 rounded-2xl border border-slate-700">
-            <p className="text-[10px] text-slate-500 font-black uppercase mb-1">Total Desembolsado</p>
-            <p className="text-3xl font-black text-white">{formatCurrency(project.expenses.reduce((a, b) => a + b.value, 0))}</p>
+            <p className="text-[10px] text-blue-400 font-black uppercase mb-1">Volume de Lançamentos</p>
+            <p className="text-3xl font-black text-blue-400">
+              {project.expenses.length} <span className="text-xs opacity-40 uppercase ml-1">Notas</span>
+            </p>
           </div>
-        )}
-        <div className="glass p-6 rounded-2xl border border-slate-700">
-          <p className="text-[10px] text-blue-400 font-black uppercase mb-1">Volume de Lançamentos</p>
-          <p className="text-3xl font-black text-blue-400">
-            {project.expenses.length} <span className="text-xs opacity-40 uppercase ml-1">Notas</span>
-          </p>
         </div>
-      </div>
+      )}
 
       {/* Modal Nova Despesa */}
       <AddExpenseModal
@@ -2275,23 +2284,55 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
         )}
 
         {/* ===== ABA DESPESAS (gastos + aquisição) ===== */}
-        {activeTab === 'expenses' && (
-          <div className="space-y-8 animate-fade-in">
-            {/* Terreno / Aquisição — dinheiro (some pro apontador) */}
-            {canSeeMoney && <AquisicaoSection project={project} user={user} />}
+        {activeTab === 'expenses' && (() => {
+          // Dois cards expansíveis, mesmo padrão: Terreno + Construção. Total de
+          // cada tipo no cabeçalho (visível mesmo fechado). Ambos nascem fechados.
+          const terrenoTotal = (project.acquisitionCosts || []).reduce((s, c) => s + (c.value || 0), 0);
+          const construcaoTotal = project.expenses.reduce((s, e) => s + (e.value || 0), 0);
+          const construcaoCount = project.expenses.length;
+          return (
+            <div className="space-y-4 animate-fade-in">
+              {/* Terreno / Aquisição — dinheiro (some pro apontador) */}
+              {canSeeMoney && (
+                <ExpandableCard
+                  title="Terreno"
+                  icon="fa-map-location-dot"
+                  iconColor="text-amber-400"
+                  headerRight={terrenoTotal > 0 ? <span className="text-amber-400 font-black text-sm md:text-base whitespace-nowrap">{formatCurrency(terrenoTotal)}</span> : undefined}
+                >
+                  <AquisicaoSection project={project} user={user} embedded />
+                </ExpandableCard>
+              )}
 
-            <ExpensesSection
-              project={project}
-              user={user}
-              myRole={myRole}
-              onAddExpense={handleAddExpense}
-              onUpdate={(newExpenses) => onUpdate(project.id, { expenses: newExpenses })}
-              onDeleteExpense={onDeleteExpense}
-              logChange={logChange}
-              initialAction={initialAction} // Pass URL action
-            />
-          </div>
-        )}
+              <ExpandableCard
+                title="Construção"
+                icon="fa-wallet"
+                iconColor="text-rose-400"
+                defaultOpen={initialAction === 'new-expense'}
+                headerRight={
+                  <span className="text-slate-300 font-black text-sm md:text-base whitespace-nowrap">
+                    {canSeeMoney && <span className="text-white">{formatCurrency(construcaoTotal)}</span>}
+                    {canSeeMoney && <span className="text-slate-600 mx-1.5">·</span>}
+                    <span className="text-blue-400">{construcaoCount}</span>
+                    <span className="text-slate-500 text-xs uppercase ml-1">{construcaoCount === 1 ? 'nota' : 'notas'}</span>
+                  </span>
+                }
+              >
+                <ExpensesSection
+                  project={project}
+                  user={user}
+                  myRole={myRole}
+                  onAddExpense={handleAddExpense}
+                  onUpdate={(newExpenses) => onUpdate(project.id, { expenses: newExpenses })}
+                  onDeleteExpense={onDeleteExpense}
+                  logChange={logChange}
+                  initialAction={initialAction} // Pass URL action
+                  embedded
+                />
+              </ExpandableCard>
+            </div>
+          );
+        })()}
 
         {/* ===== ABA UNIDADES (opcional) ===== */}
         {activeTab === 'units' && canSeeUnits && (
