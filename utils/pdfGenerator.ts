@@ -318,14 +318,14 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         y += 4;
 
         // ══════════════════════════════════════════════════════════
-        // CAIXA DA OBRA (Aportado - Gasto - Aquisição = Saldo)
+        // CAIXA DA OBRA (Aportado - Construção - Terreno = Saldo)
         // ══════════════════════════════════════════════════════════
         // Vem logo após o Gasto × Avanço — MESMA ordem do link. A aquisição entra
         // como card (e na legenda) só quando foi paga PELA OBRA (regra do app/link).
         y = pageBreak(40, y);
 
         const temAquisicaoPaga = f.aquisicaoFinanciada > 0;
-        const legendaCaixa = temAquisicaoPaga ? 'Aportado - Gasto - Aquisição = Saldo' : 'Aportado - Gasto = Saldo';
+        const legendaCaixa = temAquisicaoPaga ? 'Aportado - Construção - Terreno = Saldo' : 'Aportado - Construção = Saldo';
 
         doc.setFontSize(10); doc.setTextColor(C.text); doc.setFont('helvetica', 'bold');
         doc.text('CAIXA DA OBRA', M, y);
@@ -336,9 +336,9 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
 
         const caixa = [
             { lbl: 'APORTADO', val: fmtShort(f.aportadoTotal), c: C.emerald, brd: C.emerald },
-            { lbl: 'GASTO', val: fmtShort(f.gasto), c: C.red, brd: C.red },
+            { lbl: 'CONSTRUÇÃO', val: fmtShort(f.gasto), c: C.red, brd: C.red },
             ...(temAquisicaoPaga
-                ? [{ lbl: 'AQUISIÇÃO', val: fmtShort(f.aquisicaoFinanciada), c: C.amber, brd: C.amber }]
+                ? [{ lbl: 'TERRENO + TAXAS', val: fmtShort(f.aquisicaoFinanciada), c: C.amber, brd: C.amber }]
                 : []),
             { lbl: 'SALDO EM CAIXA', val: fmtShort(f.saldoCaixa), c: f.saldoCaixa >= 0 ? C.green : C.red, brd: f.saldoCaixa >= 0 ? C.green : C.red },
         ];

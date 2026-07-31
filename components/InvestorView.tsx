@@ -458,7 +458,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                             </div>
                         </div>
                         <div className="bg-slate-800/50 rounded-xl p-2 md:p-3 text-center">
-                            <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Gasto</p>
+                            <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Construção</p>
                             <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
                                 <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
                                 <span className="text-rose-400 font-black text-sm md:text-base leading-none">
@@ -468,7 +468,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         </div>
                         {finance.aquisicaoFinanciada > 0 && (
                             <div className="bg-slate-800/50 rounded-xl p-2 md:p-3 text-center">
-                                <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Aquisição</p>
+                                <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Terreno + taxas</p>
                                 <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
                                     <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
                                     <span className="text-amber-400 font-black text-sm md:text-base leading-none">
