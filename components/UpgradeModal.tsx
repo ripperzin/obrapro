@@ -1,11 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import { PlanId } from '../types';
+import { SUPPORT_WHATSAPP, whatsappLink } from '../lib/support';
 
-// WhatsApp que recebe os pedidos de upgrade (DDI+DDD, só números).
+// Re-export por compatibilidade — a fonte única do número vive em lib/support.
 // Enquanto o checkout do Mercado Pago não existe, o convite abre uma conversa
 // com o Victor e a liberação é na mão (profiles.plan).
-export const UPGRADE_WHATSAPP = '5567982042203';
+export const UPGRADE_WHATSAPP = SUPPORT_WHATSAPP;
 
 /**
  * O que disparou o convite. Quase sempre é um recurso que a pessoa tentou usar;
@@ -187,7 +188,7 @@ const UpgradeModal: React.FC<Props> = ({ feature, onClose, currentPlan }) => {
     const msg = encodeURIComponent(
       `Olá! Quero o plano ${p.nome} do ObraPro (${p.fundador}/mês, preço de fundador). Vim pelo app.`
     );
-    window.open(`https://wa.me/${UPGRADE_WHATSAPP}?text=${msg}`, '_blank', 'noopener');
+    window.open(whatsappLink(msg), '_blank', 'noopener');
   };
 
   return ReactDOM.createPortal(

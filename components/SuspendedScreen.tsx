@@ -1,6 +1,7 @@
 import React from 'react';
 import { Project, User } from '../types';
 import DataExportPanel from './DataExportPanel';
+import { whatsappLink } from '../lib/support';
 
 interface Props {
     projects: Project[];
@@ -29,7 +30,7 @@ const SuspendedScreen: React.FC<Props> = ({ projects, user, onLogout }) => {
                     </div>
                     <p className="text-sm text-slate-300 leading-relaxed">
                         O acesso ao app foi pausado. Para reativar, fale com o ObraPro pelo WhatsApp{' '}
-                        <a href="https://wa.me/5567982042203" className="text-emerald-400 font-bold underline">suporte</a>{' '}
+                        <a href={whatsappLink()} target="_blank" rel="noopener noreferrer" className="text-emerald-400 font-bold underline">suporte</a>{' '}
                         ou responda o e-mail da sua assinatura. Enquanto isso, você pode <b>baixar tudo o que é seu</b> aqui embaixo.
                     </p>
                 </div>
