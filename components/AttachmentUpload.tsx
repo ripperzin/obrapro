@@ -159,7 +159,7 @@ const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
                         ) : (
                             <>
                                 <i className={`fa-solid fa-camera ${minimal ? 'text-xl' : 'text-lg'}`}></i>
-                                !minimal && <span className="text-sm font-bold">Anexar Foto/PDF</span>
+                                {!minimal && <span className="text-sm font-bold">Anexar Foto/PDF</span>}
                             </>
                         )}
                     </button>
