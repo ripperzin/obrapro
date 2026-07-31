@@ -47,8 +47,9 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
     const [plan, setPlan] = useState<AportePlan>(project.aportePlan || { parcelas: [] });
     const [dirty, setDirty] = useState(false);
     const dirtyRef = useRef(false);
-    // Nasce ABERTO: com o extrato fora, este card é o conteúdo da aba Sócios.
-    const [open, setOpen] = useState(true);
+    // Nasce FECHADO: despolui a aba Sócios (o Victor abre quando quer). Ações que
+    // mexem no plano (gerar/adicionar parcela) reabrem via setOpen(true).
+    const [open, setOpen] = useState(false);
     const [busy, setBusy] = useState(false);
     const [confirmCell, setConfirmCell] = useState<ConfirmCell | null>(null);
 
@@ -61,10 +62,10 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
     const parcelas = plan.parcelas || [];
     const setParcelas = (ps: AporteParcela[]) => { setPlan({ parcelas: ps }); dirtyRef.current = true; setDirty(true); };
 
-    // Barra de MONTAR o plano: só abre sozinha quando ainda não há plano nenhum
-    // (é o único caminho pra frente). Com plano feito, fica fora do caminho.
+    // Barra de MONTAR o plano: nasce FECHADA (despoluir a aba). O Victor abre em
+    // "Planejar aportes" quando quer montar/refazer o plano.
     const [planejarAberto, setPlanejarAberto] = useState<boolean | null>(null);
-    const showPlanejar = planejarAberto ?? parcelas.length === 0;
+    const showPlanejar = planejarAberto ?? false;
     const setShowPlanejar = (f: (v: boolean) => boolean) => setPlanejarAberto(f(showPlanejar));
 
     // Linhas da matriz: MESMA fonte usada pelo link do sócio e pelo PDF.
