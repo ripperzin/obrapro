@@ -1,12 +1,51 @@
 // Edge Function: ai-copilot
 // Recebe {message, context} do app, chama o Claude no SERVIDOR e devolve {text, action}.
 // A chave Anthropic fica em Deno.env (segredo do Supabase) e NUNCA é exposta no app.
+//
+// TRAVA DE PLANO (servidor): o Copiloto é do plano Construtora. Sem isso, uma
+// conta free chamando a function direto queimava a API da Anthropic de graça.
 import Anthropic from "https://esm.sh/@anthropic-ai/sdk";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+// Plano efetivo = base, mas free com cortesia (trial_until futuro) vale ao menos
+// 'pro'. Espelho de hooks/useEntitlements.ts effectivePlan (o Deno não lê o front).
+const effectivePlanOf = (plan: unknown, trialUntil: unknown): string => {
+    const base = plan === "pro" || plan === "business" ? plan : "free";
+    if (base !== "free") return base;
+    if (typeof trialUntil === "string" && trialUntil) {
+        const fim = new Date(trialUntil + "T23:59:59");
+        if (!isNaN(fim.getTime()) && fim.getTime() >= Date.now()) return "pro";
+    }
+    return "free";
+};
+
+// Valida o JWT do chamador e checa se o plano dele libera o recurso. Admin sempre
+// passa. Devolve a mensagem de erro (pra mostrar ao usuário) ou null se liberado.
+const planGateError = async (req: Request, allowed: string[], msg: string): Promise<string | null> => {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !anonKey || !serviceKey) return "Servidor não configurado.";
+
+    const authHeader = req.headers.get("Authorization") || "";
+    const asCaller = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+        auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: { user }, error } = await asCaller.auth.getUser();
+    if (error || !user) return "Não autenticado.";
+
+    const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: me } = await admin.from("profiles").select("role, plan, trial_until").eq("id", user.id).single();
+    if (me?.role === "admin") return null;
+    if (allowed.includes(effectivePlanOf(me?.plan, me?.trial_until))) return null;
+    return msg;
 };
 
 const SYSTEM_PROMPT = `Você é o Copiloto ObraPro - um assistente inteligente para gestão de obras.
@@ -139,6 +178,10 @@ Deno.serve(async (req) => {
         });
 
     try {
+        // Trava de plano ANTES de tocar na API da Anthropic (senão free queima cota).
+        const gateErr = await planGateError(req, ["business"], "O Copiloto de IA está disponível no plano Construtora.");
+        if (gateErr) return json({ error: gateErr });
+
         const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
         if (!apiKey) return json({ error: "Chave de IA não configurada no servidor." });
 
