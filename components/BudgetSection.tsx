@@ -8,6 +8,7 @@ import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import { usePlan } from './PlanProvider';
 import { useToast } from './ToastProvider';
+import { useConfirm } from './ConfirmProvider';
 import { computeScheduleDates } from '../utils/schedule';
 import { useProjects } from '../hooks/useProjects';
 
@@ -162,6 +163,7 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
     const [viewMode, setViewMode] = useState<'stage' | 'item'>('stage'); // "Por etapa" x "Por item"
     const { ent, openUpgrade } = usePlan();
     const toast = useToast();
+    const confirm = useConfirm();
     const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
     // Previsto por item dentro da etapa (project_stage_items): {macroId,itemId,percentage}
     const [stageRows, setStageRows] = useState<{ macroId: string; itemId: string; percentage: number }[]>([]);
@@ -300,9 +302,12 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
         const source = (allProjects || []).find(p => p.id === sourceId);
         if (!source) return;
         const sourceName = source.name;
-        if (!window.confirm(
-            `Isso substitui o Previsto por item desta obra pela distribuição REAL da obra "${sourceName}" (o que ela gastou de verdade em cada item, por etapa). Os valores continuam editáveis. Continuar?`
-        )) return;
+        if (!(await confirm({
+            title: 'Aplicar molde de itens?',
+            message: `Isso substitui o Previsto por item desta obra pela distribuição REAL da obra "${sourceName}" (o que ela gastou de verdade em cada item, por etapa). Os valores continuam editáveis. Continuar?`,
+            confirmText: 'Aplicar',
+            variant: 'warning',
+        }))) return;
 
         setAplicandoMolde(true);
         try {
@@ -610,14 +615,18 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
 
         const fmt = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR');
         const corridas = macros.filter(m => m.timeBased);
-        if (!window.confirm(
-            `Gerar as datas das ${macros.length} etapas de ${fmt(project.startDate)} a ${fmt(project.deliveryDate)}, ` +
-            `distribuindo pelo peso (%) de cada etapa?` +
-            (corridas.length > 0
-                ? `\n\n${corridas.map(m => m.name).join(', ')} corre${corridas.length > 1 ? 'm' : ''} do início à entrega (é custo do tempo, não uma fase).`
-                : '') +
-            `\n\nIsto substitui as datas planejadas atuais.`
-        )) return;
+        if (!(await confirm({
+            title: 'Gerar cronograma?',
+            message:
+                `Gerar as datas das ${macros.length} etapas de ${fmt(project.startDate)} a ${fmt(project.deliveryDate)}, ` +
+                `distribuindo pelo peso (%) de cada etapa?` +
+                (corridas.length > 0
+                    ? `\n\n${corridas.map(m => m.name).join(', ')} corre${corridas.length > 1 ? 'm' : ''} do início à entrega (é custo do tempo, não uma fase).`
+                    : '') +
+                `\n\nIsto substitui as datas planejadas atuais.`,
+            confirmText: 'Gerar',
+            variant: 'warning',
+        }))) return;
         try {
             await Promise.all(updates.map(u =>
                 supabase.from('project_macros')
@@ -664,9 +673,12 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
             return;
         }
         const fmt = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR');
-        if (!window.confirm(
-            `Gerar o cronograma usando o RITMO real da obra "${source.name}" — o tempo que cada etapa levou lá (pelas datas das fotos), não o % de custo — entre ${fmt(project.startDate)} e ${fmt(project.deliveryDate)}?\n\nIsto substitui as datas planejadas atuais.`
-        )) return;
+        if (!(await confirm({
+            title: 'Gerar cronograma pelo ritmo?',
+            message: `Gerar o cronograma usando o RITMO real da obra "${source.name}" — o tempo que cada etapa levou lá (pelas datas das fotos), não o % de custo — entre ${fmt(project.startDate)} e ${fmt(project.deliveryDate)}?\n\nIsto substitui as datas planejadas atuais.`,
+            confirmText: 'Gerar',
+            variant: 'warning',
+        }))) return;
         try {
             await Promise.all(updates.map(u =>
                 supabase.from('project_macros')

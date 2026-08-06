@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import AttachmentUpload from './AttachmentUpload';
 import { getSignedUrl } from '../utils/storage';
+import { useConfirm } from './ConfirmProvider';
 
 interface ManageAttachmentsModalProps {
     isOpen: boolean;
@@ -11,6 +12,7 @@ interface ManageAttachmentsModalProps {
 }
 
 const ManageAttachmentsModal: React.FC<ManageAttachmentsModalProps> = ({ isOpen, onClose, attachments: initialAttachments, onSave }) => {
+    const confirm = useConfirm();
     const [attachments, setAttachments] = useState<string[]>(initialAttachments || []);
     const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({});
 
@@ -79,8 +81,8 @@ const ManageAttachmentsModal: React.FC<ManageAttachmentsModalProps> = ({ isOpen,
                                     )}
 
                                     <button
-                                        onClick={() => {
-                                            if (window.confirm('Tem certeza que deseja excluir este anexo?')) {
+                                        onClick={async () => {
+                                            if (await confirm('Tem certeza que deseja excluir este anexo?')) {
                                                 setAttachments(prev => prev.filter((_, i) => i !== index));
                                             }
                                         }}

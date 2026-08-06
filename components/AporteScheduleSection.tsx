@@ -7,6 +7,7 @@ import { openAttachment } from '../utils/storage';
 import { useAddContribution, useDeleteContribution } from '../hooks/useAportes';
 import AttachmentUpload from './AttachmentUpload';
 import { useToast } from './ToastProvider';
+import { useConfirm } from './ConfirmProvider';
 
 // Uma coluna da matriz = um sócio que aporta.
 export interface SocioCol {
@@ -43,6 +44,7 @@ const inputCls = 'bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 te
 // avulsos (fora do plano) aparecem como linhas verdes. Mesma tabela no app e no link.
 const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onRegisterAporte }) => {
     const toast = useToast();
+    const confirm = useConfirm();
     const addContribution = useAddContribution();
     const deleteContribution = useDeleteContribution();
 
@@ -162,7 +164,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
         if (!contribId) return;
         const real = contribById.get(contribId);
         const quanto = real ? formatCurrency(real.value) : formatCurrency(parcela.values?.[s.investorId] || 0);
-        if (!window.confirm(`Desfazer o aporte de ${s.name} (${quanto})?\n\nO lançamento sai do caixa e do extrato.`)) return;
+        if (!(await confirm({ title: 'Desfazer aporte?', message: `Desfazer o aporte de ${s.name} (${quanto})?\n\nO lançamento sai do caixa e do extrato.`, confirmText: 'Desfazer' }))) return;
         setBusy(true);
         try {
             await deleteContribution.mutateAsync(contribId);
@@ -178,7 +180,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
     };
 
     const removeAvulso = async (contribIds: string[]) => {
-        if (busy || !window.confirm('Apagar este aporte?')) return;
+        if (busy || !(await confirm('Apagar este aporte?'))) return;
         setBusy(true);
         try { for (const id of contribIds) await deleteContribution.mutateAsync(id); }
         catch (e: any) { toast.error('Erro ao apagar: ' + (e?.message || e)); }

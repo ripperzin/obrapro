@@ -5,6 +5,7 @@ import { generateProjectPDF } from '../utils/pdfGenerator';
 import { ReportOptions, DEFAULT_REPORT_OPTIONS, OPTIONAL_SECTIONS, PAID_SECTIONS, buildInvestorUrl, clampReportOptions } from '../utils/reportOptions';
 import { usePlan } from './PlanProvider';
 import { useToast } from './ToastProvider';
+import { useConfirm } from './ConfirmProvider';
 import { supabase } from '../supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -26,6 +27,7 @@ interface ShareReportModalProps {
 const ShareReportModal: React.FC<ShareReportModalProps> = ({ project, userName, onClose }) => {
     const { ent, openUpgrade } = usePlan();
     const toast = useToast();
+    const confirm = useConfirm();
     const [opts, setOpts] = useState<ReportOptions>(() =>
         clampReportOptions({ ...DEFAULT_REPORT_OPTIONS }, ent.canShareFullReport)
     );
@@ -52,7 +54,7 @@ const ShareReportModal: React.FC<ShareReportModalProps> = ({ project, userName, 
         } finally { setSavingPw(false); }
     };
     const removerSenha = async () => {
-        if (!window.confirm('Remover a senha? O link fica aberto e os documentos deixam de aparecer nele.')) return;
+        if (!(await confirm({ title: 'Remover a senha?', message: 'O link fica aberto e os documentos deixam de aparecer nele.', confirmText: 'Remover' }))) return;
         setSavingPw(true);
         try {
             const { error } = await supabase.from('projects').update({ link_password_hash: null }).eq('id', project.id);

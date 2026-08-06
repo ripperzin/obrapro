@@ -4,6 +4,7 @@ import { formatCurrency } from '../utils';
 import { openAttachment } from '../utils/storage';
 import AddAcquisitionModal from './AddAcquisitionModal';
 import { useDeleteAcquisitionCost } from '../hooks/useAquisicao';
+import { useConfirm } from './ConfirmProvider';
 
 interface Props {
     project: Project;
@@ -15,6 +16,7 @@ interface Props {
 }
 
 const AquisicaoSection: React.FC<Props> = ({ project, user, embedded }) => {
+    const confirm = useConfirm();
     const [showModal, setShowModal] = useState(false);
     const [editingCost, setEditingCost] = useState<AcquisitionCost | undefined>(undefined);
     const costs = [...(project.acquisitionCosts || [])].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -117,7 +119,7 @@ const AquisicaoSection: React.FC<Props> = ({ project, user, embedded }) => {
                                         <i className="fa-solid fa-pen"></i>
                                     </button>
                                     <button
-                                        onClick={() => { if (window.confirm('Excluir este custo de terreno?')) deleteCost.mutate(c.id); }}
+                                        onClick={async () => { if (await confirm('Excluir este custo de terreno?')) deleteCost.mutate(c.id); }}
                                         className="text-slate-500 hover:text-rose-400 transition"
                                         title="Excluir"
                                     >

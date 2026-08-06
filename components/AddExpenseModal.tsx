@@ -8,6 +8,7 @@ import { ReceiptScanner } from './ReceiptScanner';
 import { ReceiptData } from '../lib/gemini';
 import { getSignedUrl, uploadFile } from '../utils/storage';
 import { useToast } from './ToastProvider';
+import { useConfirm } from './ConfirmProvider';
 
 interface AddExpenseModalProps {
     isOpen: boolean;
@@ -28,6 +29,7 @@ const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLo
 
 const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSave, macros, items, stageItems = [], investors = [], defaultPayerId, onCreateItem }) => {
     const toast = useToast();
+    const confirm = useConfirm();
     const [formData, setFormData] = useState({
         description: '',
         value: 0,
@@ -422,8 +424,8 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
 
                                             <button
                                                 type="button"
-                                                onClick={() => {
-                                                    if (window.confirm('Tem certeza que deseja excluir este anexo?')) {
+                                                onClick={async () => {
+                                                    if (await confirm('Tem certeza que deseja excluir este anexo?')) {
                                                         const newAttachments = formData.attachments!.filter((_, i) => i !== index);
                                                         setFormData({ ...formData, attachments: newAttachments });
                                                     }

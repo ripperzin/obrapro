@@ -2,11 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useToast } from './ToastProvider';
+import { useConfirm } from './ConfirmProvider';
 
 export const SyncStatus: React.FC = () => {
     const isOnline = useOnlineStatus();
     const queryClient = useQueryClient();
     const toast = useToast();
+    const confirm = useConfirm();
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -35,10 +37,12 @@ export const SyncStatus: React.FC = () => {
     const pending = mutations.filter(m => m.state.status === 'pending');
     const stuckMutations = pending.filter(m => m.state.failureCount > 0);
 
-    const handleClearQueue = () => {
-        const shouldClear = window.confirm(
-            `⚠️ Tem certeza que deseja LIMPAR a fila de sincronização?\n\nIsso removerá todas as alterações locais pendentes e elas não serão salvas no banco de dados.`
-        );
+    const handleClearQueue = async () => {
+        const shouldClear = await confirm({
+            title: 'Limpar a fila?',
+            message: `Tem certeza que deseja LIMPAR a fila de sincronização?\n\nIsso removerá todas as alterações locais pendentes e elas não serão salvas no banco de dados.`,
+            confirmText: 'Sim, limpar',
+        });
 
         if (shouldClear) {
             queryClient.getMutationCache().clear();

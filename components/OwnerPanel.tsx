@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { planLabel } from '../hooks/useEntitlements';
 import { useToast } from './ToastProvider';
+import { useConfirm } from './ConfirmProvider';
 
 // Chama a edge function admin-actions e devolve a mensagem AMIGÁVEL de erro.
 // Sem isto, quando a function responde 4xx/5xx o supabase-js descarta o corpo
@@ -179,6 +180,7 @@ const OwnerPanel: React.FC = () => {
     const [busyId, setBusyId] = useState<string | null>(null);   // cliente em ação
     const [showNovo, setShowNovo] = useState(false);
     const toast = useToast();
+    const confirm = useConfirm();
 
     const carregar = async () => {
         try {
@@ -217,10 +219,10 @@ const OwnerPanel: React.FC = () => {
         if (!(n > 0)) { toast.error('Informe um número de dias maior que zero.'); return; }
         acao('set_trial', { userId: c.id, days: n }, c.id);
     };
-    const tirarCortesia = (c: Cliente) => { if (window.confirm('Remover a cortesia deste cliente?')) acao('set_trial', { userId: c.id, days: 0 }, c.id); };
-    const alternarBloqueio = (c: Cliente) => {
+    const tirarCortesia = async (c: Cliente) => { if (await confirm('Remover a cortesia deste cliente?')) acao('set_trial', { userId: c.id, days: 0 }, c.id); };
+    const alternarBloqueio = async (c: Cliente) => {
         const texto = c.blocked ? `Reativar ${c.full_name || c.email}?` : `Suspender ${c.full_name || c.email}? Ele não conseguirá mais entrar (os dados ficam guardados).`;
-        if (window.confirm(texto)) acao('set_blocked', { userId: c.id, blocked: !c.blocked }, c.id);
+        if (await confirm({ title: c.blocked ? 'Reativar cliente?' : 'Suspender cliente?', message: texto, confirmText: c.blocked ? 'Reativar' : 'Suspender', variant: c.blocked ? 'info' : 'warning' })) acao('set_blocked', { userId: c.id, blocked: !c.blocked }, c.id);
     };
 
     if (loading) return <div className="p-8 text-slate-400">Carregando clientes…</div>;

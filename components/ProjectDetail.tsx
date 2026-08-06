@@ -30,6 +30,7 @@ import SociosSection from './SociosSection';
 import { computeProjectFinance, computeGastoAvancoVerdito, computeUnitResult } from '../utils/projectFinance';
 import { usePlan } from './PlanProvider';
 import { useToast } from './ToastProvider';
+import { useConfirm } from './ConfirmProvider';
 
 import { supabase } from '../supabaseClient';
 
@@ -59,6 +60,7 @@ const UnitsSection: React.FC<{
   onUpdate: (id: string, updates: Partial<Project>, logMsg?: string) => Promise<void>,
   logChange: (a: string, f: string, o: string, n: string) => void
 }> = ({ project, user, onAddUnit, onUpdateUnit, onDeleteUnit, onUpdate, logChange }) => {
+  const confirm = useConfirm();
   // Sync showAdd with URL action parameter
   const [showAdd, setShowAdd] = useState(false);
 
@@ -218,10 +220,14 @@ const UnitsSection: React.FC<{
   const handleRecalcCosts = async () => {
     const afetadas = project.units.filter(u => (u.area || 0) > 0).length;
     if (!refCustoM2 || refCustoM2 <= 0 || afetadas === 0) return;
-    const ok = window.confirm(
-      `Recalcular o custo estimado de ${afetadas} casa(s) usando ${formatCurrency(refCustoM2)}/m²?\n\n` +
-      `O custo de cada casa vira (área × R$/m²). Ajustes manuais de custo por casa serão substituídos.`
-    );
+    const ok = await confirm({
+      title: 'Recalcular custo das casas?',
+      message:
+        `Recalcular o custo estimado de ${afetadas} casa(s) usando ${formatCurrency(refCustoM2)}/m²?\n\n` +
+        `O custo de cada casa vira (área × R$/m²). Ajustes manuais de custo por casa serão substituídos.`,
+      confirmText: 'Recalcular',
+      variant: 'warning',
+    });
     if (!ok) return;
     setIsRecalc(true);
     try {
@@ -1413,6 +1419,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
   onUpdateDiary,
   onDeleteDiary
 }) => {
+  const confirm = useConfirm();
   // 1. URL State for Project Tabs
   const initialParams = new URLSearchParams(window.location.search);
   const initialTab = (initialParams.get('tab') as any) || 'info';
@@ -1628,16 +1635,19 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
     onUpdate(project.id, { logs: [...project.logs, newLog] });
   };
 
-  const handleStageChange = (newStage: ProgressStage) => {
+  const handleStageChange = async (newStage: ProgressStage) => {
     if (newStage === project.progress) return;
 
     // Concluir a obra é deliberado: destrava o cálculo do LUCRO REAL
     if (newStage === ProgressStage.COMPLETED && project.progress !== ProgressStage.COMPLETED) {
-      const ok = window.confirm(
-        'Marcar a obra como CONCLUÍDA?\n\n' +
-        'Isso libera o cálculo do LUCRO REAL. Confirme que todas as despesas já foram lançadas — ' +
-        'senão o lucro real sairá incorreto.\n\nVocê pode reabrir depois voltando uma etapa.'
-      );
+      const ok = await confirm({
+        title: 'Marcar obra como concluída?',
+        message:
+          'Isso libera o cálculo do LUCRO REAL. Confirme que todas as despesas já foram lançadas — ' +
+          'senão o lucro real sairá incorreto.\n\nVocê pode reabrir depois voltando uma etapa.',
+        confirmText: 'Concluir obra',
+        variant: 'warning',
+      });
       if (!ok) return;
     }
 
@@ -1758,11 +1768,15 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
     const targetStage = projectStages[macroIdx];
     if (!targetStage) return;
     // Adia o prompt pra depois do modal de despesa fechar.
-    setTimeout(() => {
-      const ok = window.confirm(
-        `Você lançou uma despesa na etapa "${ordered[macroIdx].name}", que está à frente da etapa atual da obra ` +
-        `("${getStageName(project.progress, project)}").\n\nDeseja avançar a obra para "${ordered[macroIdx].name}"?`
-      );
+    setTimeout(async () => {
+      const ok = await confirm({
+        title: 'Avançar a obra?',
+        message:
+          `Você lançou uma despesa na etapa "${ordered[macroIdx].name}", que está à frente da etapa atual da obra ` +
+          `("${getStageName(project.progress, project)}").\n\nDeseja avançar a obra para "${ordered[macroIdx].name}"?`,
+        confirmText: 'Avançar',
+        variant: 'info',
+      });
       if (ok) handleStageChange(targetStage.value);
     }, 150);
   };
@@ -2159,7 +2173,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         <button
                           id={isCurrent ? 'current-stage-indicator' : undefined}
                           disabled={false}
-                          onClick={() => {
+                          onClick={async () => {
                             // Apontador não avança/volta etapa (isso é do gestor/dono);
                             // pra ele o clique só abre as fotos da etapa.
                             if (!isAdmin) {
@@ -2171,7 +2185,13 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                               setEvidenceModal({ isOpen: true, stage, evidence });
                             } else if (isPast) {
                               // Past stage - ask if want to go back or view evidence
-                              const goBack = window.confirm(`Deseja voltar para a etapa "${st.name}"?\n\nClique "OK" para voltar, ou "Cancelar" para ver as fotos.`);
+                              const goBack = await confirm({
+                                title: `Voltar para "${st.name}"?`,
+                                message: `Você pode voltar a obra para esta etapa, ou apenas ver as fotos dela.`,
+                                confirmText: 'Voltar etapa',
+                                cancelText: 'Ver fotos',
+                                variant: 'warning',
+                              });
                               if (goBack) {
                                 handleStageChange(stage);
                               } else {

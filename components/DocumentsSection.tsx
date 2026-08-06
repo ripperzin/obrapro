@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ProjectDocument, DOCUMENT_CATEGORIES } from '../types';
 import { openAttachment } from '../utils/storage';
 import AddDocumentModal from './AddDocumentModal';
+import { useConfirm } from './ConfirmProvider';
 
 interface DocumentsSectionProps {
     documents: ProjectDocument[];
@@ -16,6 +17,7 @@ const DocumentsSection: React.FC<DocumentsSectionProps> = ({
     onDelete,
     isAdmin = false
 }) => {
+    const confirm = useConfirm();
     // Sync with URL action
     const [isAdding, setIsAdding] = useState(false);
 
@@ -112,9 +114,9 @@ const DocumentsSection: React.FC<DocumentsSectionProps> = ({
                                         {/* Actions */}
                                         {isAdmin && (
                                             <button
-                                                onClick={(e) => {
+                                                onClick={async (e) => {
                                                     e.stopPropagation();
-                                                    if (confirm('Excluir este documento?')) onDelete(doc.id);
+                                                    if (await confirm('Excluir este documento?')) onDelete(doc.id);
                                                 }}
                                                 className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 hover:bg-red-500/10 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                                             >

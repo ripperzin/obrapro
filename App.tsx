@@ -15,6 +15,7 @@ import MobileNav from './components/MobileNav';
 
 import { SyncStatus } from './components/SyncStatus';
 import { PlanProvider } from './components/PlanProvider';
+import { useConfirm } from './components/ConfirmProvider';
 import { entitlementsFor, effectivePlan } from './hooks/useEntitlements';
 import { ProjectRole, MyRoles } from './lib/permissions';
 
@@ -46,6 +47,7 @@ const parseInvestorRoute = (): string | null => {
 
 
 const App: React.FC = () => {
+  const confirm = useConfirm();
   const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true); // Nova flag de carregamento
@@ -495,7 +497,7 @@ const App: React.FC = () => {
   };
 
   const deleteDiary = async (projectId: string, entryId: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este registro do diário?')) return;
+    if (!(await confirm('Tem certeza que deseja excluir este registro do diário?'))) return;
 
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
@@ -519,7 +521,11 @@ const App: React.FC = () => {
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
 
-    if (!window.confirm(`ATENÇÃO: Tem certeza que deseja excluir a obra "${project.name}"?\n\nEsta ação apagará TODAS as unidades, despesas e históricos associados.\n\nEssa ação não pode ser desfeita.`)) return;
+    if (!(await confirm({
+      title: 'Excluir obra?',
+      message: `Tem certeza que deseja excluir a obra "${project.name}"?\n\nIsso apaga TODAS as unidades, despesas e históricos associados.\n\nEssa ação não pode ser desfeita.`,
+      confirmText: 'Sim, excluir',
+    }))) return;
 
     try {
       await deleteProjectMutation.mutateAsync(projectId);

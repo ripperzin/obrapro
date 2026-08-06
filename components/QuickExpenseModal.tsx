@@ -9,6 +9,7 @@ import { ReceiptScanner } from './ReceiptScanner';
 import { ReceiptData } from '../lib/gemini';
 import { getSignedUrl, uploadFile } from '../utils/storage';
 import { useToast } from './ToastProvider';
+import { useConfirm } from './ConfirmProvider';
 
 interface QuickExpenseModalProps {
     isOpen: boolean;
@@ -42,6 +43,7 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     initialOriginalText = ''
 }) => {
     const toast = useToast();
+    const confirm = useConfirm();
     const [projectId, setProjectId] = useState(preSelectedProjectId || '');
     const [description, setDescription] = useState(initialDescription);
     const [value, setValue] = useState(initialValue);
@@ -393,8 +395,8 @@ const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                                             )}
                                             <button
                                                 type="button"
-                                                onClick={() => {
-                                                    if (window.confirm('Tem certeza que deseja excluir este anexo?')) {
+                                                onClick={async () => {
+                                                    if (await confirm('Tem certeza que deseja excluir este anexo?')) {
                                                         setAttachments(prev => prev.filter((_, i) => i !== index));
                                                     }
                                                 }}
