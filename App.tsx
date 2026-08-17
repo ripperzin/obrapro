@@ -741,7 +741,31 @@ const App: React.FC = () => {
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
 
-
+  // UM lugar só pra montar a obra aberta. Há DOIS caminhos pra chegar nela (a aba
+  // "Obras" e a aba "Início"), e antes cada um montava o ProjectDetail do seu jeito
+  // — foi assim que dois furos entraram:
+  //   1) o caminho do "Início" ficava FORA do PlanProvider do dono, então um sócio
+  //      convidado (plano free) levava CADEADO DE PLANO dentro da obra do dono.
+  //      Pegou o Davidson em 17/08 no Orçamento > "Por item", 1º dia do teste real.
+  //   2) o caminho das "Obras" não passava onUpdateDiary — o diário não salvava.
+  // Montando aqui, os dois caminhos são iguais por construção: não dá pra um
+  // esquecer o que o outro tem. Quem mexer aqui muda os dois de uma vez.
+  const obraAberta = selectedProject ? (
+    <PlanProvider user={currentUser} planOverride={ownerPlans[selectedProject.id]}>
+      <ProjectDetail
+        project={selectedProject}
+        user={currentUser}
+        myRole={myRoles[selectedProject.id]}
+        onUpdate={updateProjectHandler}
+        onDeleteUnit={deleteUnit}
+        onDeleteExpense={deleteExpense}
+        onDeleteDocument={deleteDocument}
+        onRefresh={async () => { await refreshProjects(); }}
+        onUpdateDiary={handleUpdateDiary}
+        onDeleteDiary={deleteDiary}
+      />
+    </PlanProvider>
+  ) : null;
 
   return (
     <PlanProvider user={currentUser}>
@@ -829,22 +853,9 @@ const App: React.FC = () => {
           <div className="flex-1 px-4 md:p-8 pb-24 md:pb-8">
             {activeTab === 'projects' && (
               selectedProjectId ? (
-                // Provider aninhado: DENTRO da obra as features seguem o plano do
-                // DONO dela (o funcionário free usa o Construtora do patrão). O
-                // provider global (chrome/equipe/copiloto) segue o plano do usuário.
-                <PlanProvider user={currentUser} planOverride={ownerPlans[selectedProject!.id]}>
-                  <ProjectDetail
-                    project={selectedProject!}
-                    user={currentUser}
-                    myRole={myRoles[selectedProject!.id]}
-                    onUpdate={updateProjectHandler}
-                    onDeleteUnit={deleteUnit}
-                    onDeleteExpense={deleteExpense}
-                    onDeleteDocument={deleteDocument}
-                    onDeleteDiary={deleteDiary}
-                    onRefresh={async () => { await refreshProjects(); }}
-                  />
-                </PlanProvider>
+                // A obra aberta vem montada em `obraAberta` (um lugar só, com o
+                // PlanProvider do DONO em volta) — ver o comentário lá em cima.
+                obraAberta
               ) : (
                 <ProjectsDashboard
                   projects={filteredProjects}
@@ -877,20 +888,10 @@ const App: React.FC = () => {
               <AuditPage projects={projects} />
             )}
 
-            {activeTab === 'general' && selectedProjectId && selectedProject && (
-              <ProjectDetail
-                project={selectedProject}
-                user={currentUser}
-                myRole={myRoles[selectedProject.id]}
-                onUpdate={updateProjectHandler}
-                onDeleteUnit={deleteUnit}
-                onDeleteExpense={deleteExpense}
-                onDeleteDocument={deleteDocument}
-                onRefresh={async () => { await refreshProjects(); }}
-                onUpdateDiary={handleUpdateDiary}
-                onDeleteDiary={deleteDiary}
-              />
-            )}
+            {/* Abrir a obra pela aba INÍCIO. Era aqui o furo: montava o
+                ProjectDetail cru, sem o PlanProvider do dono. Agora usa o mesmo
+                `obraAberta` da aba Obras. */}
+            {activeTab === 'general' && selectedProjectId && obraAberta}
 
             {/* Minha equipe: só no Construtora (canUseMultiusuario). A trava real
                 das escritas é o RLS members_* (só o dono da obra); isto só esconde. */}
