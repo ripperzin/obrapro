@@ -720,6 +720,35 @@ const ExpensesSection: React.FC<{
     });
   }, [project.expenses]);
 
+  // --- FILTRO DAS DESPESAS (pedido dos sócios da LARANJAIS em 17/08) ------------
+  // Combina "Pago por" × Etapa × Item e mostra a SOMA do que sobrou na tela. É a
+  // pergunta que eles respondem hoje na planilha: "quanto a Angela já pagou?",
+  // "quanto ela pagou na alvenaria?". Sem a soma o filtro não responde nada.
+  // Nasce FECHADO: no celular quem lança não pode tropeçar em filtro.
+  const F_CAIXA = '__caixa__'; // pago pelo caixa da obra (nenhum sócio do bolso)
+  const F_NONE = '__none__';   // sem etapa / sem item (achar o que falta classificar)
+  const [showFilters, setShowFilters] = useState(false);
+  const [fPayer, setFPayer] = useState('');
+  const [fMacro, setFMacro] = useState('');
+  const [fItem, setFItem] = useState('');
+  const filtroAtivo = !!(fPayer || fMacro || fItem);
+  const limparFiltro = () => { setFPayer(''); setFMacro(''); setFItem(''); };
+
+  const filteredExpenses = useMemo(() => sortedExpenses.filter((e) => {
+    if (fPayer === F_CAIXA && e.paidByInvestorId) return false;
+    if (fPayer && fPayer !== F_CAIXA && e.paidByInvestorId !== fPayer) return false;
+    if (fMacro === F_NONE && e.macroId) return false;
+    if (fMacro && fMacro !== F_NONE && e.macroId !== fMacro) return false;
+    if (fItem === F_NONE && e.itemId) return false;
+    if (fItem && fItem !== F_NONE && e.itemId !== fItem) return false;
+    return true;
+  }), [sortedExpenses, fPayer, fMacro, fItem]);
+
+  const filteredTotal = useMemo(
+    () => filteredExpenses.reduce((a, b) => a + (b.value || 0), 0),
+    [filteredExpenses]
+  );
+
   // Nome do sócio que pagou a despesa do próprio bolso (se houver)
   const payerName = (investorId?: string): string | null => {
     if (!investorId) return null;
@@ -729,10 +758,12 @@ const ExpensesSection: React.FC<{
 
   // Baixar as despesas da obra em Excel (.xlsx). Espelha a tela: resolve o nome
   // da Etapa (macro), do Item e de quem pagou. Data mais recente no topo.
+  // Espelhar a tela inclui o FILTRO — com filtro ligado, sai só o que está à
+  // vista (é o "me manda o que a Angela pagou" sem ter que mexer no Excel).
   const handleExportExcel = () => {
     const macroName = (id?: string) => projectMacros.find((m) => m.id === id)?.name || '';
     const itemName = (id?: string) => projectItems.find((i) => i.id === id)?.name || '';
-    const rows: ExpenseExportRow[] = sortedExpenses.map((e) => ({
+    const rows: ExpenseExportRow[] = filteredExpenses.map((e) => ({
       Data: formatDateBR(e.date),
       Descrição: e.description || '',
       Valor: e.value || 0,
@@ -900,10 +931,24 @@ const ExpensesSection: React.FC<{
                 <button onClick={() => setShowImport(true)} className="bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-full font-black text-sm hover:border-emerald-500 hover:text-white transition flex items-center gap-2">
                   <i className="fa-solid fa-file-import text-emerald-400"></i> <span className="hidden sm:inline">Importar planilha</span>
                 </button>
-                <button onClick={handleExportExcel} disabled={sortedExpenses.length === 0} title={sortedExpenses.length === 0 ? 'Nenhuma despesa para exportar' : 'Baixar despesas em Excel'} className="bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-full font-black text-sm hover:border-emerald-500 hover:text-white transition flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-slate-700 disabled:hover:text-slate-200">
+                <button onClick={handleExportExcel} disabled={filteredExpenses.length === 0} title={filteredExpenses.length === 0 ? 'Nenhuma despesa para exportar' : filtroAtivo ? 'Baixar em Excel só o que está filtrado' : 'Baixar despesas em Excel'} className="bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-full font-black text-sm hover:border-emerald-500 hover:text-white transition flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-slate-700 disabled:hover:text-slate-200">
                   <i className="fa-solid fa-file-excel text-emerald-400"></i> <span className="hidden sm:inline">Exportar Excel</span>
                 </button>
               </>
+            )}
+            {/* Filtrar: só pra quem vê dinheiro (é ferramenta de conferir sócio).
+                Acende quando tem filtro ligado — senão a lista parece incompleta. */}
+            {canSeeMoney && project.expenses.length > 0 && (
+              <button
+                onClick={() => setShowFilters(v => !v)}
+                title="Filtrar por quem pagou, etapa ou item"
+                className={`px-4 py-3 rounded-full font-black text-sm transition flex items-center gap-2 border ${filtroAtivo
+                  ? 'bg-amber-500/15 border-amber-500/50 text-amber-300'
+                  : 'bg-slate-800 border-slate-700 text-slate-200 hover:border-emerald-500 hover:text-white'}`}
+              >
+                <i className={`fa-solid fa-filter ${filtroAtivo ? '' : 'text-emerald-400'}`}></i>
+                <span className="hidden sm:inline">{filtroAtivo ? 'Filtrando' : 'Filtrar'}</span>
+              </button>
             )}
             {/* Nova Despesa: o apontador PRECISA (é o que ele faz). */}
             <button onClick={() => handleSetShowAdd(true)} className="bg-green-600 text-white px-6 py-3 rounded-full font-black text-sm hover:bg-green-700 transition shadow-lg shadow-green-600/30 flex items-center gap-2">
@@ -1008,11 +1053,92 @@ const ExpensesSection: React.FC<{
         />
       )}
 
+      {/* --- Painel do FILTRO: quem pagou × etapa × item + a SOMA do que sobrou ---
+          Fica aberto enquanto o filtro estiver ligado, mesmo se o usuário fechar o
+          painel: a soma é a resposta, e sem ela a lista curta engana. */}
+      {canSeeMoney && (showFilters || filtroAtivo) && (
+        <div className="glass rounded-2xl border border-slate-700 p-4 space-y-3">
+          {showFilters && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {(project.investors || []).length > 0 && (
+                <label className="block">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Pago por</span>
+                  <select
+                    value={fPayer}
+                    onChange={(e) => setFPayer(e.target.value)}
+                    className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white outline-none focus:border-emerald-500"
+                  >
+                    <option value="">Todos</option>
+                    <option value={F_CAIXA}>Caixa da obra</option>
+                    {(project.investors || []).map((i) => (
+                      <option key={i.id} value={i.id}>{i.name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {projectMacros.length > 0 && (
+                <label className="block">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Etapa</span>
+                  <select
+                    value={fMacro}
+                    onChange={(e) => setFMacro(e.target.value)}
+                    className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white outline-none focus:border-emerald-500"
+                  >
+                    <option value="">Todas</option>
+                    {projectMacros.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                    <option value={F_NONE}>— sem etapa —</option>
+                  </select>
+                </label>
+              )}
+              {projectItems.length > 0 && (
+                <label className="block">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Item</span>
+                  <select
+                    value={fItem}
+                    onChange={(e) => setFItem(e.target.value)}
+                    className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-white outline-none focus:border-emerald-500"
+                  >
+                    <option value="">Todos</option>
+                    {projectItems.map((i) => (
+                      <option key={i.id} value={i.id}>{i.name}</option>
+                    ))}
+                    <option value={F_NONE}>— sem item —</option>
+                  </select>
+                </label>
+              )}
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-sm text-slate-300 font-bold">
+              <span className="text-white">{filteredExpenses.length}</span>{' '}
+              {filteredExpenses.length === 1 ? 'despesa' : 'despesas'}
+              <span className="text-slate-600 mx-2">·</span>
+              <span className="text-emerald-400">{formatCurrency(filteredTotal)}</span>
+              {filtroAtivo && <span className="text-amber-400/80 text-xs font-black ml-2 uppercase">filtrado</span>}
+            </p>
+            {filtroAtivo && (
+              <button
+                onClick={limparFiltro}
+                className="text-xs font-black text-slate-400 hover:text-white bg-slate-900/60 border border-slate-700 px-3 py-2 rounded-xl transition-colors"
+              >
+                <i className="fa-solid fa-xmark mr-1.5"></i> Limpar filtro
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {filtroAtivo && filteredExpenses.length === 0 && (
+        <div className="text-center py-8 text-slate-500 text-sm">Nenhuma despesa com esse filtro.</div>
+      )}
+
       {/* Lista de Despesas - Responsive */}
       <div className="space-y-4">
         {/* Mobile: Lista de Cards */}
         <div className="md:hidden space-y-3">
-          {sortedExpenses.map((exp) => {
+          {filteredExpenses.map((exp) => {
             const isEditing = editingExpenseId === exp.id;
             return (
               <div key={exp.id} className={`glass rounded-2xl p-6 border transition-all ${isEditing ? 'border-orange-500' : 'border-slate-700'}`}>
@@ -1225,7 +1351,7 @@ const ExpensesSection: React.FC<{
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {sortedExpenses.map((exp) => {
+              {filteredExpenses.map((exp) => {
                 const isEditing = editingExpenseId === exp.id;
                 return (
                   <tr key={exp.id} className="hover:bg-slate-800/50 transition">
