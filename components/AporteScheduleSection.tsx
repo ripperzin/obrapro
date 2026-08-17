@@ -209,6 +209,25 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
         }
     };
 
+    // Corrigir um aporte AVULSO (fora do plano). É o caso mais comum de verdade:
+    // obra sem cronograma de aportes tem TODOS os aportes avulsos — foi o que
+    // pegou o Victor, que não achava onde clicar porque a LARANJAIS não tem
+    // parcela nenhuma. Só quando a célula tem 1 lançamento: a célula soma os
+    // aportes do mesmo sócio na mesma data, e corrigir um bolo daria valor errado.
+    const pedirCorrecaoAvulso = (contribId: string, s: SocioCol) => {
+        if (dirty) { toast.info('Salve o cronograma antes de corrigir aportes.'); return; }
+        const real = contribById.get(contribId);
+        setConfirmCell({
+            parcelaId: '',              // avulso não pertence a nenhuma parcela
+            investorId: s.investorId,
+            socioName: s.name,
+            value: String(real?.value ?? ''),
+            date: real?.date || '',
+            planned: 0,
+            contribId,
+        });
+    };
+
     const removeAvulso = async (contribIds: string[]) => {
         if (busy || !(await confirm('Apagar este aporte?'))) return;
         setBusy(true);
@@ -356,11 +375,20 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                                 );
                                             }
                                             const despesa = row.kind === 'despesa';
+                                            // Avulso com 1 lançamento na célula = dá pra corrigir clicando no valor.
+                                            // (Linha de despesa não: ali quem manda é a despesa, edita-se lá.)
+                                            const editavel = row.kind === 'avulso' && cell?.contribIds.length === 1;
                                             return (
                                                 <td key={s.investorId} className="px-2 py-1.5 text-right" title={cell?.notas.join(' · ') || undefined}>
                                                     {cell ? (
                                                         <span className={`font-bold ${despesa ? 'text-amber-400/90' : 'text-emerald-400'}`}>
-                                                            {formatCurrencyAbbrev(cell.value)}
+                                                            {editavel ? (
+                                                                <button onClick={() => pedirCorrecaoAvulso(cell.contribIds[0], s)} disabled={busy}
+                                                                    title="Corrigir valor ou data deste aporte"
+                                                                    className="font-bold text-emerald-400 hover:text-emerald-300 hover:underline decoration-dotted underline-offset-2">
+                                                                    {formatCurrencyAbbrev(cell.value)}
+                                                                </button>
+                                                            ) : formatCurrencyAbbrev(cell.value)}
                                                             {!despesa && <i className="fa-solid fa-check text-[10px] ml-1"></i>}
                                                             {cell.anexos.length > 0 && (
                                                                 <button onClick={() => openAttachment(cell.anexos[0])} title="Ver comprovante" className="text-blue-400 hover:text-blue-300 ml-1.5">
@@ -409,7 +437,8 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                     {dirty && <p className="text-[11px] text-amber-400 font-bold text-right">Salve para poder dar baixa nos aportes.</p>}
                     {!dirty && (
                         <p className="text-[10px] text-slate-500 leading-snug">
-                            {parcelas.length > 0 && <>Clique no ✓ de cada valor para dar como <b>pago</b> — isso registra o aporte de verdade (entra no caixa). Já pago? Clique no <span className="text-emerald-400 font-bold">valor verde</span> pra <b>corrigir</b> o valor ou a data. Aportes fora do plano aparecem como linhas <span className="text-emerald-500">avulso</span>. </>}
+                            {parcelas.length > 0 && <>Clique no ✓ de cada valor para dar como <b>pago</b> — isso registra o aporte de verdade (entra no caixa). Aportes fora do plano aparecem como linhas <span className="text-emerald-500">avulso</span>. </>}
+                            <>Clique em qualquer <span className="text-emerald-400 font-bold">valor verde</span> para <b>corrigir</b> o valor ou a data daquele aporte. </>
                             {temDespesaRow && <>As linhas <span className="text-amber-500/90">em despesas</span> são as compras e as <b>taxas do terreno</b> que o sócio pagou do próprio bolso (também contam como aporte) — some o mês inteiro; para mexer, vá na aba <b>Despesas</b> ou <b>Terreno</b>.</>}
                         </p>
                     )}
