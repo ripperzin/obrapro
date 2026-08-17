@@ -4,7 +4,7 @@ import { Project, AportePlan, AporteParcela } from '../types';
 import { formatCurrency, formatCurrencyAbbrev, generateId } from '../utils';
 import { generateAporteSchedule, buildAporteMatrix, labelMesAporte } from '../utils/aportePlan';
 import { openAttachment } from '../utils/storage';
-import { useAddContribution, useDeleteContribution } from '../hooks/useAportes';
+import { useAddContribution, useDeleteContribution, useUpdateContribution } from '../hooks/useAportes';
 import AttachmentUpload from './AttachmentUpload';
 import { useToast } from './ToastProvider';
 import { useConfirm } from './ConfirmProvider';
@@ -35,6 +35,9 @@ interface ConfirmCell {
     date: string;
     planned: number;
     attachment?: string;   // comprovante do aporte (opcional)
+    // Preenchido = estamos CORRIGINDO um aporte que já existe (não criando).
+    // Nesse modo a janela só mexe em valor e data; o comprovante fica como está.
+    contribId?: string;
 }
 
 const inputCls = 'bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm focus:border-blue-500 focus:outline-none';
@@ -47,6 +50,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
     const confirm = useConfirm();
     const addContribution = useAddContribution();
     const deleteContribution = useDeleteContribution();
+    const updateContribution = useUpdateContribution();
 
     const [plan, setPlan] = useState<AportePlan>(project.aportePlan || { parcelas: [] });
     const [dirty, setDirty] = useState(false);
@@ -129,6 +133,24 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
         });
     };
 
+    // Clique no VALOR de uma célula já paga: corrigir o aporte real (valor/data).
+    // O caminho antigo pra acertar um valor errado era desfazer e lançar de novo.
+    const pedirCorrecao = (parcela: AporteParcela, s: SocioCol) => {
+        if (dirty) { toast.info('Salve o cronograma antes de corrigir aportes.'); return; }
+        const contribId = parcela.paidContrib?.[s.investorId];
+        if (!contribId) return;
+        const real = contribById.get(contribId);
+        setConfirmCell({
+            parcelaId: parcela.id,
+            investorId: s.investorId,
+            socioName: s.name,
+            value: String(real?.value ?? parcela.values?.[s.investorId] ?? ''),
+            date: real?.date || parcela.date,
+            planned: parcela.values?.[s.investorId] || 0,
+            contribId,
+        });
+    };
+
     // Confirmou na janela: cria o aporte real (caixa/extrato) e liga na parcela.
     const confirmarPago = async () => {
         if (!confirmCell || busy) return;
@@ -137,6 +159,14 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
         if (!confirmCell.date) { toast.error('Informe a data do aporte.'); return; }
         setBusy(true);
         try {
+            // Modo CORREÇÃO: o aporte já existe, só acerta valor/data. Não cria
+            // nada novo e não toca na ligação com a parcela nem no comprovante.
+            if (confirmCell.contribId) {
+                await updateContribution.mutateAsync({ id: confirmCell.contribId, value, date: confirmCell.date });
+                toast.success('Aporte corrigido');
+                setConfirmCell(null);
+                return;
+            }
             const c: any = await addContribution.mutateAsync({
                 projectId: project.id,
                 investorId: confirmCell.investorId,
@@ -150,7 +180,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
             onUpdate?.(project.id, { aportePlan: { parcelas: next } });
             setConfirmCell(null);
         } catch (e: any) {
-            toast.error('Erro ao registrar o aporte: ' + (e?.message || e));
+            toast.error((confirmCell.contribId ? 'Erro ao corrigir o aporte: ' : 'Erro ao registrar o aporte: ') + (e?.message || e));
         } finally {
             setBusy(false);
         }
@@ -298,10 +328,16 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                                         <div className="flex items-center justify-end gap-1.5">
                                                             {dirty ? (
                                                                 <input type="number" min={0} value={val || ''} placeholder="0" onChange={(e) => setValue(p.id, s.investorId, parseFloat(e.target.value) || 0)} className={`${inputCls} w-24 text-right`} />
-                                                            ) : (
-                                                                <span className={paid ? 'text-emerald-400 font-bold' : 'text-slate-300'}>
+                                                            ) : paid ? (
+                                                                /* Pago: o valor é CLICÁVEL pra corrigir (era desfazer + lançar de novo). */
+                                                                <button onClick={() => pedirCorrecao(p, s)} disabled={busy} title="Corrigir valor ou data deste aporte"
+                                                                    className="text-emerald-400 font-bold hover:text-emerald-300 hover:underline decoration-dotted underline-offset-2">
                                                                     {mostrado > 0 ? formatCurrencyAbbrev(mostrado) : '—'}
                                                                     {difere && <span className="block text-[9px] font-normal text-slate-500">plan. {formatCurrencyAbbrev(val)}</span>}
+                                                                </button>
+                                                            ) : (
+                                                                <span className="text-slate-300">
+                                                                    {mostrado > 0 ? formatCurrencyAbbrev(mostrado) : '—'}
                                                                 </span>
                                                             )}
                                                             {!dirty && paid && !!cell?.anexos.length && (
@@ -373,7 +409,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                     {dirty && <p className="text-[11px] text-amber-400 font-bold text-right">Salve para poder dar baixa nos aportes.</p>}
                     {!dirty && (
                         <p className="text-[10px] text-slate-500 leading-snug">
-                            {parcelas.length > 0 && <>Clique no ✓ de cada valor para dar como <b>pago</b> — isso registra o aporte de verdade (entra no caixa). Aportes fora do plano aparecem como linhas <span className="text-emerald-500">avulso</span>. </>}
+                            {parcelas.length > 0 && <>Clique no ✓ de cada valor para dar como <b>pago</b> — isso registra o aporte de verdade (entra no caixa). Já pago? Clique no <span className="text-emerald-400 font-bold">valor verde</span> pra <b>corrigir</b> o valor ou a data. Aportes fora do plano aparecem como linhas <span className="text-emerald-500">avulso</span>. </>}
                             {temDespesaRow && <>As linhas <span className="text-amber-500/90">em despesas</span> são as compras e as <b>taxas do terreno</b> que o sócio pagou do próprio bolso (também contam como aporte) — some o mês inteiro; para mexer, vá na aba <b>Despesas</b> ou <b>Terreno</b>.</>}
                         </p>
                     )}
@@ -393,7 +429,8 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                 <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4" onClick={() => !busy && setConfirmCell(null)}>
                     <div className="glass rounded-2xl border border-slate-700 w-full max-w-sm p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
                         <h4 className="font-black text-white text-lg flex items-center gap-2">
-                            <i className="fa-solid fa-hand-holding-dollar text-emerald-400"></i> Registrar aporte
+                            <i className={`fa-solid ${confirmCell.contribId ? 'fa-pen-to-square text-blue-400' : 'fa-hand-holding-dollar text-emerald-400'}`}></i>
+                            {confirmCell.contribId ? 'Corrigir aporte' : 'Registrar aporte'}
                         </h4>
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Sócio</p>
@@ -420,15 +457,23 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                 Diferente do planejado ({formatCurrency(confirmCell.planned)}). O plano continua igual; entra o valor real.
                             </p>
                         )}
-                        <div>
-                            <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Comprovante (opcional)</label>
-                            <AttachmentUpload
-                                value={confirmCell.attachment}
-                                onChange={(url) => setConfirmCell((c) => (c ? { ...c, attachment: url } : c))}
-                                bucketName="expense-attachments"
-                            />
-                        </div>
-                        <p className="text-[11px] text-slate-500 leading-snug">Ao confirmar, o aporte entra no <b>caixa da obra</b>.</p>
+                        {/* Corrigindo: o comprovante que já está lá fica como está (não
+                            mexemos pra não apagar sem querer). Só valor e data. */}
+                        {!confirmCell.contribId && (
+                            <div>
+                                <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Comprovante (opcional)</label>
+                                <AttachmentUpload
+                                    value={confirmCell.attachment}
+                                    onChange={(url) => setConfirmCell((c) => (c ? { ...c, attachment: url } : c))}
+                                    bucketName="expense-attachments"
+                                />
+                            </div>
+                        )}
+                        <p className="text-[11px] text-slate-500 leading-snug">
+                            {confirmCell.contribId
+                                ? <>O <b>caixa da obra</b> e o total do sócio se ajustam sozinhos. O comprovante continua o mesmo.</>
+                                : <>Ao confirmar, o aporte entra no <b>caixa da obra</b>.</>}
+                        </p>
                         <div className="flex gap-2">
                             <button onClick={() => setConfirmCell(null)} disabled={busy}
                                 className="flex-1 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-300 hover:text-white font-black text-sm">
@@ -437,7 +482,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                             <button onClick={confirmarPago} disabled={busy}
                                 className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-black text-sm flex items-center justify-center gap-2">
                                 {busy ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-check"></i>}
-                                {busy ? 'Salvando…' : 'Confirmar'}
+                                {busy ? 'Salvando…' : confirmCell.contribId ? 'Salvar correção' : 'Confirmar'}
                             </button>
                         </div>
                     </div>

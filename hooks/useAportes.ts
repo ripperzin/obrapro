@@ -95,6 +95,25 @@ export const useAddContribution = () => {
     });
 };
 
+// Corrigir um aporte JÁ lançado (valor e/ou data). Antes só existia lançar e
+// apagar: pra acertar um valor digitado errado o usuário tinha que desfazer e
+// lançar de novo. Pedido dos sócios da LARANJAIS na validação de 17/08.
+// Não mexe em comprovante nem em quem aportou — só no valor e na data.
+export const useUpdateContribution = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (input: { id: string; value: number; date: string }) => {
+            const { error } = await supabase
+                .from('contributions')
+                .update({ value: input.value, date: input.date })
+                .eq('id', input.id);
+            if (error) throw error;
+            return input.id;
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+    });
+};
+
 export const useDeleteContribution = () => {
     const queryClient = useQueryClient();
     return useMutation({
