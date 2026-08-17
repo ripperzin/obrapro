@@ -347,24 +347,58 @@ const App: React.FC = () => {
     const uid = currentUser?.id;
     if (!uid) { setMyRoles({}); setOwnerPlans({}); return; }
     let cancel = false;
+    // Insiste igual ao plano abaixo: aqui a falha é PIOR de silenciosa, porque
+    // "cargo desconhecido = vê tudo" — um apontador com essa chamada falhada
+    // enxergaria o dinheiro da obra a sessão inteira.
     (async () => {
-      const { data, error } = await supabase
-        .from('project_members').select('project_id, role').eq('user_id', uid);
-      if (cancel || error || !data) return;
-      const map: MyRoles = {};
-      for (const r of data as { project_id: string; role: string }[]) map[r.project_id] = r.role as ProjectRole;
-      setMyRoles(map);
-    })();
-    // Plano do dono de cada obra (SECURITY DEFINER). Se falhar, o app cai no plano
-    // do próprio usuário (ownerPlans vazio) — degradação segura, nunca quebra.
-    (async () => {
-      const { data, error } = await supabase.rpc('project_owner_plans');
-      if (cancel || error || !data) return;
-      const map: Record<string, PlanId> = {};
-      for (const r of data as { project_id: string; plan: string; trial_until: string | null }[]) {
-        map[r.project_id] = effectivePlan(r.plan, r.trial_until);
+      for (let n = 1; n <= 4 && !cancel; n++) {
+        const { data, error } = await supabase
+          .from('project_members').select('project_id, role').eq('user_id', uid);
+        if (cancel) return;
+        if (!error && data && (data.length > 0 || n === 4)) {
+          const map: MyRoles = {};
+          for (const r of data as { project_id: string; role: string }[]) map[r.project_id] = r.role as ProjectRole;
+          setMyRoles(map);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 700 * n));
       }
-      setOwnerPlans(map);
+    })();
+    // Plano do dono de cada obra (SECURITY DEFINER): é o que faz o MEMBRO usar as
+    // features do plano do dono DENTRO da obra dele.
+    //
+    // ⚠️ Isto tem que insistir. Era uma tentativa só, e uma falha de rede (ou uma
+    // resposta vazia porque o token ainda não tinha entrado) deixava `ownerPlans`
+    // vazio pro RESTO DA SESSÃO — o membro caía no plano dele (free) e batia em
+    // cadeado de plano dentro da obra do patrão. Foi o que pegou o Davidson em
+    // 17/08 na aba Orçamento > "Por item". Nunca aparecia pro dono da obra, porque
+    // pra ele o plano do dono é o próprio plano.
+    (async () => {
+      const CACHE = `owner_plans_${uid}`;
+      // Começa com o que já funcionou na última vez (vale até offline). A resposta
+      // fresca sobrescreve em seguida, então trocar de plano continua valendo.
+      try {
+        const cached = localStorage.getItem(CACHE);
+        if (cached && !cancel) setOwnerPlans(JSON.parse(cached));
+      } catch { /* cache podre: ignora */ }
+
+      const TENTATIVAS = 4;
+      for (let n = 1; n <= TENTATIVAS && !cancel; n++) {
+        const { data, error } = await supabase.rpc('project_owner_plans');
+        if (cancel) return;
+        // Lista vazia também é suspeita (quem está numa obra tem ao menos 1 linha),
+        // então só aceitamos vazio na última tentativa — aí é mesmo alguém sem obra.
+        if (!error && data && (data.length > 0 || n === TENTATIVAS)) {
+          const map: Record<string, PlanId> = {};
+          for (const r of data as { project_id: string; plan: string; trial_until: string | null }[]) {
+            map[r.project_id] = effectivePlan(r.plan, r.trial_until);
+          }
+          setOwnerPlans(map);
+          try { localStorage.setItem(CACHE, JSON.stringify(map)); } catch { /* sem espaço: segue */ }
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 700 * n)); // 0,7s · 1,4s · 2,1s
+      }
     })();
     return () => { cancel = true; };
   }, [currentUser?.id]);
