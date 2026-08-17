@@ -10,13 +10,17 @@ interface SidebarProps {
   setActiveTab: (tab: 'projects' | 'general' | 'users' | 'audit' | 'owner' | 'export' | 'team') => void;
   onLogout: () => void;
   onTriggerAI?: () => void;
+  // Só CONVIDADO (está nas obras de outros, não tem obra própria): não é ele que
+  // assina plano nenhum. Ler "Seu plano: Grátis" com tudo funcionando dentro da
+  // obra do dono só confunde — e faz a pessoa nem tentar usar o recurso.
+  soConvidado?: boolean;
 }
 
 // Barra lateral (desktop) = TRILHO DE ÍCONES sempre visível. Recolhida mostra só
 // os ícones (w-16); ao passar o mouse ela abre (w-64) e revela os nomes. O rótulo
 // e os textos só "acendem" no hover (opacity), o ícone fica sempre à mostra. O
 // conteúdo reserva 64px à esquerda (main md:pl-16) pra não ficar embaixo do trilho.
-const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogout, soConvidado }) => {
   const { ent, openUpgrade } = usePlan();
   const NavItem = ({ id, icon, label }: { id: typeof activeTab; icon: string; label: string }) => (
     <button
@@ -58,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
         {/* Selo do plano. O dono do app (admin) não tem "plano de venda", então
             pra ele não mostramos nada; o cliente vê o nome do plano dele. O bloco
             de texto só acende no hover (recolhido = trilho de ícones). */}
-        {role !== UserRole.ADMIN && (
+        {role !== UserRole.ADMIN && !soConvidado && (
           <div className="pt-4 border-t border-slate-800 space-y-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <div className="flex items-center justify-between px-4">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">

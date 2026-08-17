@@ -750,8 +750,21 @@ const App: React.FC = () => {
   //   2) o caminho das "Obras" não passava onUpdateDiary — o diário não salvava.
   // Montando aqui, os dois caminhos são iguais por construção: não dá pra um
   // esquecer o que o outro tem. Quem mexer aqui muda os dois de uma vez.
+  // Convidado NESTA obra = o app sabe que o cargo dele aqui é gestor/apontador
+  // (quem é dono não tem cargo de convidado). Se o cargo não chegou, tratamos
+  // como NÃO convidado — errar pro lado de mostrar a vitrine é melhor que
+  // esconder a venda de um cliente de verdade.
+  const cargoNaObra = selectedProject ? myRoles[selectedProject.id] : undefined;
+  const souConvidadoNaObra = !!cargoNaObra && cargoNaObra !== 'owner';
+
+  // SÓ convidado = tem cargo em alguma obra e em NENHUMA delas é dono (o sócio
+  // que o cliente convidou). Não assina plano, então não vê selo de plano nem
+  // botão de vitrine. Mapa de cargos vazio (não chegou) = não convidado.
+  const cargosDoUsuario = Object.values(myRoles);
+  const soConvidado = cargosDoUsuario.length > 0 && !cargosDoUsuario.includes('owner');
+
   const obraAberta = selectedProject ? (
-    <PlanProvider user={currentUser} planOverride={ownerPlans[selectedProject.id]}>
+    <PlanProvider user={currentUser} planOverride={ownerPlans[selectedProject.id]} convidado={souConvidadoNaObra}>
       <ProjectDetail
         project={selectedProject}
         user={currentUser}
@@ -777,6 +790,7 @@ const App: React.FC = () => {
     }>
       <div className="flex h-[100dvh] overflow-hidden bg-slate-900 font-sans fixed inset-0">
         <Sidebar
+          soConvidado={soConvidado}
           role={currentUser.role}
           activeTab={activeTab}
           setActiveTab={(tab) => { setActiveTab(tab); setSelectedProjectId(null); }}
@@ -918,6 +932,7 @@ const App: React.FC = () => {
         </main>
 
         <MobileNav
+          soConvidado={soConvidado}
           role={currentUser.role}
           activeTab={activeTab}
           setActiveTab={(tab) => { setActiveTab(tab); setSelectedProjectId(null); }}

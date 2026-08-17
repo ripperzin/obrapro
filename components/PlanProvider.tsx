@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 import { User, PlanId } from '../types';
 import { Entitlements, entitlementsFor } from '../hooks/useEntitlements';
 import UpgradeModal, { UpgradeFeature } from './UpgradeModal';
+import { useToast } from './ToastProvider';
 
 /**
  * Entrega o plano do usuário para o app inteiro e é dono do convite de upgrade.
@@ -31,10 +32,22 @@ export const usePlan = (): PlanContextValue => {
 // plano do DONO dela — assim o funcionário (free) usa as features do plano do
 // patrão DENTRO da obra, sem herdar features de conta (equipe/copiloto), que
 // ficam no provider global (plano do próprio usuário).
-export const PlanProvider: React.FC<{ user: User | null; planOverride?: PlanId; children: React.ReactNode }> = ({ user, planOverride, children }) => {
+// convidado: a pessoa está na obra de OUTRO (cargo gestor/apontador), não é ela
+// que assina o plano. Pra ela a vitrine de preço não faz sentido nenhum — quem
+// contrata é o dono da obra. Em vez do modal de venda, leva um aviso curto
+// dizendo com quem falar. (Pegou o Davidson em 17/08: sócio convidado recebeu
+// oferta de "plano Completo R$ 99/mês" dentro da obra do Victor.)
+export const PlanProvider: React.FC<{ user: User | null; planOverride?: PlanId; convidado?: boolean; children: React.ReactNode }> = ({ user, planOverride, convidado, children }) => {
   const [feature, setFeature] = useState<UpgradeFeature | null>(null);
+  const toast = useToast();
 
-  const openUpgrade = useCallback((f: UpgradeFeature) => setFeature(f), []);
+  const openUpgrade = useCallback((f: UpgradeFeature) => {
+    if (convidado) {
+      toast.info('Esse recurso não está liberado nesta obra. Fale com o responsável por ela.');
+      return;
+    }
+    setFeature(f);
+  }, [convidado, toast]);
 
   const value = useMemo<PlanContextValue>(
     () => ({ ent: entitlementsFor(planOverride ?? user?.plan), openUpgrade }),
@@ -44,7 +57,7 @@ export const PlanProvider: React.FC<{ user: User | null; planOverride?: PlanId; 
   return (
     <PlanContext.Provider value={value}>
       {children}
-      {feature && <UpgradeModal feature={feature} currentPlan={value.ent.plan} onClose={() => setFeature(null)} />}
+      {feature && !convidado && <UpgradeModal feature={feature} currentPlan={value.ent.plan} onClose={() => setFeature(null)} />}
     </PlanContext.Provider>
   );
 };

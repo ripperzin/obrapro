@@ -7,9 +7,11 @@ interface MobileNavProps {
     setActiveTab: (tab: 'projects' | 'general' | 'users' | 'audit' | 'owner' | 'export' | 'team') => void;
     onLogout: () => void;
     onTriggerAI?: () => void;
+    // Só convidado (está nas obras de outros): não assina plano, não vê "Meu plano".
+    soConvidado?: boolean;
 }
 
-const MobileNav: React.FC<MobileNavProps> = ({ role, activeTab, setActiveTab, onLogout }) => {
+const MobileNav: React.FC<MobileNavProps> = ({ role, activeTab, setActiveTab, onLogout, soConvidado }) => {
     const { ent, openUpgrade } = usePlan();
     const NavItem = ({ id, icon, label }: { id: typeof activeTab; icon: string; label: string }) => (
         <button
@@ -44,7 +46,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ role, activeTab, setActiveTab, on
             {/* Só no Grátis: a barra de baixo tem pouco espaço, então o convite
                 só ocupa um lugar aqui quando leva a algum lugar. Quem já paga
                 (Completo/Construtora) não precisa do convite. */}
-            {ent.isFree && (
+            {ent.isFree && !soConvidado && (
                 <button
                     onClick={() => openUpgrade('geral')}
                     className="flex flex-col items-center justify-center space-y-1 p-2 text-amber-400 hover:text-amber-300 transition-colors"
