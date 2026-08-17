@@ -412,11 +412,10 @@ const App: React.FC = () => {
         userName: currentUser?.login || 'Usuário'
       });
     } catch (error: any) {
-      if (error.message.includes('Load failed') || error.message.includes('Failed to fetch')) {
-        console.warn('Operação salva offline (erro de rede suprimido):', error.message);
-      } else {
-        alert('Erro ao adicionar projeto: ' + error.message);
-      }
+      // O aviso na tela quem dá é o useOfflineMutation (ponto único de todas as
+      // gravações), com a cara do app. Aqui só registra pra depuração — antes
+      // saía um alert() cinza do navegador POR CIMA do toast.
+      console.warn('Falha ao adicionar projeto (avisada pelo toast):', error.message);
     }
   };
 
@@ -457,11 +456,12 @@ const App: React.FC = () => {
         user: currentUser ? { id: currentUser.id, name: currentUser.login! } : undefined
       });
     } catch (error: any) {
+      // Idem: o toast do useOfflineMutation já avisou na tela (é por aqui que
+      // passa DESPESA, aporte e tudo que edita a obra). Aqui só o registro.
       if (error.message.includes('Load failed') || error.message.includes('Failed to fetch')) {
         console.warn('Operação salva offline (erro de rede suprimido):', error.message);
       } else {
-        console.error('Erro ao atualizar projeto:', error);
-        alert('Erro ao atualizar projeto: ' + error.message);
+        console.error('Erro ao atualizar projeto (avisado pelo toast):', error);
       }
     }
   };
@@ -572,8 +572,8 @@ const App: React.FC = () => {
       if (error.message.includes('Load failed') || error.message.includes('Failed to fetch')) {
         console.warn('Operação salva offline (erro de rede suprimido):', error.message);
       } else {
-        console.error('Erro ao excluir projeto:', error);
-        alert('Erro ao excluir projeto: ' + error.message);
+        // Aviso na tela: toast do useOfflineMutation. Aqui só o registro.
+        console.error('Erro ao excluir projeto (avisado pelo toast):', error);
       }
     }
   };
