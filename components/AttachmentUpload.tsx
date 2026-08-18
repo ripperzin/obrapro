@@ -41,6 +41,16 @@ const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
         }
 
         setError(null);
+
+        // A foto vai pro servidor NA HORA (não passa pela fila offline, ao
+        // contrário da despesa). Sem sinal não sobe — e o erro que aparecia era
+        // "Load failed", em inglês e sem dizer o que fazer. Avisamos antes de
+        // tentar, deixando claro que dá pra lançar agora e anexar depois.
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            setError('Sem internet: a foto não sobe agora. Lance a despesa assim mesmo e anexe o comprovante quando o sinal voltar.');
+            return;
+        }
+
         setUploading(true);
 
         try {
@@ -78,7 +88,13 @@ const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
             onChange(filePath);
         } catch (err: any) {
             console.error('Erro no upload:', err);
-            setError(err.message || 'Erro ao fazer upload');
+            // "Load failed" (Safari) / "Failed to fetch" (Chrome) = caiu a rede no
+            // meio do envio. Traduz em vez de mostrar o inglês do navegador.
+            const msg = String(err?.message || '');
+            const semRede = /Load failed|Failed to fetch|NetworkError|network/i.test(msg);
+            setError(semRede
+                ? 'A internet caiu no meio do envio. Lance a despesa assim mesmo e anexe o comprovante quando o sinal voltar.'
+                : (msg || 'Erro ao fazer upload'));
         } finally {
             setUploading(false);
         }

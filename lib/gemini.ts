@@ -58,6 +58,11 @@ const friendlyError = (error: any): string => {
     if (msg.includes('Load failed') || (msg.includes('fetch') && !msg.includes('fetching'))) {
         return 'Falha na conexão com o servidor. Verifique sua internet e tente novamente.';
     }
+    // Mensagem do Supabase quando não consegue nem falar com a função do servidor
+    // (tipicamente sem sinal). Sem isto vazava em inglês pro usuário na obra.
+    if (msg.includes('Failed to send a request') || msg.includes('Edge Function')) {
+        return 'Não consegui falar com o servidor de leitura. Se estiver sem sinal, digite os valores e deixe o comprovante pra depois.';
+    }
     return `Erro ao analisar: ${msg}`;
 };
 
@@ -67,6 +72,13 @@ const friendlyError = (error: any): string => {
  * que chama o Gemini no servidor (a chave de IA nunca é exposta no app).
  */
 export const parseReceiptImage = async (imageBase64: string): Promise<ReceiptData> => {
+    // Ler o comprovante acontece no SERVIDOR (a chave de IA nunca vai pro app),
+    // então sem internet não tem como. Avisamos ANTES de tentar: o erro cru que
+    // aparecia era "Failed to send a request to the Edge Function" — em inglês,
+    // sem explicação e sem saída (pegou o Victor no teste de modo avião, 18/08).
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        throw new Error('Sem internet: a leitura automática do comprovante precisa de conexão. Digite os valores e anexe a foto quando o sinal voltar.');
+    }
     try {
         const compressed = await compressImage(imageBase64);
 
