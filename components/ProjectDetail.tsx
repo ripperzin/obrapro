@@ -1039,7 +1039,12 @@ const ExpensesSection: React.FC<{
         onClose={() => handleSetShowAdd(false)}
         onSave={(exp) => {
           onAddExpense(exp);
-          toast.success('Despesa lançada');
+          // Sem sinal, NAO diga "lançada": ela está só no aparelho e sobe depois.
+          // O Victor leu "Despesa lançada" num lançamento offline, achou que tinha
+          // subido, e o banco não tinha nada (18/08). O aviso tem que separar as
+          // duas coisas — é o que faz o usuário conferir depois em vez de confiar.
+          if (navigator.onLine) toast.success('Despesa lançada');
+          else toast.info('Despesa salva NO APARELHO. Ela sobe sozinha quando a internet voltar — confira depois.');
           handleSetShowAdd(false);
         }}
         macros={projectMacros}

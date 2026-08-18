@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, onlineManager } from '@tanstack/react-query';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { PersistQueryClientOptions } from '@tanstack/react-query-persist-client';
 import { get, set, del, clear as idbClear } from 'idb-keyval';
@@ -196,3 +196,33 @@ export const limparFilaGravada = async (): Promise<void> => {
     try { await idbClear(); }
     catch (e) { console.error('[fila] limpar o depósito falhou:', e); }
 };
+
+// ============================================================================
+// FILA PAUSADA QUE NÃO RETOMA (armadilha do celular)
+// ============================================================================
+// A fila é SERIAL (scope 'projects': uma gravação por vez, em ordem). Enquanto o
+// React Query achar que está offline, ela fica pausada — e tudo que estiver atrás
+// espera. O problema: ele descobre que a internet voltou só pelo evento 'online'
+// do navegador, e no celular o app pode ficar suspenso e voltar pra frente SEM
+// receber esse evento (o usuário desliga o modo avião com o app em segundo
+// plano). Resultado: fila pausada pra sempre, com sinal, e a tela mostrando o
+// lançamento como se estivesse salvo.
+//
+// Foi o que engoliu o teste de 18/08: R$ 200 lançados offline, "voltei online e
+// estava lá" — e no banco não havia nada. Era a cópia local da tela.
+//
+// Aqui, sempre que o app volta pra frente, alinhamos a crença com a realidade.
+// Quando isso vira `true`, o próprio React Query retoma a fila pausada.
+const alinharEstadoDaRede = () => {
+    const online = navigator.onLine;
+    if (onlineManager.isOnline() !== online) onlineManager.setOnline(online);
+    else if (online) queryClient.resumePausedMutations();  // já se achava online: empurra a fila
+};
+
+if (typeof window !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') alinharEstadoDaRede();
+    });
+    window.addEventListener('focus', alinharEstadoDaRede);
+    window.addEventListener('pageshow', alinharEstadoDaRede);   // volta do cache do Safari
+}
