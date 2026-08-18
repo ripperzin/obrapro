@@ -3,6 +3,7 @@ import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useToast } from './ToastProvider';
 import { useConfirm } from './ConfirmProvider';
+import { asyncPersister } from '../lib/react-query';
 
 export const SyncStatus: React.FC = () => {
     const isOnline = useOnlineStatus();
@@ -40,14 +41,26 @@ export const SyncStatus: React.FC = () => {
     const handleClearQueue = async () => {
         const shouldClear = await confirm({
             title: 'Limpar a fila?',
-            message: `Tem certeza que deseja LIMPAR a fila de sincronização?\n\nIsso removerá todas as alterações locais pendentes e elas não serão salvas no banco de dados.`,
+            message: `Isso descarta TODAS as alterações que ainda não subiram — elas não serão salvas no banco, e não tem como voltar.
+
+O app vai recarregar e buscar os dados do servidor de novo.`,
             confirmText: 'Sim, limpar',
         });
 
         if (shouldClear) {
             queryClient.getMutationCache().clear();
             setIsOpen(false);
-            toast.success('Fila limpa com sucesso. Atualizando...');
+            // A fila NAO vive so na memoria: ela e gravada no aparelho (e o que faz
+            // o lancamento sobreviver a fechar o app). Recarregar na hora fazia o
+            // app RESTAURAR a fila velha do disco - por isso "limpar" nao limpava
+            // nada, nem online nem offline. Apagamos o registro gravado e SO
+            // ENTAO recarregamos.
+            try {
+                await asyncPersister.removeClient();
+            } catch (e) {
+                console.error('[SyncStatus] Nao consegui apagar a fila gravada:', e);
+            }
+            toast.success('Fila limpa. Atualizando...');
             window.location.reload();
         }
     };

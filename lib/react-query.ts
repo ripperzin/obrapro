@@ -139,7 +139,9 @@ queryClient.setMutationDefaults(['deleteDiaryEntry'], {
 // PERSISTER CONFIGURATION
 // ============================================================================
 
-const asyncPersister = createAsyncStoragePersister({
+// Exportado porque o painel de sincronização precisa APAGAR o registro gravado
+// ao limpar a fila — sem isso o app restaura a fila velha no próximo arranque.
+export const asyncPersister = createAsyncStoragePersister({
     storage: {
         getItem: async (key) => {
             const val = await get(key);
