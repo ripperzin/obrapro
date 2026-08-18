@@ -3,7 +3,7 @@ import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useToast } from './ToastProvider';
 import { useConfirm } from './ConfirmProvider';
-import { asyncPersister } from '../lib/react-query';
+import { limparFilaGravada } from '../lib/react-query';
 
 export const SyncStatus: React.FC = () => {
     const isOnline = useOnlineStatus();
@@ -55,11 +55,7 @@ O app vai recarregar e buscar os dados do servidor de novo.`,
             // app RESTAURAR a fila velha do disco - por isso "limpar" nao limpava
             // nada, nem online nem offline. Apagamos o registro gravado e SO
             // ENTAO recarregamos.
-            try {
-                await asyncPersister.removeClient();
-            } catch (e) {
-                console.error('[SyncStatus] Nao consegui apagar a fila gravada:', e);
-            }
+            await limparFilaGravada();
             toast.success('Fila limpa. Atualizando...');
             window.location.reload();
         }
@@ -218,7 +214,8 @@ O app vai recarregar e buscar os dados do servidor de novo.`,
                             <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800 max-h-36 overflow-y-auto space-y-2">
                                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Lista de Envios ({pending.length})</p>
                                 {pending.map((m, idx) => (
-                                    <div key={idx} className="flex justify-between items-center text-[10px] text-slate-300 bg-slate-900/40 p-1.5 rounded border border-slate-800">
+                                    <div key={idx} className="flex flex-col gap-0.5 text-[10px] text-slate-300 bg-slate-900/40 p-1.5 rounded border border-slate-800">
+                                    <div className="flex justify-between items-center gap-2">
                                         <span className="font-bold truncate max-w-[160px]">
                                             {m.options.mutationKey?.join(' • ') || 'Operação local'}
                                         </span>
@@ -235,6 +232,14 @@ O app vai recarregar e buscar os dados do servidor de novo.`,
                                                 ? `Erro (x${m.state.failureCount})` 
                                                 : 'Enviando'}
                                         </span>
+                                    </div>
+                                        {/* MOTIVO do erro. Sem isto o painel dizia so "Erro (x3)" e
+                                            nao dava pra diagnosticar fila entupida sem o console. */}
+                                        {!!m.state.failureReason && (
+                                            <span className="text-[9px] text-red-300/80 leading-snug break-words">
+                                                {String((m.state.failureReason as { message?: string }).message || m.state.failureReason).slice(0, 140)}
+                                            </span>
+                                        )}
                                     </div>
                                 ))}
                             </div>

@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { PersistQueryClientOptions } from '@tanstack/react-query-persist-client';
-import { get, set, del } from 'idb-keyval';
+import { get, set, del, clear as idbClear } from 'idb-keyval';
 
 // Import standalone mutation functions for setMutationDefaults
 import {
@@ -176,3 +176,23 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
 };
 
 export { queryClient };
+
+/**
+ * Apaga DE VERDADE a fila de envio guardada no aparelho.
+ *
+ * A fila mora em duas camadas: memória (o cache do React Query) e disco
+ * (IndexedDB, que é o que a faz sobreviver a fechar o app). Limpar só a memória
+ * e recarregar não resolvia — o app restaurava a fila do disco no arranque, e o
+ * botão "Limpar fila" parecia não fazer nada.
+ *
+ * Aqui vai pelos dois caminhos de propósito: pede pro persistidor remover o
+ * registro dele E limpa o depósito inteiro. É cinto e suspensório porque o botão
+ * é usado justamente quando algo já está errado — não é hora de depender de um
+ * único caminho dar certo.
+ */
+export const limparFilaGravada = async (): Promise<void> => {
+    try { await asyncPersister.removeClient(); }
+    catch (e) { console.error('[fila] removeClient falhou:', e); }
+    try { await idbClear(); }
+    catch (e) { console.error('[fila] limpar o depósito falhou:', e); }
+};
