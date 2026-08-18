@@ -35,6 +35,7 @@ const QuickDiaryModal = lazy(() => import('./components/QuickDiaryModal'));
 const QuickUnitModal = lazy(() => import('./components/QuickUnitModal'));
 
 import { useNotifications } from './hooks/useNotifications';
+import { usePullToRefresh } from './hooks/usePullToRefresh';
 
 // Helper to parse investor route from hash
 const parseInvestorRoute = (): string | null => {
@@ -70,6 +71,11 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'projects' | 'general' | 'users' | 'audit' | 'owner' | 'export' | 'team'>((initialParams.get('view') as any) || 'general');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialParams.get('project') || null);
   const mainRef = useRef<HTMLElement | null>(null);
+  // Puxar pra baixo = buscar versão nova e recarregar (o app em tela cheia não
+  // tem o gesto do navegador, e a versão nova só entrava na abertura seguinte).
+  // Fica AQUI no topo de propósito: mais abaixo o componente tem saídas
+  // antecipadas (login, conta suspensa), e ganchos depois delas quebram o React.
+  const { puxada, recarregando, limite: limitePuxada } = usePullToRefresh(mainRef);
 
   // 0.1 Sync URL with State
   useEffect(() => {
@@ -799,6 +805,20 @@ const App: React.FC = () => {
         />
 
         <main ref={mainRef} className="flex-1 overflow-y-auto flex flex-col relative md:pl-16">
+          {/* Puxe para atualizar (celular). Fica preso no topo do conteúdo e
+              acompanha o dedo; ao soltar passado o limite, busca versão nova e
+              recarrega. Ver hooks/usePullToRefresh. */}
+          {(puxada > 0 || recarregando) && (
+            <div
+              className="absolute top-0 left-0 right-0 flex justify-center pointer-events-none z-40"
+              style={{ transform: `translateY(${Math.max(puxada - 26, 0)}px)` }}
+            >
+              <div className="mt-2 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-[11px] font-black text-slate-300 flex items-center gap-2 shadow-lg">
+                <i className={`fa-solid ${recarregando ? 'fa-spinner fa-spin' : puxada >= limitePuxada ? 'fa-arrow-rotate-right text-emerald-400' : 'fa-arrow-down'}`}></i>
+                {recarregando ? 'Atualizando…' : puxada >= limitePuxada ? 'Solte para atualizar' : 'Puxe para atualizar'}
+              </div>
+            </div>
+          )}
           <header className="flex justify-between items-center p-4 md:px-8 md:py-6 bg-slate-900/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-30 shadow-lg">
             <div className="flex flex-col gap-1">
               <h1 className="text-2xl font-bold text-white tracking-tight leading-tight">

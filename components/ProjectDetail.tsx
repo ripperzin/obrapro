@@ -29,6 +29,7 @@ import ResultadoEmpreendimento from './ResultadoEmpreendimento';
 import SociosSection from './SociosSection';
 import { computeProjectFinance, computeGastoAvancoVerdito, computeUnitResult } from '../utils/projectFinance';
 import { usePlan } from './PlanProvider';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useToast } from './ToastProvider';
 import { useConfirm } from './ConfirmProvider';
 
@@ -650,6 +651,20 @@ const UnitsSection: React.FC<{
     </div>
   );
 };
+// Cópia local das listas que a tela de despesa precisa pra CLASSIFICAR (etapas,
+// itens e o preset). Elas vinham só do servidor, sem cópia nenhuma: sem sinal a
+// lista chegava VAZIA e — como a etapa é obrigatória pra salvar — não dava pra
+// lançar despesa alguma. Toda a fila offline do app (que funciona) ficava
+// inalcançável, barrada num campo que dependia de internet. Achado no teste de
+// modo avião em 18/08, no primeiro dia de uso real na obra.
+const lerCache = <T,>(chave: string): T[] | null => {
+  try { const c = localStorage.getItem(chave); return c ? (JSON.parse(c) as T[]) : null; }
+  catch { return null; }   // cache podre: ignora e busca do servidor
+};
+const gravarCache = (chave: string, valor: unknown) => {
+  try { localStorage.setItem(chave, JSON.stringify(valor)); } catch { /* sem espaço: segue */ }
+};
+
 const ExpensesSection: React.FC<{
   project: Project,
   user: User,
@@ -684,6 +699,7 @@ const ExpensesSection: React.FC<{
   const [tempDescription, setTempDescription] = useState('');
   const { ent, openUpgrade } = usePlan();
   const toast = useToast();
+  const isOnline = useOnlineStatus();
 
   // Sync showAdd with URL action parameter for persistence across re-renders
   useEffect(() => {
@@ -774,8 +790,16 @@ const ExpensesSection: React.FC<{
     exportExpensesToXlsx(rows, project.name);
   };
 
-  // Buscar macros do projeto
+  // Buscar macros do projeto. Mostra a última lista conhecida NA HORA (é o que
+  // faz o lançamento funcionar sem sinal) e atualiza quando o servidor responde.
+  // `isOnline` nas dependências faz a tela se curar sozinha quando o sinal volta:
+  // antes buscava uma vez ao abrir e nunca mais, então voltar a internet não
+  // trazia as etapas de volta — só fechando e abrindo a obra.
   useEffect(() => {
+    const CHAVE = `cache_macros_${project.id}`;
+    const doCache = lerCache<ProjectMacro>(CHAVE);
+    if (doCache && doCache.length) setProjectMacros(doCache);
+
     const fetchMacros = async () => {
       try {
         // Buscar budget do projeto
@@ -793,7 +817,7 @@ const ExpensesSection: React.FC<{
             .order('display_order');
 
           if (macrosData) {
-            setProjectMacros(macrosData.map(m => ({
+            const lista: ProjectMacro[] = macrosData.map(m => ({
               id: m.id,
               budgetId: m.budget_id,
               name: m.name,
@@ -801,18 +825,29 @@ const ExpensesSection: React.FC<{
               estimatedValue: m.estimated_value,
               spentValue: m.spent_value || 0,
               displayOrder: m.display_order
-            })));
+            }));
+            setProjectMacros(lista);
+            gravarCache(CHAVE, lista);
           }
         }
       } catch (error) {
+        // Sem sinal cai aqui: seguimos com a cópia local carregada acima.
         console.error('Erro ao buscar macros:', error);
       }
     };
     fetchMacros();
-  }, [project.id, budgetRefreshKey]);
+  }, [project.id, budgetRefreshKey, isOnline]);
 
   // Itens da obra (lista plana) + preset item↔etapa (sugestões por etapa).
+  // Mesma cópia local das etapas: sem ela, offline o item também sumia.
   useEffect(() => {
+    const CHAVE_ITENS = `cache_itens_${project.id}`;
+    const CHAVE_PRESET = 'cache_template_stage_items';
+    const itensCache = lerCache<ProjectItem>(CHAVE_ITENS);
+    if (itensCache && itensCache.length) setProjectItems(itensCache);
+    const presetCache = lerCache<TemplateStageItem>(CHAVE_PRESET);
+    if (presetCache && presetCache.length) setStageItems(presetCache);
+
     const fetchItems = async () => {
       try {
         const { data: itemsData } = await supabase
@@ -821,12 +856,14 @@ const ExpensesSection: React.FC<{
           .eq('project_id', project.id)
           .order('display_order');
         if (itemsData) {
-          setProjectItems(itemsData.map(it => ({
+          const lista: ProjectItem[] = itemsData.map(it => ({
             id: it.id,
             projectId: project.id,
             name: it.name,
             displayOrder: it.display_order
-          })));
+          }));
+          setProjectItems(lista);
+          gravarCache(CHAVE_ITENS, lista);
         }
         // Preset do template padrão: quais itens são típicos de cada etapa.
         const { data: stageData } = await supabase
@@ -835,20 +872,23 @@ const ExpensesSection: React.FC<{
           .eq('template_id', '00000000-0000-0000-0000-000000000001')
           .order('display_order');
         if (stageData) {
-          setStageItems(stageData.map(s => ({
+          const preset: TemplateStageItem[] = stageData.map(s => ({
             macroName: s.macro_name,
             itemName: s.item_name,
             percentage: s.percentage,
             optional: s.optional,
             displayOrder: s.display_order
-          })));
+          }));
+          setStageItems(preset);
+          gravarCache(CHAVE_PRESET, preset);
         }
       } catch (error) {
+        // Sem sinal cai aqui: seguimos com a cópia local carregada acima.
         console.error('Erro ao buscar itens da obra:', error);
       }
     };
     fetchItems();
-  }, [project.id, itemsRefreshKey]);
+  }, [project.id, itemsRefreshKey, isOnline]);
 
   const isAdmin = canEditProject(user, project, myRole);
   // Apontador: LANÇA despesa, mas não vê dinheiro (valores/totais) nem edita.
