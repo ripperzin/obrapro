@@ -137,17 +137,33 @@ const App: React.FC = () => {
           return;
         }
 
-        // Validate session server-side to catch stale/invalid refresh tokens
-        // getUser() hits the auth server, unlike getSession() which only reads localStorage
+        // Confere a sessão no servidor pra pegar refresh token velho/revogado.
+        // getUser() vai na rede (getSession() só lê o armazenamento local).
         const { error: userError } = await supabase.auth.getUser();
 
         if (userError) {
-          console.warn('[Auth] Sessão expirada/inválida, forçando re-login:', userError.message);
-          await supabase.auth.signOut();
-          setSession(null);
-          setCurrentUser(null);
-          setAuthLoading(false);
-          return;
+          // ⚠️ Só derruba quando o SERVIDOR disse que o token não presta (401/403).
+          // Falta de rede NÃO é sessão inválida. O código antigo chamava signOut()
+          // em QUALQUER erro: no modo avião a conferência falhava, o app deslogava
+          // e APAGAVA a sessão — nem voltando o sinal dava pra entrar sem digitar
+          // a senha. Na obra sem sinal, abrir o app te jogava na tela de login.
+          // (Achado no teste de modo avião em 18/08, 1º dia de uso real.)
+          const status = (userError as { status?: number }).status;
+          const tokenRecusado = status === 401 || status === 403;
+
+          if (tokenRecusado) {
+            console.warn('[Auth] Sessão recusada pelo servidor, forçando re-login:', userError.message);
+            await supabase.auth.signOut();
+            setSession(null);
+            setCurrentUser(null);
+            setAuthLoading(false);
+            return;
+          }
+
+          // Sem rede (ou servidor fora do ar): segue com a sessão que já está no
+          // aparelho. O perfil cai no cache local logo abaixo, os dados vêm do
+          // cache do React Query e o que o usuário lançar entra na fila offline.
+          console.warn('[Auth] Não deu pra confirmar a sessão agora — seguindo com a sessão local:', userError.message);
         }
 
         setSession(session);
