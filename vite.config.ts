@@ -4,8 +4,19 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 
+// Carimbo da build (dia/hora de São Paulo), mostrado no cabeçalho do app.
+// Serve pra responder na hora "você está na versão nova?" — durante o teste na
+// obra a gente perdeu rodadas discutindo se era bug ou app desatualizado.
+const carimboDaBuild = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit',
+  hour: '2-digit', minute: '2-digit', hour12: false,
+}).format(new Date()).replace(',', '');
+
 export default defineConfig(() => {
   return {
+    define: {
+      __BUILD_ID__: JSON.stringify(carimboDaBuild),
+    },
     server: {
       port: 3000,
       host: true, // Listen on all addresses

@@ -27,7 +27,10 @@ function ReloadPrompt() {
     if (!modalRoot) return null;
 
     return ReactDOM.createPortal(
-        <div className="fixed bottom-0 right-0 p-4 z-[9999]">
+        // Topo-centro, igual aos avisos do app. Ficava no canto de BAIXO, bem em
+        // cima da barra de navegação do celular — o Victor passou 2 dias sem ver
+        // este aviso e testando a versão velha achando que era a nova (18/08).
+        <div className="fixed top-0 left-0 right-0 flex justify-center p-4 z-[9999] pointer-events-none [&>*]:pointer-events-auto">
             <div className="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-2xl flex flex-col gap-2 max-w-sm animate-fade-in-up">
                 <div className="text-white font-bold text-sm">
                     {offlineReady ? (

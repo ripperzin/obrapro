@@ -862,6 +862,13 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4">
+              {/* Versão que está rodando AGORA neste aparelho. Existe porque a
+                  versão nova só entra depois de aceitar a atualização, e durante
+                  o teste na obra a gente gastou rodadas discutindo se o problema
+                  era bug ou app desatualizado. Com isto, é só ler. */}
+              <span className="text-[9px] font-black tracking-widest text-slate-600 tabular-nums" title="Versão do app instalada neste aparelho">
+                {__BUILD_ID__}
+              </span>
               {/* Sync Status Indicator */}
               <SyncStatus />
 
