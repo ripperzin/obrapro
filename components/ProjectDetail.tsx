@@ -1954,8 +1954,16 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
   const handleAddExpense = (exp: Omit<Expense, 'id' | 'userId' | 'userName'>) => {
     const newExpense = { ...exp, id: generateId(), userId: user.id, userName: user.login };
-    onUpdate(project.id, { expenses: [...project.expenses, newExpense] });
-    logChange('Inclusão', 'Despesa', '-', exp.description);
+    // Despesa + registro de auditoria na MESMA gravação. Antes eram duas (onUpdate
+    // e logChange), e UM lançamento virava "2 pendências" na fila — que é serial,
+    // então cada gravação a mais é mais uma chance de entupir e mais uma coisa pra
+    // travar sem sinal. O mutationFn já grava expenses e logs na mesma passada.
+    const log = {
+      id: generateId(), timestamp: new Date().toISOString(),
+      userId: user.id, userName: user.login,
+      action: 'Inclusão', field: 'Despesa', oldValue: '-', newValue: exp.description,
+    };
+    onUpdate(project.id, { expenses: [...project.expenses, newExpense], logs: [...project.logs, log] });
     maybeSuggestStageAdvance(exp.macroId);
   };
 
