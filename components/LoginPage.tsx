@@ -14,6 +14,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Duas telas no mesmo lugar: entrar e criar conta. O cadastro pede APELIDO
+  // separado do e-mail de propósito — o apelido é o que a pessoa vai digitar
+  // todo dia no celular, e derivar do e-mail dá resultado ruim (um
+  // financeiro@construtora.com.br viraria o login "financeiro", que colide com
+  // o próximo cliente igual).
+  const [modo, setModo] = useState<'entrar' | 'criar'>('entrar');
+  const [nome, setNome] = useState('');
+  const [apelido, setApelido] = useState('');
+  const [emailNovo, setEmailNovo] = useState('');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -52,23 +62,39 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setLoading(false);
   };
 
+  // Criar conta. Vai pela função `signup` do servidor (e não pelo cadastro
+  // comum) por dois motivos: o apelido é validado ANTES da conta nascer — a
+  // pessoa recebe "esse apelido já existe" em vez de virar "joao2" sem saber —
+  // e a conta já nasce valendo, sem depender de e-mail de confirmação chegar.
+  // Antes daqui, o cadastro criava a conta e a pessoa NUNCA conseguia entrar.
   const handleSignUp = async () => {
     setLoading(true);
     setError(null);
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('signup', {
+        body: { login: apelido.trim(), email: emailNovo.trim(), password: pass, fullName: nome.trim() },
+      });
+      // A função responde o erro no corpo (400), então olhamos os dois lugares.
+      const msg = (data as { error?: string } | null)?.error || (fnErr ? 'Não consegui falar com o servidor. Confira sua internet.' : null);
+      if (msg) { setError(msg); setLoading(false); return; }
 
-    const loginEmail = email.includes('@') ? email : `${email}@obrapro.com`;
-
-    const { data, error } = await supabase.auth.signUp({
-      email: loginEmail,
-      password: pass,
-    });
-
-    if (error) {
-      setError(error.message);
-    } else {
-      toast.success('Cadastro realizado! Você já pode entrar.');
+      // Deu certo: já entra, em vez de mandar a pessoa digitar tudo de novo.
+      const { error: loginErr } = await supabase.auth.signInWithPassword({
+        email: emailNovo.trim().toLowerCase(),
+        password: pass,
+      });
+      if (loginErr) {
+        toast.success(`Conta criada! Entre com o apelido ${apelido.trim()}.`);
+        setModo('entrar');
+        setEmail(apelido.trim());
+      } else {
+        toast.success(`Bem-vindo! Seu login é ${apelido.trim()}.`);
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Não consegui criar a conta.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -87,16 +113,69 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             className="w-16 h-16 rounded-2xl mx-auto mb-4 shadow-lg shadow-blue-500/20 object-cover"
           />
           <h1 className="text-2xl font-bold text-white tracking-tight">Obra Pro</h1>
-          <p className="text-slate-400 text-sm mt-2">Faça login para gerenciar seus empreendimentos</p>
+          <p className="text-slate-400 text-sm mt-2">{modo === 'criar' ? 'Crie sua conta e comece a controlar sua obra' : 'Faça login para gerenciar seus empreendimentos'}</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-2">
+        <form onSubmit={(e) => { e.preventDefault(); if (modo === 'criar') { handleSignUp(); } else { handleSubmit(e); } }} className="space-y-5">
+          {modo === 'criar' && (
+            <>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">Seu nome</label>
+                <div className="relative">
+                  <i className="fa-solid fa-id-card absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                  <input
+                    type="text"
+                    className="w-full pl-11 pr-4 py-3 bg-white border-2 border-slate-200 rounded-xl text-slate-800 outline-none focus:border-blue-500 transition shadow-sm placeholder-slate-400 font-bold"
+                    placeholder="Ex: Victor Ávila"
+                    value={nome}
+                    onChange={e => setNome(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">Apelido para entrar</label>
+                <div className="relative">
+                  <i className="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                  <input
+                    required
+                    type="text"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    className="w-full pl-11 pr-4 py-3 bg-white border-2 border-slate-200 rounded-xl text-slate-800 outline-none focus:border-blue-500 transition shadow-sm placeholder-slate-400 font-bold"
+                    placeholder="Ex: victoravila"
+                    value={apelido}
+                    onChange={e => setApelido(e.target.value)}
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 px-1">É o que você vai digitar pra entrar, todo dia. Sem espaço e sem acento.</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">E-mail</label>
+                <div className="relative">
+                  <i className="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                  <input
+                    required
+                    type="email"
+                    autoCapitalize="none"
+                    className="w-full pl-11 pr-4 py-3 bg-white border-2 border-slate-200 rounded-xl text-slate-800 outline-none focus:border-blue-500 transition shadow-sm placeholder-slate-400 font-bold"
+                    placeholder="seu@email.com"
+                    value={emailNovo}
+                    onChange={e => setEmailNovo(e.target.value)}
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 px-1">Só pra recuperar a conta e falar com você. Não some no seu dia a dia.</p>
+              </div>
+            </>
+          )}
+
+          <div className={`space-y-2 ${modo === 'criar' ? 'hidden' : ''}`}>
             <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">Login / E-mail</label>
             <div className="relative">
               <i className="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
               <input
-                required
+                required={modo === 'entrar'}
                 type="text"
                 className="w-full pl-11 pr-4 py-3 bg-white border-2 border-slate-200 rounded-xl text-slate-800 outline-none focus:border-blue-500 transition shadow-sm placeholder-slate-400 font-bold"
                 placeholder="Ex: victoravila"
@@ -128,16 +207,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             disabled={loading}
             className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition shadow-lg shadow-blue-500/20 mt-4 active:scale-95 disabled:opacity-50"
           >
-            {loading ? 'Carregando...' : 'Acessar Sistema'}
+            {loading ? 'Carregando...' : modo === 'criar' ? 'Criar minha conta' : 'Acessar Sistema'}
           </button>
 
           <button
             type="button"
-            onClick={handleSignUp}
+            onClick={() => { setModo(modo === 'criar' ? 'entrar' : 'criar'); setError(null); }}
             disabled={loading}
             className="w-full py-2 text-slate-400 hover:text-white text-xs font-bold transition"
           >
-            Criar conta
+            {modo === 'criar' ? 'Já tenho conta — entrar' : 'Criar conta'}
           </button>
         </form>
 
