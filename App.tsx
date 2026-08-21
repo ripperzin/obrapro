@@ -27,6 +27,7 @@ const UserManagement = lazy(() => import('./components/UserManagement'));
 const TeamManagement = lazy(() => import('./components/TeamManagement'));
 const OwnerPanel = lazy(() => import('./components/OwnerPanel'));
 const DataExportPanel = lazy(() => import('./components/DataExportPanel'));
+const MinhaConta = lazy(() => import('./components/MinhaConta'));
 const AuditPage = lazy(() => import('./components/AuditPage'));
 const InvestorView = lazy(() => import('./components/InvestorView'));
 const AICopilot = lazy(() => import('./components/AICopilot'));
@@ -968,7 +969,14 @@ const App: React.FC = () => {
             {activeTab === 'owner' && currentUser.role === UserRole.ADMIN && <OwnerPanel />}
 
             {/* "Meus dados": portabilidade — o cliente baixa tudo que é dele. */}
-            {activeTab === 'export' && <DataExportPanel projects={projects} user={currentUser} />}
+            {activeTab === 'export' && (
+              <>
+                {/* Trocar a própria senha mora aqui: "Meus dados" já é a aba da
+                    conta da pessoa, e assim não vira mais um item na barra. */}
+                <MinhaConta user={currentUser} />
+                <DataExportPanel projects={projects} user={currentUser} />
+              </>
+            )}
             {/* Mobile Bottom Spacer to clear fixed Nav */}
             <div className="w-full h-32 md:hidden shrink-0 from-transparent to-transparent pointer-events-none"></div>
           </div>
