@@ -45,8 +45,18 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
   const [showNew, setShowNew] = useState(false);
   const { ent, openUpgrade } = usePlan();
 
-  // Obra ARQUIVADA não ocupa vaga — só as ativas contam contra o plano.
-  const obrasCheias = projects.filter(p => !p.archived).length >= ent.maxObrasAtivas;
+  // Obra ARQUIVADA não ocupa vaga — só as ativas contam contra o plano. E só
+  // conta obra MINHA: antes contava tudo que a pessoa ENXERGA, então um sócio
+  // convidado numa obra do patrão já nascia "lotado" e não conseguia criar a
+  // própria — pior, quanto mais obras o dono o convidasse a ver, mais cheio o
+  // plano dele parecia. (Pegou o Davidson em 21/08, no dia em que ele pediu pra
+  // trazer uma obra dele pro app.) Cargo desconhecido conta como minha: errar
+  // pro lado de manter o limite é melhor que abrir barra livre por engano.
+  const ehMinha = (p: Project) => {
+    const cargo = myRoles?.[p.id];
+    return cargo !== 'gestor' && cargo !== 'apontador';
+  };
+  const obrasCheias = projects.filter(p => !p.archived && ehMinha(p)).length >= ent.maxObrasAtivas;
 
   const openAddModal = () => {
     if (obrasCheias) {

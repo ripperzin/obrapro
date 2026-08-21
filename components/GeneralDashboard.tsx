@@ -64,8 +64,14 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    // isAdmin global sempre-true, e ele via os botões em toda obra).
    const canEdit = (p: Project) => canEditProject(undefined, p, myRoles?.[p.id]);
    const visibleProjects = showArchived ? archivedProjects : activeProjects;
-   // Vagas de obra ativa acabaram? O botão continua lá, com cadeado.
-   const obrasCheias = activeProjects.length >= ent.maxObrasAtivas;
+   // Vagas de obra ativa acabaram? O botão continua lá, com cadeado. Conta só
+   // obra MINHA — obra em que sou convidado (gestor/apontador) é do patrão e não
+   // ocupa vaga do meu plano. Mesmo motivo do ProjectsDashboard.
+   const ehMinha = (p: Project) => {
+      const cargo = myRoles?.[p.id];
+      return cargo !== 'gestor' && cargo !== 'apontador';
+   };
+   const obrasCheias = activeProjects.filter(ehMinha).length >= ent.maxObrasAtivas;
 
    const toggleArchive = (e: React.MouseEvent | null, p: Project) => {
       e?.stopPropagation();
@@ -268,7 +274,7 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
    // Funil único de "Nova obra" (os dois botões e o atalho ?action=new-project
    // passam por aqui). Obra ARQUIVADA não ocupa vaga — só as ativas contam.
    const openAddModal = () => {
-      if (activeProjects.length >= ent.maxObrasAtivas) {
+      if (obrasCheias) {
          openUpgrade('obras');
          return;
       }
