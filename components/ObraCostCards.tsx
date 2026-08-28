@@ -7,11 +7,13 @@ interface Props {
   project: Project;
 }
 
-// Valor: abreviado (K/M) no celular, cheio no desktop. Nunca quebra linha.
+// Valor SEMPRE por extenso, celular incluído. Nunca quebra linha.
+// Mesma correção do card de Caixa (CashSummaryCards): o abreviado arredondava
+// pro milhar mais próximo e mostrava um número que não era o da obra. Cabe por
+// extenso porque no celular os cards agora vêm 2 por linha.
 const Money: React.FC<{ value: number; className?: string }> = ({ value, className = '' }) => (
-  <p className={`font-black leading-none whitespace-nowrap ${className}`}>
-    <span className="sm:hidden text-sm">{formatCurrencyAbbrev(value)}</span>
-    <span className="hidden sm:inline text-lg md:text-xl">{formatCurrency(value)}</span>
+  <p className={`font-black leading-none whitespace-nowrap text-sm sm:text-lg md:text-xl ${className}`}>
+    {formatCurrency(value)}
   </p>
 );
 
@@ -20,6 +22,8 @@ const Money: React.FC<{ value: number; className?: string }> = ({ value, classNa
  * É a visão de CUSTO (quanto a obra custou) — separada do Caixa (fluxo), que vive
  * na aba Sócios. "Terreno" é o VALOR do terreno + taxas (aquisicaoTotal); quando
  * houve permuta, mostra quanto foi pago com casas × quanto foi em dinheiro.
+ * No celular os cards vêm 2 por linha (pra caber o valor por extenso); quando há
+ * terreno são 3 cards, e o Custo total ocupa a 2ª linha inteira.
  */
 const ObraCostCards: React.FC<Props> = ({ project }) => {
   const f = computeProjectFinance(project);
@@ -43,7 +47,7 @@ const ObraCostCards: React.FC<Props> = ({ project }) => {
   const label = 'text-[8px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest text-slate-400 truncate';
 
   return (
-    <div className={`grid ${temTerreno ? 'grid-cols-3' : 'grid-cols-2'} gap-2 md:gap-4`}>
+    <div className={`grid grid-cols-2 ${temTerreno ? 'sm:grid-cols-3' : ''} gap-2 md:gap-4`}>
       {/* Construção */}
       <div className={cardBase}>
         <div className="flex items-center gap-1.5 mb-1 md:mb-2">
@@ -76,7 +80,7 @@ const ObraCostCards: React.FC<Props> = ({ project }) => {
       )}
 
       {/* Custo total */}
-      <div className="glass rounded-xl md:rounded-2xl p-2.5 md:p-5 border border-blue-500/40 min-w-0">
+      <div className={`glass rounded-xl md:rounded-2xl p-2.5 md:p-5 border border-blue-500/40 min-w-0 ${temTerreno ? 'col-span-2 sm:col-span-1' : ''}`}>
         <div className="flex items-center gap-1.5 mb-1 md:mb-2">
           <i className="fa-solid fa-calculator text-blue-400 text-xs hidden sm:inline"></i>
           <span className={label}>

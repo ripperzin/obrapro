@@ -7,17 +7,22 @@ interface Props {
   project: Project;
 }
 
-// Valor: abreviado (K/M) no celular, cheio no desktop. Nunca quebra linha.
+// Valor SEMPRE por extenso, celular incluído. Nunca quebra linha.
+// Antes o celular mostrava abreviado (R$ 30.709,92 virava "31k") e o sócio leu
+// o número errado — e o atalho arredondava PRA CIMA, mostrando mais dinheiro do
+// que havia em caixa. Cabe por extenso porque no celular os cards agora vêm 2
+// por linha; a 14px o número inteiro ocupa ~87px dos ~138px disponíveis.
 const Money: React.FC<{ value: number; className?: string }> = ({ value, className = '' }) => (
-  <p className={`font-black leading-none whitespace-nowrap ${className}`}>
-    <span className="sm:hidden text-sm">{formatCurrencyAbbrev(value)}</span>
-    <span className="hidden sm:inline text-lg md:text-xl">{formatCurrency(value)}</span>
+  <p className={`font-black leading-none whitespace-nowrap text-sm sm:text-lg md:text-xl ${className}`}>
+    {formatCurrency(value)}
   </p>
 );
 
 /**
  * Caixa da obra: Aportado (entrou) − Gasto (obra) − Aquisição paga pela obra = Saldo.
- * Todos os cards numa linha só; valores abreviados no celular para não quebrar.
+ * No celular os cards vêm 2 por linha (no desktop, todos numa linha só) — é o que
+ * dá espaço pro valor aparecer por extenso em vez de abreviado. Quando não há
+ * terreno são 3 cards, e o Saldo ocupa a 2ª linha inteira.
  */
 const CashSummaryCards: React.FC<Props> = ({ project }) => {
   const finance = computeProjectFinance(project);
@@ -46,7 +51,7 @@ const CashSummaryCards: React.FC<Props> = ({ project }) => {
   const label = 'text-[8px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest text-slate-400 truncate';
 
   return (
-    <div className={`grid ${temAquisicao ? 'grid-cols-4' : 'grid-cols-3'} gap-2 md:gap-4`}>
+    <div className={`grid grid-cols-2 ${temAquisicao ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-2 md:gap-4`}>
       {/* Aportado */}
       <div className={cardBase}>
         <div className="flex items-center gap-1.5 mb-1 md:mb-2">
@@ -88,7 +93,7 @@ const CashSummaryCards: React.FC<Props> = ({ project }) => {
       )}
 
       {/* Saldo em caixa */}
-      <div className={`glass rounded-xl md:rounded-2xl p-2.5 md:p-5 border min-w-0 ${saldoPositivo ? 'border-emerald-500/40' : 'border-rose-500/50'}`}>
+      <div className={`glass rounded-xl md:rounded-2xl p-2.5 md:p-5 border min-w-0 ${temAquisicao ? '' : 'col-span-2 sm:col-span-1'} ${saldoPositivo ? 'border-emerald-500/40' : 'border-rose-500/50'}`}>
         <div className="flex items-center gap-1.5 mb-1 md:mb-2">
           <i className={`fa-solid fa-scale-balanced text-xs hidden sm:inline ${saldoPositivo ? 'text-emerald-400' : 'text-rose-400'}`}></i>
           <span className={label}>
