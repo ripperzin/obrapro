@@ -133,7 +133,8 @@ export const fetchProjects = async (): Promise<Project[]> => {
         const { data: acquisitionData } = await supabase
             .from('acquisition_costs')
             .select('*')
-            .in('project_id', projectIds);
+            .in('project_id', projectIds)
+            .is('deleted_at', null);   // soft delete (igual despesa): apagado não volta
         if (acquisitionData) {
             acquisitionData.forEach((a: any) => {
                 if (!acquisitionMap[a.project_id]) acquisitionMap[a.project_id] = [];

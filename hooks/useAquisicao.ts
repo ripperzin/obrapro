@@ -63,8 +63,14 @@ export const useUpdateAcquisitionCost = () => {
 export const useDeleteAcquisitionCost = () => {
     const queryClient = useQueryClient();
     return useMutation({
+        // Soft delete, igual à despesa: o lançamento não some do banco, só ganha
+        // `deleted_at` e some do app. Terreno é o dado mais caro de perder (é dele
+        // que sai o valor de terra por cidade/m²) e era o único que ia embora de vez.
+        // ⚠️ TODA leitura nova de acquisition_costs TEM que filtrar `deleted_at is null`
+        // (hoje: useProjects, pdfGenerator, investor-portal), senão o apagado volta.
         mutationFn: async (id: string) => {
-            const { error } = await supabase.from('acquisition_costs').delete().eq('id', id);
+            const { error } = await supabase.from('acquisition_costs')
+                .update({ deleted_at: new Date().toISOString() }).eq('id', id);
             if (error) throw error;
             return id;
         },

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Project } from '../types';
-import { formatCurrency, formatCurrencyAbbrev } from '../utils';
+import { formatCurrency } from '../utils';
 import { computeProjectFinance } from '../utils/projectFinance';
 
 interface Props {
@@ -20,20 +20,27 @@ const Money: React.FC<{ value: number; className?: string }> = ({ value, classNa
 /**
  * Custo da obra (aba Gestão): Construção + Terreno = Custo total.
  * É a visão de CUSTO (quanto a obra custou) — separada do Caixa (fluxo), que vive
- * na aba Sócios. "Terreno" é o VALOR do terreno + taxas (aquisicaoTotal); quando
- * houve permuta, mostra quanto foi pago com casas × quanto foi em dinheiro.
+ * na aba Sócios. "Terreno" é SÓ o que saiu em dinheiro (aquisicaoCusto); quando
+ * houve permuta, ela vira uma LINHA ESCRITA embaixo — nunca soma no custo.
  * No celular os cards vêm 2 por linha (pra caber o valor por extenso); quando há
  * terreno são 3 cards, e o Custo total ocupa a 2ª linha inteira.
  */
 const ObraCostCards: React.FC<Props> = ({ project }) => {
   const f = computeProjectFinance(project);
   const construcao = f.gasto;                                  // despesas de obra
-  const terreno = f.aquisicaoTotal;                            // terreno + taxas (todos)
-  const total = construcao + terreno;
   const pagoComCasas = f.aquisicaoTotal - f.aquisicaoCusto;    // permuta (não é dinheiro)
-  const terrenoDinheiro = f.aquisicaoCusto;                    // taxas / terreno pago em dinheiro
-  const temTerreno = terreno > 0;
+  // ⚠️ Terreno = SÓ o que saiu em dinheiro (`aquisicaoCusto`), nunca `aquisicaoTotal`.
+  // Somar a permuta inflava o custo em meio milhão que ninguém pagou (LARANJAIS
+  // mostrava "Custo total R$ 797.949,62" onde saíram R$ 247.949,62) e inflava junto
+  // o R$/m². Também estava em desacordo com o próprio cálculo do app: o custo
+  // rateado por casa já usa `gasto + aquisicaoCusto` (projectFinance.ts).
+  // A permuta não some — vira a linha escrita abaixo do valor.
+  const terreno = f.aquisicaoCusto;
+  const total = construcao + terreno;
   const temPermuta = pagoComCasas > 0.5;
+  // Obra que SÓ tem permuta tem terreno em dinheiro = 0, mas o card precisa
+  // aparecer mesmo assim — é ele que carrega a explicação da permuta.
+  const temTerreno = terreno > 0 || temPermuta;
 
   // R$/m² REAL (parcial): custo ÷ área das casas. Enquanto a obra não fechou é
   // PARCIAL (sobe conforme gasta). Fica 0 quando não dá pra saber (obra sem a
@@ -71,9 +78,13 @@ const ObraCostCards: React.FC<Props> = ({ project }) => {
             <span className={label}>Terreno + taxas</span>
           </div>
           <Money value={terreno} className="text-white" />
+          {/* A permuta aparece AQUI, e no celular também: era `hidden md:block`,
+              então no telefone o valor ficava sozinho sem nada que o explicasse —
+              e abreviado ("550k"), que é justamente o que já mordeu duas vezes. */}
           {temPermuta && (
-            <p className="hidden md:block text-[9px] text-amber-400/70 mt-1 font-bold uppercase tracking-wider whitespace-nowrap">
-              {formatCurrencyAbbrev(pagoComCasas)} com casas · {formatCurrencyAbbrev(terrenoDinheiro)} em dinheiro
+            <p className="text-[8px] md:text-[9px] text-amber-400/80 mt-1 font-bold uppercase tracking-wider leading-tight">
+              <i className="fa-solid fa-handshake mr-1"></i>
+              + {formatCurrency(pagoComCasas)} pagos com casas
             </p>
           )}
         </div>

@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
             // `description` vira a nota da célula. Anexo NÃO vai: comprovante é do dono.
             admin.from("contributions").select("id, value, date, investor_id, description").eq("project_id", projectId),
             // Aquisição (terreno/custos iniciais): só valor/categoria -> para descontar do lucro.
-            admin.from("acquisition_costs").select("value, category, date, paid_from_project, paid_by_investor_id, paid_with_units").eq("project_id", projectId),
+            admin.from("acquisition_costs").select("value, category, date, paid_from_project, paid_by_investor_id, paid_with_units").eq("project_id", projectId).is("deleted_at", null),
             // Sócios (id + nome + meta acordada) para exibir "aportes por sócio".
             admin.from("investors").select("id, name, valor_acordado").eq("project_id", projectId),
             // Participação/aporte por sócio (Acerto de aportes): % + flag "não aporta".
