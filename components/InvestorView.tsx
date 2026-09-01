@@ -451,13 +451,17 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         <i className="fa-solid fa-hand-holding-dollar mr-2 text-emerald-400"></i>
                         Caixa da Obra
                     </h2>
-                    <div className={`grid ${finance.aquisicaoFinanciada > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-2 md:gap-4`}>
+                    {/* No celular 2 por linha: com 3 ou 4 cards numa linha só o valor
+                        não cabe por extenso e vira "31k". Mesma correção já feita no
+                        card de Caixa do app — dinheiro que o sócio usa pra decidir não
+                        se abrevia, arruma-se o espaço pra ele caber. */}
+                    <div className={`grid grid-cols-2 ${finance.aquisicaoFinanciada > 0 ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-2 md:gap-4`}>
                         <div className="bg-slate-800/50 rounded-xl p-2 md:p-3 text-center">
                             <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1">Aportado</p>
                             <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
                                 <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
                                 <span className="text-emerald-400 font-black text-sm md:text-base leading-none">
-                                    {formatCurrencyAbbrev(finance.aportadoTotal).replace('R$', '').trim()}
+                                    {formatCurrency(finance.aportadoTotal).replace("R$", "").trim()}
                                 </span>
                             </div>
                         </div>
@@ -466,7 +470,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                             <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
                                 <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
                                 <span className="text-rose-400 font-black text-sm md:text-base leading-none">
-                                    {formatCurrencyAbbrev(finance.gasto).replace('R$', '').trim()}
+                                    {formatCurrency(finance.gasto).replace("R$", "").trim()}
                                 </span>
                             </div>
                         </div>
@@ -476,7 +480,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                 <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
                                     <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
                                     <span className="text-amber-400 font-black text-sm md:text-base leading-none">
-                                        {formatCurrencyAbbrev(finance.aquisicaoFinanciada).replace('R$', '').trim()}
+                                        {formatCurrency(finance.aquisicaoFinanciada).replace("R$", "").trim()}
                                     </span>
                                 </div>
                             </div>
@@ -486,7 +490,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                             <div className="flex items-baseline justify-center gap-0.5 whitespace-nowrap">
                                 <span className="text-[10px] md:text-xs font-bold text-slate-500">R$</span>
                                 <span className={`font-black text-sm md:text-base leading-none ${finance.saldoCaixa >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {formatCurrencyAbbrev(finance.saldoCaixa).replace('R$', '').trim()}
+                                    {formatCurrency(finance.saldoCaixa).replace("R$", "").trim()}
                                 </span>
                             </div>
                         </div>

@@ -50,6 +50,16 @@ const ObraCostCards: React.FC<Props> = ({ project }) => {
   const m2Total = areaTotal > 0 && total > 0 ? Math.round((total / areaTotal) * 100) / 100 : 0;
   const parcial = project.progress >= 100 ? '' : ' (parcial)';
 
+  // COM O TERRENO DA PERMUTA — outra pergunta, outra resposta.
+  // `total` acima é dinheiro que saiu (serve pro caixa e pra margem). Este aqui é
+  // "quanto esta obra custaria se a terra tivesse sido comprada", que é o único
+  // jeito de comparar o m² dela com o de uma obra onde a terra foi paga em dinheiro
+  // — sem ele a obra de permuta parece barata de mentira.
+  // ⚠️ NÃO usar pra lucro/margem: o custo de construir as casas dadas já está em
+  // `construcao`, então somar o valor da terra aqui a contaria 2× no resultado.
+  const totalComTerra = construcao + f.aquisicaoTotal;
+  const m2ComTerra = areaTotal > 0 && totalComTerra > 0 ? Math.round((totalComTerra / areaTotal) * 100) / 100 : 0;
+
   const cardBase = 'glass rounded-xl md:rounded-2xl p-2.5 md:p-5 border border-slate-700 min-w-0';
   const label = 'text-[8px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest text-slate-400 truncate';
 
@@ -104,6 +114,15 @@ const ObraCostCards: React.FC<Props> = ({ project }) => {
           <p className="hidden md:block text-[9px] text-blue-400/70 mt-1 font-bold uppercase tracking-wider whitespace-nowrap">
             <i className="fa-solid fa-ruler-combined mr-1"></i>
             {formatCurrency(m2Total)}/m² real{parcial}
+          </p>
+        )}
+        {/* Só em obra de permuta: o custo "como se a terra tivesse sido comprada",
+            que é o número comparável com as outras obras. Aparece no celular também. */}
+        {temPermuta && (
+          <p className="text-[8px] md:text-[9px] text-slate-400 mt-1.5 pt-1.5 border-t border-slate-700/70 font-bold uppercase tracking-wider leading-tight">
+            <i className="fa-solid fa-scale-balanced mr-1 text-amber-400/80"></i>
+            com o terreno: {formatCurrency(totalComTerra)}
+            {m2ComTerra > 0 && <span className="block mt-0.5 text-slate-500">{formatCurrency(m2ComTerra)}/m²{parcial}</span>}
           </p>
         )}
       </div>
