@@ -954,7 +954,7 @@ const App: React.FC = () => {
             {/* Minha equipe: só no Construtora (canUseMultiusuario). A trava real
                 das escritas é o RLS members_* (só o dono da obra); isto só esconde. */}
             {activeTab === 'team' && entitlementsFor(currentUser.plan).canUseMultiusuario && (
-              <TeamManagement projects={projects} user={currentUser} />
+              <TeamManagement projects={projects} user={currentUser} myRoles={myRoles} />
             )}
 
             {activeTab === 'users' && currentUser.role === UserRole.ADMIN && (

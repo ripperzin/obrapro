@@ -69,18 +69,46 @@ Deno.serve(async (req) => {
 
         const { action, ...args } = await req.json().catch(() => ({ action: null }));
 
+        // As obras em que EU sou o dono (base de tudo que a tela da equipe pode mexer).
+        const minhasObras = async (): Promise<string[]> => {
+            const { data } = await admin.from("project_members")
+                .select("project_id").eq("user_id", caller.id).eq("role", "owner");
+            return (data || []).map((o) => o.project_id);
+        };
+
         // ---- listar minha equipe --------------------------------------------
-        // Funcionários que EU criei + em quais das minhas obras cada um está.
+        // "Minha equipe" = quem EU criei ∪ quem está NAS MINHAS OBRAS.
+        //
+        // Era só `created_by = eu`, e isso quebrava o "adicionar pelo apelido": eu
+        // adicionava alguém que outra pessoa criou e ele SUMIA da tela no instante
+        // seguinte — sem poder trocar o cargo nem tirar o acesso depois. Não é cache
+        // do navegador: o servidor é que não devolvia a pessoa.
         if (action === "list_team") {
+            const projIds = await minhasObras();
+
+            // Quem está nas minhas obras (menos eu).
+            let idsNasObras: string[] = [];
+            if (projIds.length) {
+                const { data: mem } = await admin.from("project_members")
+                    .select("user_id").in("project_id", projIds).neq("user_id", caller.id);
+                idsNasObras = Array.from(new Set<string>((mem || []).map((m) => String(m.user_id))));
+            }
+            // Quem eu criei (pode ainda não estar em obra nenhuma).
+            const { data: criados } = await admin.from("profiles").select("id").eq("created_by", caller.id);
+            const ids = [...new Set([...(criados || []).map((c) => c.id), ...idsNasObras])];
+            if (!ids.length) return json({ ok: true, team: [] });
+
             const { data: team } = await admin.from("profiles")
                 .select("id, login, full_name")
-                .eq("created_by", caller.id)
+                .in("id", ids)
                 .order("full_name", { ascending: true });
-            const ids = (team || []).map((t) => t.id);
-            let memberships: Record<string, Record<string, string>> = {};
-            if (ids.length) {
+
+            // Vínculos SÓ das minhas obras: em que obra dos outros a pessoa está
+            // não é da minha conta.
+            const memberships: Record<string, Record<string, string>> = {};
+            if (projIds.length) {
                 const { data: mem } = await admin.from("project_members")
-                    .select("project_id, user_id, role").in("user_id", ids);
+                    .select("project_id, user_id, role").in("user_id", ids).in("project_id", projIds);
                 for (const m of mem || []) {
                     (memberships[m.user_id] ||= {})[m.project_id] = m.role;
                 }
@@ -88,8 +116,43 @@ Deno.serve(async (req) => {
             const out = (team || []).map((t) => ({
                 id: t.id, login: t.login, fullName: t.full_name || "",
                 memberships: memberships[t.id] || {},
+                // quem eu não criei: não posso resetar a senha dele
+                meu: (criados || []).some((c) => c.id === t.id),
             }));
             return json({ ok: true, team: out });
+        }
+
+        // ---- achar alguém que JÁ USA o app, pelo apelido ---------------------
+        // Pedido do Wender (28/08): dar acesso ao Davidson sem recadastrar.
+        //
+        // Regras de segurança, de propósito:
+        //  - apelido EXATO (sem busca por pedaço, sem listar) — senão vira uma
+        //    varredura de quem existe no sistema;
+        //  - só o DONO da obra pode procurar, e só pra uma obra dele;
+        //  - devolve só id/login/nome, o suficiente pra confirmar antes de inserir.
+        // A confirmação pelo NOME COMPLETO na tela é a trava contra o risco real:
+        // errar a digitação e pôr um estranho dentro da obra.
+        if (action === "find_by_login") {
+            const login = String(args.login || "").trim();
+            const projectId = String(args.projectId || "");
+            if (!UUID_RE.test(projectId)) return json({ error: "Obra inválida." }, 400);
+            if (!(await ownsProject(projectId))) return json({ error: "Só o dono da obra pode dar acesso a ela." }, 403);
+            if (!LOGIN_RE.test(login)) return json({ error: "Apelido inválido (letras, números, ponto, hífen ou _; mín. 3)." }, 400);
+
+            // ilike sem % = igualdade sem diferenciar maiúscula.
+            const { data: achado } = await admin.from("profiles")
+                .select("id, login, full_name").ilike("login", login).maybeSingle();
+            if (!achado) return json({ error: `Ninguém usa o apelido "${login}". Confira a digitação com a pessoa.` }, 404);
+            if (achado.id === caller.id) return json({ error: "Esse apelido é o seu." }, 400);
+
+            const { data: ja } = await admin.from("project_members")
+                .select("role").eq("project_id", projectId).eq("user_id", achado.id).maybeSingle();
+
+            return json({
+                ok: true,
+                user: { id: achado.id, login: achado.login, fullName: achado.full_name || "" },
+                cargoAtual: ja?.role || null,
+            });
         }
 
         // ---- criar o login do funcionário (Admin API) ------------------------
