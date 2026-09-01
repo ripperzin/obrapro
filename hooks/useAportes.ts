@@ -98,14 +98,24 @@ export const useAddContribution = () => {
 // Corrigir um aporte JÁ lançado (valor e/ou data). Antes só existia lançar e
 // apagar: pra acertar um valor digitado errado o usuário tinha que desfazer e
 // lançar de novo. Pedido dos sócios da LARANJAIS na validação de 17/08.
-// Não mexe em comprovante nem em quem aportou — só no valor e na data.
+// Mexe em valor, data e COMPROVANTE — não em quem aportou.
+// O comprovante entrou depois (01/09): antes só dava pra anexar no instante do
+// lançamento, e quem marcava o aporte como pago na hora (com o PDF do banco
+// chegando só depois) ficava sem jeito de anexar — a única saída era apagar o
+// aporte e lançar de novo, o que mexe no caixa 2× e desfaz a ligação com a parcela.
+// `attachments` só é gravado quando vem no input: quem chamar sem o campo (se
+// aparecer outro caminho de correção) não apaga o anexo por descuido.
 export const useUpdateContribution = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (input: { id: string; value: number; date: string }) => {
+        mutationFn: async (input: { id: string; value: number; date: string; attachments?: string[] }) => {
             const { error } = await supabase
                 .from('contributions')
-                .update({ value: input.value, date: input.date })
+                .update({
+                    value: input.value,
+                    date: input.date,
+                    ...(input.attachments !== undefined ? { attachments: input.attachments } : {}),
+                })
                 .eq('id', input.id);
             if (error) throw error;
             return input.id;

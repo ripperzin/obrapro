@@ -148,6 +148,9 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
             value: String(real?.value ?? parcela.values?.[s.investorId] ?? ''),
             date: real?.date || parcela.date,
             planned: parcela.values?.[s.investorId] || 0,
+            // Abre com o comprovante que já está lá: o campo mostra o que existe,
+            // então trocar (ou tirar) vira escolha, não acidente.
+            attachment: real?.anexos?.[0],
             contribId,
         });
     };
@@ -163,7 +166,13 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
             // Modo CORREÇÃO: o aporte já existe, só acerta valor/data. Não cria
             // nada novo e não toca na ligação com a parcela nem no comprovante.
             if (confirmCell.contribId) {
-                await updateContribution.mutateAsync({ id: confirmCell.contribId, value, date: confirmCell.date });
+                await updateContribution.mutateAsync({
+                    id: confirmCell.contribId,
+                    value,
+                    date: confirmCell.date,
+                    // O que está na tela é o que fica (a janela abre com o anexo atual).
+                    attachments: confirmCell.attachment ? [confirmCell.attachment] : [],
+                });
                 toast.success('Aporte corrigido');
                 setConfirmCell(null);
                 return;
@@ -225,6 +234,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
             value: String(real?.value ?? ''),
             date: real?.date || '',
             planned: 0,
+            attachment: real?.anexos?.[0],
             contribId,
         });
     };
@@ -495,21 +505,21 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                 Diferente do planejado ({formatCurrency(confirmCell.planned)}). O plano continua igual; entra o valor real.
                             </p>
                         )}
-                        {/* Corrigindo: o comprovante que já está lá fica como está (não
-                            mexemos pra não apagar sem querer). Só valor e data. */}
-                        {!confirmCell.contribId && (
-                            <div>
-                                <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Comprovante (opcional)</label>
-                                <AttachmentUpload
-                                    value={confirmCell.attachment}
-                                    onChange={(url) => setConfirmCell((c) => (c ? { ...c, attachment: url } : c))}
-                                    bucketName="expense-attachments"
-                                />
-                            </div>
-                        )}
+                        {/* Vale também CORRIGINDO (antes só aparecia no lançamento, e
+                            quem marcava o aporte como pago antes de ter o PDF do banco
+                            ficava sem jeito de anexar depois). Abre com o comprovante
+                            atual carregado, então trocar/tirar é escolha, não acidente. */}
+                        <div>
+                            <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Comprovante (opcional)</label>
+                            <AttachmentUpload
+                                value={confirmCell.attachment}
+                                onChange={(url) => setConfirmCell((c) => (c ? { ...c, attachment: url } : c))}
+                                bucketName="expense-attachments"
+                            />
+                        </div>
                         <p className="text-[11px] text-slate-500 leading-snug">
                             {confirmCell.contribId
-                                ? <>O <b>caixa da obra</b> e o total do sócio se ajustam sozinhos. O comprovante continua o mesmo.</>
+                                ? <>O <b>caixa da obra</b> e o total do sócio se ajustam sozinhos.</>
                                 : <>Ao confirmar, o aporte entra no <b>caixa da obra</b>.</>}
                         </p>
                         <div className="flex gap-2">
