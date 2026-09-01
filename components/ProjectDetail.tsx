@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useLayoutEffect } from 'react';
-import { Project, User, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense, ProjectMacro, ProjectItem, TemplateStageItem, getProjectStages, getStageName, getStageIndex } from '../types';
+import { Project, User, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense, AcquisitionCost, ProjectMacro, ProjectItem, TemplateStageItem, getProjectStages, getStageName, getStageIndex } from '../types';
 import { canEditProject, ProjectRole } from '../lib/permissions';
 import { useInflation } from '../hooks/useInflation';
 import { PROGRESS_STAGES } from '../constants';
@@ -23,8 +23,9 @@ import ManageAttachmentsModal from './ManageAttachmentsModal';
 import ScheduleView from './ScheduleView';
 import ObraCostCards from './ObraCostCards';
 import RecentMovements from './RecentMovements';
-import AquisicaoSection from './AquisicaoSection';
-import ExpandableCard from './ExpandableCard';
+import AddAcquisitionModal from './AddAcquisitionModal';
+import { TerrenoCard, TerrenoTr, FaixaPermuta, terrenoDescricao, catLabel } from './TerrenoRows';
+import { useDeleteAcquisitionCost } from '../hooks/useAquisicao';
 import ResultadoEmpreendimento from './ResultadoEmpreendimento';
 import SociosSection from './SociosSection';
 import { computeProjectFinance, computeGastoAvancoVerdito, computeUnitResult } from '../utils/projectFinance';
@@ -676,8 +677,12 @@ const ExpensesSection: React.FC<{
   initialAction?: string | null,
   // embedded: dentro de um ExpandableCard (o card já dá título "Construção" +
   // total no cabeçalho) — esconde o h3 "Fluxo de Despesas" e os cards de resumo.
-  embedded?: boolean
-}> = ({ project, user, myRole, onAddExpense, onUpdate, logChange, onDeleteExpense, initialAction, embedded }) => {
+  embedded?: boolean,
+  // Terreno na MESMA lista (pedido do Wender): os lançamentos de aquisição entram
+  // intercalados por data, com etapa "Terreno" + item. O dado continua na gaveta
+  // dele (`acquisition_costs`) — ver components/TerrenoRows.tsx.
+  acquisitions?: AcquisitionCost[]
+}> = ({ project, user, myRole, onAddExpense, onUpdate, logChange, onDeleteExpense, initialAction, embedded, acquisitions }) => {
   const [showAdd, setShowAdd] = useState(initialAction === 'new-expense');
   const [showImport, setShowImport] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
@@ -699,6 +704,7 @@ const ExpensesSection: React.FC<{
   const [tempDescription, setTempDescription] = useState('');
   const { ent, openUpgrade } = usePlan();
   const toast = useToast();
+  const confirm = useConfirm();
   const isOnline = useOnlineStatus();
 
   // Sync showAdd with URL action parameter for persistence across re-renders
@@ -760,9 +766,42 @@ const ExpensesSection: React.FC<{
     return true;
   }), [sortedExpenses, fPayer, fMacro, fItem]);
 
+  // --- TERRENO NA MESMA LISTA (pedido do Wender) --------------------------------
+  // PERMUTA fica de fora: terreno pago com casas não é dinheiro que saiu, então não
+  // é lançamento — vira a faixa escrita em cima da lista. Assim a lista fecha: todo
+  // valor que aparece nela foi pago, e a soma bate com a coluna.
+  const terrenoLancamentos = useMemo(() => (acquisitions || []).filter((c) => !c.paidWithUnits), [acquisitions]);
+  const permutas = useMemo(() => (acquisitions || []).filter((c) => !!c.paidWithUnits), [acquisitions]);
+
+  // O terreno respeita o filtro "Pago por" (ele tem pagador, igual à despesa), mas
+  // some quando o filtro é de ETAPA ou ITEM de construção — ele não é daquela etapa.
+  const terrenoFiltrado = useMemo(() => {
+    if (fMacro || fItem) return [];
+    return terrenoLancamentos.filter((c) => {
+      if (fPayer === F_CAIXA && c.paidByInvestorId) return false;
+      if (fPayer && fPayer !== F_CAIXA && c.paidByInvestorId !== fPayer) return false;
+      return true;
+    });
+  }, [terrenoLancamentos, fPayer, fMacro, fItem]);
+
+  // A cascata única: despesa e terreno na mesma ordem de data (mais nova primeiro).
+  type LinhaLista = { kind: 'exp'; date: string; exp: Expense } | { kind: 'ter'; date: string; c: AcquisitionCost };
+  const linhas = useMemo<LinhaLista[]>(() => ([
+    ...filteredExpenses.map((e) => ({ kind: 'exp' as const, date: e.date || '', exp: e })),
+    ...terrenoFiltrado.map((c) => ({ kind: 'ter' as const, date: c.date || '', c })),
+  ]).sort((a, b) => b.date.localeCompare(a.date)), [filteredExpenses, terrenoFiltrado]);
+
+  const [terrenoModal, setTerrenoModal] = useState<{ open: boolean; editing?: AcquisitionCost }>({ open: false });
+  const deleteTerreno = useDeleteAcquisitionCost();
+  const apagarTerreno = async (c: AcquisitionCost) => {
+    if (await confirm('Excluir este lançamento de terreno?')) deleteTerreno.mutate(c.id);
+  };
+
   const filteredTotal = useMemo(
-    () => filteredExpenses.reduce((a, b) => a + (b.value || 0), 0),
-    [filteredExpenses]
+    // O que está na tela: construção + terreno (o terreno só entra quando aparece).
+    () => filteredExpenses.reduce((a, b) => a + (b.value || 0), 0)
+        + terrenoFiltrado.reduce((a, b) => a + (b.value || 0), 0),
+    [filteredExpenses, terrenoFiltrado]
   );
 
   // Nome do sócio que pagou a despesa do próprio bolso (se houver)
@@ -779,13 +818,22 @@ const ExpensesSection: React.FC<{
   const handleExportExcel = () => {
     const macroName = (id?: string) => projectMacros.find((m) => m.id === id)?.name || '';
     const itemName = (id?: string) => projectItems.find((i) => i.id === id)?.name || '';
-    const rows: ExpenseExportRow[] = filteredExpenses.map((e) => ({
-      Data: formatDateBR(e.date),
-      Descrição: e.description || '',
-      Valor: e.value || 0,
-      Etapa: macroName(e.macroId),
-      Item: itemName(e.itemId),
-      'Pago por': payerName(e.paidByInvestorId) || 'Caixa da obra',
+    // O Excel leva o que está na tela — terreno incluído, na mesma ordem. Senão a
+    // lista mostra 8 linhas e o arquivo traz 5.
+    const rows: ExpenseExportRow[] = linhas.map((row) => row.kind === 'ter' ? ({
+      Data: formatDateBR(row.c.date),
+      Descrição: terrenoDescricao(row.c),
+      Valor: row.c.value || 0,
+      Etapa: 'Terreno',
+      Item: catLabel(row.c.category),
+      'Pago por': payerName(row.c.paidByInvestorId) || 'Caixa da obra',
+    }) : ({
+      Data: formatDateBR(row.exp.date),
+      Descrição: row.exp.description || '',
+      Valor: row.exp.value || 0,
+      Etapa: macroName(row.exp.macroId),
+      Item: itemName(row.exp.itemId),
+      'Pago por': payerName(row.exp.paidByInvestorId) || 'Caixa da obra',
     }));
     exportExpensesToXlsx(rows, project.name);
   };
@@ -990,6 +1038,14 @@ const ExpensesSection: React.FC<{
                 <span className="hidden sm:inline">{filtroAtivo ? 'Filtrando' : 'Filtrar'}</span>
               </button>
             )}
+            {/* Terreno: o lançamento vai pra gaveta do terreno, mas aparece na
+                MESMA lista. Só pra quem vê dinheiro (o apontador não vê terreno). */}
+            {canSeeMoney && isAdmin && (
+              <button onClick={() => setTerrenoModal({ open: true })} title="Lançar compra do terreno, escritura, registro, comissão…"
+                className="bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-full font-black text-sm transition flex items-center gap-2 hover:border-amber-500 hover:text-white">
+                <i className="fa-solid fa-map-location-dot text-amber-400"></i> <span className="hidden sm:inline">Terreno</span>
+              </button>
+            )}
             {/* Nova Despesa: o apontador PRECISA (é o que ele faz). */}
             <button onClick={() => handleSetShowAdd(true)} className="bg-green-600 text-white px-6 py-3 rounded-full font-black text-sm hover:bg-green-700 transition shadow-lg shadow-green-600/30 flex items-center gap-2">
               <i className="fa-solid fa-plus"></i> Nova Despesa
@@ -1054,6 +1110,17 @@ const ExpensesSection: React.FC<{
         defaultPayerId={project.financedByInvestorId}
         onCreateItem={handleCreateItem}
       />
+
+      {/* Lançar/editar terreno — mesma janela de sempre, agora chamada de dentro
+          da lista de despesas (o card separado de Terreno deixou de existir). */}
+      {terrenoModal.open && (
+        <AddAcquisitionModal
+          project={project}
+          user={user}
+          editing={terrenoModal.editing}
+          onClose={() => setTerrenoModal({ open: false })}
+        />
+      )}
 
       {/* Modal Importar Planilha */}
       <ImportExpensesModal
@@ -1175,15 +1242,25 @@ const ExpensesSection: React.FC<{
         </div>
       )}
 
-      {filtroAtivo && filteredExpenses.length === 0 && (
+      {filtroAtivo && linhas.length === 0 && (
         <div className="text-center py-8 text-slate-500 text-sm">Nenhuma despesa com esse filtro.</div>
       )}
+
+      {/* A permuta não é lançamento (não saiu dinheiro) — é uma frase em cima da lista. */}
+      {canSeeMoney && <FaixaPermuta project={project} permutas={permutas} />}
 
       {/* Lista de Despesas - Responsive */}
       <div className="space-y-4">
         {/* Mobile: Lista de Cards */}
         <div className="md:hidden space-y-3">
-          {filteredExpenses.map((exp) => {
+          {linhas.map((row) => {
+            // Linha de terreno: só leitura + editar/apagar pelo fluxo do terreno
+            // (a edição inline da despesa grava em `expenses`, gaveta errada).
+            if (row.kind === 'ter') return (
+              <TerrenoCard key={row.c.id} c={row.c} project={project} podeMexer={isAdmin}
+                onEdit={(c) => setTerrenoModal({ open: true, editing: c })} onDelete={apagarTerreno} />
+            );
+            const exp = row.exp;
             const isEditing = editingExpenseId === exp.id;
             return (
               <div key={exp.id} className={`glass rounded-2xl p-6 border transition-all ${isEditing ? 'border-orange-500' : 'border-slate-700'}`}>
@@ -1374,7 +1451,7 @@ const ExpensesSection: React.FC<{
               </div>
             );
           })}
-          {project.expenses.length === 0 && (
+          {linhas.length === 0 && (
             <div className="text-center py-10 text-slate-500">Nenhuma despesa registrada.</div>
           )}
         </div>
@@ -1396,7 +1473,13 @@ const ExpensesSection: React.FC<{
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {filteredExpenses.map((exp) => {
+              {linhas.map((row) => {
+                if (row.kind === 'ter') return (
+                  <TerrenoTr key={row.c.id} c={row.c} project={project} podeMexer={isAdmin}
+                    mostrarItem={ent.canLogItens} mostrarAcoes={isAdmin}
+                    onEdit={(c) => setTerrenoModal({ open: true, editing: c })} onDelete={apagarTerreno} />
+                );
+                const exp = row.exp;
                 const isEditing = editingExpenseId === exp.id;
                 return (
                   <tr key={exp.id} className="hover:bg-slate-800/50 transition">
@@ -2481,51 +2564,95 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
 
         {/* ===== ABA DESPESAS (gastos + aquisição) ===== */}
         {activeTab === 'expenses' && (() => {
-          // Dois cards expansíveis, mesmo padrão: Terreno + Construção. Total de
-          // cada tipo no cabeçalho (visível mesmo fechado). Ambos nascem fechados.
-          const terrenoTotal = (project.acquisitionCosts || []).reduce((s, c) => s + (c.value || 0), 0);
+          // UMA CASCATA SÓ (pedido do Wender): terreno e construção na mesma lista,
+          // com os números em cards em cima. Antes eram 2 ExpandableCard fechados
+          // ("Terreno" âmbar e "Construção" rosa) e quem lançava tinha que saber de
+          // antemão em qual caixa o gasto morava.
+          const acq = project.acquisitionCosts || [];
+          // Permuta NUNCA soma: terreno pago com casas não é dinheiro que saiu (as
+          // casas dadas já custam obra dentro de Construção — somar cobraria a terra
+          // 2×). Ela aparece escrita, embaixo do valor do terreno.
+          const permutaTotal = acq.filter((c) => c.paidWithUnits).reduce((s, c) => s + (c.value || 0), 0);
+          const terrenoLanc = acq.filter((c) => !c.paidWithUnits);
+          const terrenoTotal = terrenoLanc.reduce((s, c) => s + (c.value || 0), 0);
           const construcaoTotal = project.expenses.reduce((s, e) => s + (e.value || 0), 0);
           const construcaoCount = project.expenses.length;
-          return (
-            <div className="space-y-4 animate-fade-in">
-              {/* Terreno / Aquisição — dinheiro (some pro apontador) */}
-              {canSeeMoney && (
-                <ExpandableCard
-                  title="Terreno"
-                  icon="fa-map-location-dot"
-                  iconColor="text-amber-400"
-                  headerRight={terrenoTotal > 0 ? <span className="text-amber-400 font-black text-sm md:text-base whitespace-nowrap">{formatCurrency(terrenoTotal)}</span> : undefined}
-                >
-                  <AquisicaoSection project={project} user={user} embedded />
-                </ExpandableCard>
-              )}
+          const temTerreno = terrenoLanc.length > 0 || permutaTotal > 0.5;
+          // "O que saiu realmente até agora" — construção + as taxas/compra do
+          // terreno que foram dinheiro. É o número que o sócio procura.
+          const totalLancado = construcaoTotal + terrenoTotal;
 
-              <ExpandableCard
-                title="Construção"
-                icon="fa-wallet"
-                iconColor="text-rose-400"
-                defaultOpen={initialAction === 'new-expense'}
-                headerRight={
-                  <span className="text-slate-300 font-black text-sm md:text-base whitespace-nowrap">
-                    {canSeeMoney && <span className="text-white">{formatCurrency(construcaoTotal)}</span>}
-                    {canSeeMoney && <span className="text-slate-600 mx-1.5">·</span>}
-                    <span className="text-blue-400">{construcaoCount}</span>
-                    <span className="text-slate-500 text-xs uppercase ml-1">{construcaoCount === 1 ? 'nota' : 'notas'}</span>
-                  </span>
-                }
-              >
-                <ExpensesSection
-                  project={project}
-                  user={user}
-                  myRole={myRole}
-                  onAddExpense={handleAddExpense}
-                  onUpdate={(newExpenses) => onUpdate(project.id, { expenses: newExpenses })}
-                  onDeleteExpense={onDeleteExpense}
-                  logChange={logChange}
-                  initialAction={initialAction} // Pass URL action
-                  embedded
-                />
-              </ExpandableCard>
+          const cardBase = 'glass rounded-xl md:rounded-2xl p-3 md:p-5 border border-slate-700 min-w-0';
+          const cardLabel = 'text-[8px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest text-slate-400 truncate';
+          // Valor SEMPRE por extenso, celular incluído (a regra que veio do "31k"
+          // que o Davidson leu onde havia R$ 30.709,92).
+          const cardValor = 'font-black leading-none whitespace-nowrap text-sm sm:text-lg md:text-xl';
+
+          return (
+            <div className="space-y-5 animate-fade-in">
+              {/* Os números em cima; a lista embaixo. O apontador não vê dinheiro,
+                  então pra ele sobram a contagem e a lista. */}
+              {canSeeMoney ? (
+                // Sem terreno (11 das 16 obras) fica UM card só, ocupando a linha
+                // inteira — nada de card vazio só pra preencher a grade.
+                <div className={`grid ${temTerreno ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1'} gap-2 md:gap-4`}>
+                  <div className={cardBase}>
+                    <div className="flex items-center gap-1.5 mb-1 md:mb-2">
+                      <i className="fa-solid fa-trowel-bricks text-rose-400 text-xs hidden sm:inline"></i>
+                      <span className={cardLabel}>Construção</span>
+                    </div>
+                    <p className={`${cardValor} text-white`}>{formatCurrency(construcaoTotal)}</p>
+                    <p className="text-[9px] md:text-[10px] text-slate-500 mt-1 font-bold uppercase tracking-wider">
+                      {construcaoCount} {construcaoCount === 1 ? 'nota' : 'notas'}
+                    </p>
+                  </div>
+
+                  {temTerreno && (
+                    <div className={cardBase}>
+                      <div className="flex items-center gap-1.5 mb-1 md:mb-2">
+                        <i className="fa-solid fa-map-location-dot text-amber-400 text-xs hidden sm:inline"></i>
+                        <span className={cardLabel}>Terreno + taxas</span>
+                      </div>
+                      <p className={`${cardValor} text-white`}>{formatCurrency(terrenoTotal)}</p>
+                      {permutaTotal > 0.5 ? (
+                        <p className="text-[8px] md:text-[10px] text-amber-400/80 mt-1 font-bold uppercase tracking-wider leading-tight">
+                          <i className="fa-solid fa-handshake mr-1"></i>+ {formatCurrency(permutaTotal)} pagos com casas
+                        </p>
+                      ) : (
+                        <p className="text-[9px] md:text-[10px] text-slate-500 mt-1 font-bold uppercase tracking-wider">
+                          {terrenoLanc.length} {terrenoLanc.length === 1 ? 'lançamento' : 'lançamentos'}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {temTerreno && (
+                    <div className={`glass rounded-xl md:rounded-2xl p-3 md:p-5 border border-blue-500/40 min-w-0 col-span-2 sm:col-span-1`}>
+                      <div className="flex items-center gap-1.5 mb-1 md:mb-2">
+                        <i className="fa-solid fa-calculator text-blue-400 text-xs hidden sm:inline"></i>
+                        <span className={cardLabel}>Total lançado</span>
+                      </div>
+                      <p className={`${cardValor} text-blue-400`}>{formatCurrency(totalLancado)}</p>
+                      <p className="text-[9px] md:text-[10px] text-slate-500 mt-1 font-bold uppercase tracking-wider">
+                        o que saiu em dinheiro
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              <ExpensesSection
+                project={project}
+                user={user}
+                myRole={myRole}
+                onAddExpense={handleAddExpense}
+                onUpdate={(newExpenses) => onUpdate(project.id, { expenses: newExpenses })}
+                onDeleteExpense={onDeleteExpense}
+                logChange={logChange}
+                initialAction={initialAction} // Pass URL action
+                embedded
+                acquisitions={canSeeMoney ? acq : undefined}
+              />
             </div>
           );
         })()}
