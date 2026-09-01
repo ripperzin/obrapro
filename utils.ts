@@ -15,6 +15,13 @@ export const formatCurrencyAbbrev = (value: number) => {
   return `${sign}${Math.round(abs)}`;
 };
 
+// Dinheiro EXATO sem o "R$" na frente (1.234,56). Serve pra tabela: quem lê já sabe
+// que a coluna é dinheiro, e o "R$" repetido só rouba largura. Nunca abrevia — número
+// que o sócio usa pra decidir (aporte, saldo, meta) não pode virar "25k".
+export const formatAmount = (value: number) => {
+  return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+};
+
 export const formatPercent = (value: number) => {
   return `${value.toFixed(2)}%`;
 };

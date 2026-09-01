@@ -21,7 +21,7 @@ export const formatDateBR = (iso?: string): string => {
 };
 
 // Nome de arquivo seguro: sem os caracteres que o Windows/macOS proíbem.
-const safeFileName = (name: string): string =>
+export const safeFileName = (name: string): string =>
   name.replace(/[\\/:*?"<>|]/g, '-').trim() || 'obra';
 
 // Monta a planilha e dispara o download no navegador.

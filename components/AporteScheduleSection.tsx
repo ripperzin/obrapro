@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Project, AportePlan, AporteParcela } from '../types';
-import { formatCurrency, formatCurrencyAbbrev, generateId } from '../utils';
+import { formatCurrency, formatAmount, generateId } from '../utils';
 import { generateAporteSchedule, buildAporteMatrix, labelMesAporte } from '../utils/aportePlan';
 import { openAttachment } from '../utils/storage';
+import { exportAportesToXlsx } from '../utils/aporteExport';
 import { useAddContribution, useDeleteContribution, useUpdateContribution } from '../hooks/useAportes';
 import AttachmentUpload from './AttachmentUpload';
 import { useToast } from './ToastProvider';
@@ -254,7 +255,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
             <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between p-5 text-left">
                 <h3 className="font-black text-white flex items-center gap-2">
                     <i className="fa-solid fa-users text-blue-400"></i> Sócios
-                    <span className="text-xs font-bold text-slate-400">· aportado {formatCurrencyAbbrev(totalAportado)} de {formatCurrencyAbbrev(totalMeta)}</span>
+                    <span className="text-xs font-bold text-slate-400">· aportado {formatCurrency(totalAportado)} de {formatCurrency(totalMeta)}</span>
                 </h3>
                 <i className={`fa-solid fa-chevron-${open ? 'up' : 'down'} text-slate-500`}></i>
             </button>
@@ -270,6 +271,14 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                             </button>
                         )}
                         <div className="flex-1"></div>
+                        {/* "Me manda esses lançamentos" (pedido do sócio): baixa a MATRIZ da
+                            tela em Excel — parcela a parcela, com data e situação. */}
+                        {rows.length > 0 && (
+                            <button onClick={() => exportAportesToXlsx(rows, socios, project.name)} title="Baixar a planilha de aportes em Excel"
+                                className="px-3 py-2 text-slate-400 hover:text-white text-xs font-black uppercase tracking-widest">
+                                <i className="fa-solid fa-file-excel mr-1.5"></i> Exportar
+                            </button>
+                        )}
                         <button onClick={() => setShowPlanejar((v) => !v)} className="px-3 py-2 text-slate-400 hover:text-white text-xs font-black uppercase tracking-widest">
                             <i className="fa-solid fa-calendar-days mr-1.5"></i>
                             {parcelas.length > 0 ? 'Refazer o plano' : 'Planejar aportes'}
@@ -351,12 +360,12 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                                                 /* Pago: o valor é CLICÁVEL pra corrigir (era desfazer + lançar de novo). */
                                                                 <button onClick={() => pedirCorrecao(p, s)} disabled={busy} title="Corrigir valor ou data deste aporte"
                                                                     className="text-emerald-400 font-bold hover:text-emerald-300 hover:underline decoration-dotted underline-offset-2">
-                                                                    {mostrado > 0 ? formatCurrencyAbbrev(mostrado) : '—'}
-                                                                    {difere && <span className="block text-[9px] font-normal text-slate-500">plan. {formatCurrencyAbbrev(val)}</span>}
+                                                                    {mostrado > 0 ? formatAmount(mostrado) : '—'}
+                                                                    {difere && <span className="block text-[9px] font-normal text-slate-500">plan. {formatAmount(val)}</span>}
                                                                 </button>
                                                             ) : (
                                                                 <span className="text-slate-300">
-                                                                    {mostrado > 0 ? formatCurrencyAbbrev(mostrado) : '—'}
+                                                                    {mostrado > 0 ? formatAmount(mostrado) : '—'}
                                                                 </span>
                                                             )}
                                                             {!dirty && paid && !!cell?.anexos.length && (
@@ -386,9 +395,9 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                                                 <button onClick={() => pedirCorrecaoAvulso(cell.contribIds[0], s)} disabled={busy}
                                                                     title="Corrigir valor ou data deste aporte"
                                                                     className="font-bold text-emerald-400 hover:text-emerald-300 hover:underline decoration-dotted underline-offset-2">
-                                                                    {formatCurrencyAbbrev(cell.value)}
+                                                                    {formatAmount(cell.value)}
                                                                 </button>
-                                                            ) : formatCurrencyAbbrev(cell.value)}
+                                                            ) : formatAmount(cell.value)}
                                                             {!despesa && <i className="fa-solid fa-check text-[10px] ml-1"></i>}
                                                             {cell.anexos.length > 0 && (
                                                                 <button onClick={() => openAttachment(cell.anexos[0])} title="Ver comprovante" className="text-blue-400 hover:text-blue-300 ml-1.5">
@@ -413,9 +422,9 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                         const falta = s.meta - s.aportado;
                                         return (
                                             <td key={s.investorId} className="px-2 py-2 text-right whitespace-nowrap">
-                                                <span className="text-emerald-400 font-black">{formatCurrencyAbbrev(s.aportado)}</span>
-                                                <span className="text-slate-500 text-xs"> / {formatCurrencyAbbrev(s.meta)}</span>
-                                                {falta > 1 && <div className="text-[9px] text-amber-400 font-bold">falta {formatCurrencyAbbrev(falta)}</div>}
+                                                <span className="text-emerald-400 font-black">{formatAmount(s.aportado)}</span>
+                                                <span className="text-slate-500 text-xs"> / {formatAmount(s.meta)}</span>
+                                                {falta > 1 && <div className="text-[9px] text-amber-400 font-bold">falta {formatAmount(falta)}</div>}
                                             </td>
                                         );
                                     })}
