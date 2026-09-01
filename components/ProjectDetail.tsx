@@ -2630,7 +2630,12 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     <div className={`glass rounded-xl md:rounded-2xl p-3 md:p-5 border border-blue-500/40 min-w-0 col-span-2 sm:col-span-1`}>
                       <div className="flex items-center gap-1.5 mb-1 md:mb-2">
                         <i className="fa-solid fa-calculator text-blue-400 text-xs hidden sm:inline"></i>
-                        <span className={cardLabel}>Total lançado</span>
+                        {/* MESMO nome do card da aba Gestão (ObraCostCards) porque é
+                            o MESMO número — dois rótulos fariam parecer contas diferentes. */}
+                        <span className={cardLabel}>
+                          <span className="sm:hidden">Total</span>
+                          <span className="hidden sm:inline">Custo total</span>
+                        </span>
                       </div>
                       <p className={`${cardValor} text-blue-400`}>{formatCurrency(totalLancado)}</p>
                       <p className="text-[9px] md:text-[10px] text-slate-500 mt-1 font-bold uppercase tracking-wider">
