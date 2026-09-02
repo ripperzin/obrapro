@@ -150,11 +150,11 @@ const SCurveChart: React.FC<SCurveChartProps> = ({ projects }) => {
                     <YAxis
                         stroke="#94a3b8"
                         tick={{ fill: '#94a3b8', fontSize: 10 }}
-                        tickFormatter={(value) => formatCurrencyAbbrev(value)}
+                        tickFormatter={(value) => formatCurrencyAbbrev(value)}   /* escala do eixo: abreviar aqui é legítimo */
                     />
                     <Tooltip
                         contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
-                        formatter={(value: number) => formatCurrencyAbbrev(value)}
+                        formatter={(value: number) => formatCurrency(value)}   /* o que o dedo aponta sai exato */
                         labelStyle={{ color: '#94a3b8' }}
                     />
                     <Legend wrapperStyle={{ paddingTop: '10px' }} />

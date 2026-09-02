@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Project, ProgressStage, Expense, getCurrentStagePhoto } from '../types';
-import { formatCurrency, calculateMonthsBetween, formatCurrencyAbbrev, getDeliveryStatus, DeliveryTone } from '../utils';
+import { formatCurrency, calculateMonthsBetween, getDeliveryStatus, DeliveryTone } from '../utils';
+import MoneyFit from './MoneyFit';
 
 // Classes do selo de prazo por tom.
 const prazoToneCls = (tone: DeliveryTone): string => ({
@@ -369,16 +370,19 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                         Nenhuma casa vendida no período
                      </div>
                   ) : (
-                     <div className="grid grid-cols-3 gap-2">
-                        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex flex-col items-center justify-center gap-0.5">
-                           <p className="text-white font-black text-base tracking-tight whitespace-nowrap">{formatCurrencyAbbrev(vendas12m)}</p>
+                     /* 2 por linha: por extenso, Vendas e Lucro não cabem em 1/3 de
+                        tela de celular. A Margem é curta ("28%") e vai embaixo,
+                        ocupando a linha toda — ela é a manchete mesmo. */
+                     <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex flex-col items-center justify-center gap-0.5 min-w-0">
+                           <MoneyFit value={vendas12m} className="text-white" align="center" size={16} />
                            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest">Vendas</p>
                         </div>
-                        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex flex-col items-center justify-center gap-0.5">
-                           <p className={`font-black text-base tracking-tight whitespace-nowrap ${lucro12m >= 0 ? 'text-white' : 'text-rose-400'}`}>{formatCurrencyAbbrev(lucro12m)}</p>
+                        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 flex flex-col items-center justify-center gap-0.5 min-w-0">
+                           <MoneyFit value={lucro12m} align="center" size={16} className={lucro12m >= 0 ? 'text-white' : 'text-rose-400'} />
                            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest">Lucro</p>
                         </div>
-                        <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-2xl p-3 flex flex-col items-center justify-center gap-0.5">
+                        <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-2xl p-3 flex flex-col items-center justify-center gap-0.5 col-span-2">
                            <p className={`font-black text-lg tracking-tight ${(margem12m ?? 0) >= 0 ? 'text-cyan-300' : 'text-rose-400'}`}>{margem12m !== null ? `${margem12m.toFixed(0)}%` : '—'}</p>
                            <p className="text-cyan-400/70 text-[9px] font-bold uppercase tracking-widest">Margem</p>
                         </div>
@@ -488,13 +492,13 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({
                         ) : (
                            <div className="flex items-stretch gap-3">
                               {/* Vendas (receita realizada no período) */}
-                              <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 py-5 rounded-3xl bg-green-500/5 border border-green-500/10 h-28">
-                                 <p className="text-white font-black text-2xl leading-none whitespace-nowrap">{formatCurrencyAbbrev(vendas12m)}</p>
+                              <div className="flex-1 min-w-0 flex flex-col items-center justify-center gap-1 px-4 py-5 rounded-3xl bg-green-500/5 border border-green-500/10 h-28">
+                                 <MoneyFit value={vendas12m} className="text-white" align="center" size={24} />
                                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Vendas</p>
                               </div>
                               {/* Lucro */}
-                              <div className="flex-1 flex flex-col items-center justify-center gap-1 px-4 py-5 rounded-3xl bg-slate-500/5 border border-slate-500/10 h-28">
-                                 <p className={`font-black text-2xl leading-none whitespace-nowrap ${lucro12m >= 0 ? 'text-white' : 'text-rose-400'}`}>{formatCurrencyAbbrev(lucro12m)}</p>
+                              <div className="flex-1 min-w-0 flex flex-col items-center justify-center gap-1 px-4 py-5 rounded-3xl bg-slate-500/5 border border-slate-500/10 h-28">
+                                 <MoneyFit value={lucro12m} align="center" size={24} className={lucro12m >= 0 ? 'text-white' : 'text-rose-400'} />
                                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Lucro</p>
                               </div>
                               {/* Margem — a manchete */}

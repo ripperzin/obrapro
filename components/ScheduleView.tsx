@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { Project, ProjectMacro } from '../types';
-import { formatCurrency, formatCurrencyAbbrev } from '../utils';
+import { formatCurrency } from '../utils';
 import SCurveChart from './SCurveChart';
 
 interface ScheduleViewProps {
@@ -182,12 +182,12 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ project, onClose }) => {
                                             {item.macro.name}
                                         </td>
                                         {item.monthlyValues.map((val, midx) => (
-                                            <td key={midx} className="px-6 py-4 text-center text-xs font-medium text-slate-400">
-                                                {val > 0 ? formatCurrencyAbbrev(val) : <span className="opacity-20">—</span>}
+                                            <td key={midx} className="px-6 py-4 text-center text-xs font-medium text-slate-400 whitespace-nowrap">
+                                                {val > 0 ? formatCurrency(val) : <span className="opacity-20">—</span>}
                                             </td>
                                         ))}
-                                        <td className="px-6 py-4 text-right font-black text-blue-400 text-xs bg-white/5">
-                                            {formatCurrencyAbbrev(item.macro.estimatedValue)}
+                                        <td className="px-6 py-4 text-right font-black text-blue-400 text-xs bg-white/5 whitespace-nowrap">
+                                            {formatCurrency(item.macro.estimatedValue)}
                                         </td>
                                     </tr>
                                 ))}
@@ -197,12 +197,12 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ project, onClose }) => {
                                         Investimento Mensal
                                     </td>
                                     {totalPerMonth.map((val, idx) => (
-                                        <td key={idx} className="px-6 py-6 text-center text-blue-400 text-sm">
-                                            {formatCurrencyAbbrev(val)}
+                                        <td key={idx} className="px-6 py-6 text-center text-blue-400 text-sm whitespace-nowrap">
+                                            {formatCurrency(val)}
                                         </td>
                                     ))}
-                                    <td className="px-6 py-6 text-right text-blue-400 text-sm bg-blue-600/10">
-                                        {formatCurrencyAbbrev(project.expectedTotalCost)}
+                                    <td className="px-6 py-6 text-right text-blue-400 text-sm bg-blue-600/10 whitespace-nowrap">
+                                        {formatCurrency(project.expectedTotalCost)}
                                     </td>
                                 </tr>
                             </tbody>

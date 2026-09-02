@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Project, ProjectBudget, ProjectMacro, TemplateMacro, CostTemplate, ProjectItem, getProjectStages, getStageIndex } from '../types';
 import { supabase } from '../supabaseClient';
-import { formatCurrencyAbbrev } from '../utils'; // Import added
+import MoneyFit from './MoneyFit';
 import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import { usePlan } from './PlanProvider';
@@ -958,20 +958,22 @@ const BudgetSection: React.FC<BudgetSectionProps> = ({ project, isAdmin, onBudge
                     </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div className="bg-slate-800/50 rounded-xl p-4 text-center">
-                        <p className="text-slate-400 text-xs uppercase tracking-widest mb-1">Orçamento</p>
-                        <p className="text-white font-black text-lg">R$ {formatCurrencyAbbrev(totalBudget)}</p>
+                {/* Valor por extenso (nunca abreviado) e com padding menor no celular:
+                    é o espaço que o número inteiro precisa. O MoneyFit encolhe a letra
+                    sozinho se ainda faltar largura. */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-4 mb-4">
+                    <div className="bg-slate-800/50 rounded-xl p-2.5 md:p-4 text-center min-w-0">
+                        <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1 truncate">Orçamento</p>
+                        <MoneyFit value={totalBudget} className="text-white" align="center" size={18} />
                     </div>
-                    <div className="bg-slate-800/50 rounded-xl p-4 text-center">
-                        <p className="text-slate-400 text-xs uppercase tracking-widest mb-1">Gasto</p>
-                        <p className="text-blue-400 font-black text-lg">R$ {formatCurrencyAbbrev(totalSpent)}</p>
+                    <div className="bg-slate-800/50 rounded-xl p-2.5 md:p-4 text-center min-w-0">
+                        <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1 truncate">Gasto</p>
+                        <MoneyFit value={totalSpent} className="text-blue-400" align="center" size={18} />
                     </div>
-                    <div className="bg-slate-800/50 rounded-xl p-4 text-center">
-                        <p className="text-slate-400 text-xs uppercase tracking-widest mb-1">Saldo</p>
-                        <p className={`font-black text-lg ${totalBudget - totalSpent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            R$ {formatCurrencyAbbrev(totalBudget - totalSpent)}
-                        </p>
+                    <div className="bg-slate-800/50 rounded-xl p-2.5 md:p-4 text-center min-w-0 col-span-2 sm:col-span-1">
+                        <p className="text-slate-400 text-[9px] md:text-xs uppercase tracking-widest mb-1 truncate">Saldo</p>
+                        <MoneyFit value={totalBudget - totalSpent} align="center" size={18}
+                            className={totalBudget - totalSpent >= 0 ? 'text-green-400' : 'text-red-400'} />
                     </div>
                 </div>
 

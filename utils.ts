@@ -3,7 +3,11 @@ export const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
-// Abbreviated currency for mobile (e.g., 1,4M, 977k, -977k). Trata negativos e mantém o sinal.
+// ⚠️ SÓ PARA ESCALA DE GRÁFICO (a régua do eixo Y da curva S). NÃO use em nada que
+// alguém leia pra decidir: "31k" no lugar de R$ 30.709,92 fez um sócio ler R$ 300 a
+// mais do que a obra tinha, e foi reclamado 3 vezes. A regra é "dinheiro que decide
+// não se abrevia" — pra caber num card estreito existe o <MoneyFit>, que mostra o
+// valor inteiro e encolhe a letra o quanto precisar.
 export const formatCurrencyAbbrev = (value: number) => {
   const sign = value < 0 ? '-' : '';
   const abs = Math.abs(value);

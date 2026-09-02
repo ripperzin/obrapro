@@ -30,15 +30,9 @@ const formatCurrency = (value: number): string => {
     }).format(value);
 };
 
-// Helper to format abbreviated currency
-const formatCurrencyAbbrev = (value: number): string => {
-    if (Math.abs(value) >= 1000000) {
-        return `R$ ${(value / 1000000).toFixed(1)}M`;
-    } else if (Math.abs(value) >= 1000) {
-        return `R$ ${(value / 1000).toFixed(0)}k`;
-    }
-    return formatCurrency(value);
-};
+// Não existe mais abreviação aqui de propósito: este é o link que o SÓCIO abre,
+// o lugar de maior exposição do app. "R$ 199,6k" no lugar de R$ 199.576,88 já foi
+// reclamado duas vezes. Regra: dinheiro que decide não se abrevia.
 
 // Card recolhível do link do sócio: cabeçalho clicável (título + chevron) e corpo
 // que abre/fecha. Só os cards secundários usam isto — Gasto×Avanço e Caixa ficam
@@ -429,11 +423,11 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                         <div className="absolute top-0 bottom-0 w-1 bg-white" style={{ left: `${Math.min(finance.progresso, 100)}%` }} />
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 gap-1">
-                        <p className={`text-sm font-bold ${tone.text}`}>
+                        <p className={`text-sm font-bold min-w-0 ${tone.text}`}>
                             <i className={`fa-solid ${verdito.icon} mr-1.5`}></i>{verdito.texto}
                         </p>
-                        <span className="text-xs text-slate-500 whitespace-nowrap">
-                            Gasto {formatCurrencyAbbrev(finance.gasto)} de {formatCurrencyAbbrev(finance.orcamentoObra)}
+                        <span className="text-[11px] sm:text-xs text-slate-500 whitespace-nowrap shrink-0">
+                            Gasto {formatCurrency(finance.gasto)} de {formatCurrency(finance.orcamentoObra)}
                         </span>
                     </div>
                     {!heroPhotoShown && (
@@ -526,9 +520,9 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                         </div>
 
                                         {/* Values */}
-                                        <div className="flex justify-between text-xs text-slate-400 font-medium">
-                                            <span>Gasto: {formatCurrencyAbbrev(macro.spentValue)}</span>
-                                            <span>Meta: {formatCurrencyAbbrev(macro.estimatedValue)}</span>
+                                        <div className="flex flex-wrap justify-between gap-x-3 text-[11px] sm:text-xs text-slate-400 font-medium">
+                                            <span className="whitespace-nowrap">Gasto: {formatCurrency(macro.spentValue)}</span>
+                                            <span className="whitespace-nowrap">Meta: {formatCurrency(macro.estimatedValue)}</span>
                                         </div>
                                     </div>
                                 );
@@ -561,9 +555,9 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                             <div className="space-y-4">
                                 {top.map(([itemId, total]) => (
                                     <div key={itemId}>
-                                        <div className="flex justify-between text-sm mb-1">
-                                            <span className="text-slate-200 font-medium">{itemId === '__none__' ? 'Sem item' : (itemsById[itemId] || 'Item')}</span>
-                                            <span className="text-white font-bold">{formatCurrencyAbbrev(total)}</span>
+                                        <div className="flex justify-between items-baseline gap-3 text-sm mb-1">
+                                            <span className="text-slate-200 font-medium min-w-0 truncate">{itemId === '__none__' ? 'Sem item' : (itemsById[itemId] || 'Item')}</span>
+                                            <span className="text-white font-bold whitespace-nowrap shrink-0">{formatCurrency(total)}</span>
                                         </div>
                                         <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
                                             <div className="h-full rounded-full bg-amber-500" style={{ width: `${(total / max) * 100}%` }} />

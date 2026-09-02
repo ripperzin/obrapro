@@ -1,6 +1,6 @@
 import React from 'react';
 import { Project } from '../types';
-import { formatCurrency, formatCurrencyAbbrev } from '../utils';
+import { formatCurrency } from '../utils';
 import { computeProjectFinance, custoM2Realizado } from '../utils/projectFinance';
 
 interface Props {
@@ -61,7 +61,7 @@ const CashSummaryCards: React.FC<Props> = ({ project }) => {
         <Money value={totalAportado} className="text-white" />
         {temAporteViaDespesa && (
           <p className="hidden md:block text-[9px] text-emerald-400/70 mt-1 font-bold uppercase tracking-wider whitespace-nowrap">
-            {formatCurrencyAbbrev(finance.aportado)} dinheiro · {formatCurrencyAbbrev(aporteViaDespesa)} despesas
+            {formatCurrency(finance.aportado)} dinheiro · {formatCurrency(aporteViaDespesa)} despesas
           </p>
         )}
       </div>

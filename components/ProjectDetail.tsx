@@ -3,7 +3,8 @@ import { Project, User, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, U
 import { canEditProject, ProjectRole } from '../lib/permissions';
 import { useInflation } from '../hooks/useInflation';
 import { PROGRESS_STAGES } from '../constants';
-import { formatCurrency, formatCurrencyAbbrev, generateId, calculateMonthsBetween } from '../utils';
+import { formatCurrency, generateId, calculateMonthsBetween } from '../utils';
+import MoneyFit from './MoneyFit';
 import { openAttachment } from '../utils/storage';
 import { exportExpensesToXlsx, formatDateBR, ExpenseExportRow } from '../utils/expenseExport';
 import MoneyInput from './MoneyInput';
@@ -275,21 +276,24 @@ const UnitsSection: React.FC<{
               </button>
             )}
           </div>
-          <div className="grid grid-cols-3 gap-2 md:gap-3">
-            <div className="glass rounded-xl border border-slate-700 p-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
+            <div className="glass rounded-xl border border-slate-700 p-3 min-w-0">
               <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 truncate">Vendidas</p>
               <p className="text-white font-black text-base md:text-lg">{unitsFin.unidadesVendidas}/{unitsFin.unidadesVendidas + unitsFin.unidadesDisponiveis}</p>
             </div>
-            <div className="glass rounded-xl border border-slate-700 p-3">
+            <div className="glass rounded-xl border border-slate-700 p-3 min-w-0">
               <p className="text-[9px] font-black uppercase tracking-widest text-cyan-400 truncate">Lucro projetado</p>
-              <p className={`font-black text-base md:text-lg whitespace-nowrap ${unitsFin.vendasEstimadasTotais > 0 ? (unitsFin.lucroProjetado >= 0 ? 'text-cyan-400' : 'text-rose-400') : 'text-slate-500'}`}>
-                {unitsFin.vendasEstimadasTotais > 0 ? formatCurrencyAbbrev(unitsFin.lucroProjetado) : '—'}
-              </p>
+              <MoneyFit
+                value={unitsFin.lucroProjetado}
+                placeholder={unitsFin.vendasEstimadasTotais > 0 ? undefined : '—'}
+                size={18}
+                className={unitsFin.vendasEstimadasTotais > 0 ? (unitsFin.lucroProjetado >= 0 ? 'text-cyan-400' : 'text-rose-400') : 'text-slate-500'}
+              />
             </div>
-            <div className="glass rounded-xl border border-slate-700 p-3">
+            <div className="glass rounded-xl border border-slate-700 p-3 min-w-0 col-span-2 sm:col-span-1">
               <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400 truncate">Lucro real</p>
               {isCompleted ? (
-                <p className={`font-black text-base md:text-lg whitespace-nowrap ${unitsFin.lucroReal >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{formatCurrencyAbbrev(unitsFin.lucroReal)}</p>
+                <MoneyFit value={unitsFin.lucroReal} size={18} className={unitsFin.lucroReal >= 0 ? 'text-emerald-400' : 'text-rose-400'} />
               ) : (
                 <p className="text-slate-500 font-black text-base md:text-lg" title="Disponível ao concluir a obra"><i className="fa-solid fa-lock text-sm"></i></p>
               )}
@@ -2394,7 +2398,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                   <p className={`text-[11px] sm:text-xs font-bold ${gastoAvancoVerdito.cor}`}>
                     <i className={`fa-solid ${gastoAvancoVerdito.icon} mr-1`}></i>{gastoAvancoVerdito.texto}
                   </p>
-                  <span className="text-[10px] text-slate-500 shrink-0 whitespace-nowrap">Gasto {formatCurrencyAbbrev(finance.gasto)} de {formatCurrencyAbbrev(finance.orcamentoObra)}</span>
+                  <span className="text-[10px] text-slate-500 shrink-0 whitespace-nowrap">Gasto {formatCurrency(finance.gasto)} de {formatCurrency(finance.orcamentoObra)}</span>
                 </div>
               </div>
               )}
