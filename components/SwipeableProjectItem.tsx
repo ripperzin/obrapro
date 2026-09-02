@@ -16,7 +16,11 @@ interface SwipeableProjectItemProps {
     total: number;
     onSelect: (id: string) => void;
     onEdit: (p: Project) => void;
-    onDelete: (id: string) => void;
+    // Só o DONO exclui (a regra do banco também só deixa ele). Vem indefinido pro
+    // convidado — que em vez disso recebe onLeave.
+    onDelete?: (id: string) => void;
+    // Convidado numa obra que não é dele: sai por conta própria.
+    onLeave?: () => void;
     onArchive?: (p: Project) => void;
     isAdmin: boolean;
 }
@@ -28,6 +32,7 @@ const SwipeableProjectItem: React.FC<SwipeableProjectItemProps> = ({
     onSelect,
     onEdit,
     onDelete,
+    onLeave,
     onArchive,
     isAdmin
 }) => {
@@ -130,18 +135,34 @@ const SwipeableProjectItem: React.FC<SwipeableProjectItemProps> = ({
                         <span className="text-[10px] font-bold uppercase">{project.archived ? 'Desarq.' : 'Arquivar'}</span>
                     </button>
                 )}
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(project.id);
-                        setTranslateX(0);
-                        setIsOpen(false);
-                    }}
-                    className="w-20 h-full bg-red-600 text-white flex flex-col items-center justify-center gap-1 active:bg-red-700"
-                >
-                    <i className="fa-solid fa-trash text-lg"></i>
-                    <span className="text-[10px] font-bold uppercase">Excluir</span>
-                </button>
+                {onDelete && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(project.id);
+                            setTranslateX(0);
+                            setIsOpen(false);
+                        }}
+                        className="w-20 h-full bg-red-600 text-white flex flex-col items-center justify-center gap-1 active:bg-red-700"
+                    >
+                        <i className="fa-solid fa-trash text-lg"></i>
+                        <span className="text-[10px] font-bold uppercase">Excluir</span>
+                    </button>
+                )}
+                {onLeave && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onLeave();
+                            setTranslateX(0);
+                            setIsOpen(false);
+                        }}
+                        className="w-20 h-full bg-slate-600 text-white flex flex-col items-center justify-center gap-1 active:bg-slate-700"
+                    >
+                        <i className="fa-solid fa-arrow-right-from-bracket text-lg"></i>
+                        <span className="text-[10px] font-bold uppercase">Sair</span>
+                    </button>
+                )}
             </div>
 
             {/* Layer Superior (Conteúdo) */}

@@ -8,6 +8,9 @@ import SwipeableProjectItem from './SwipeableProjectItem';
 import NewObraModal from './NewObraModal';
 import { usePlan } from './PlanProvider';
 import { canEditProject, MyRoles } from '../lib/permissions';
+import { useLeaveProject } from '../hooks/useProjects';
+import { useToast } from './ToastProvider';
+import { useConfirm } from './ConfirmProvider';
 
 interface ProjectsDashboardProps {
   projects: Project[];
@@ -25,6 +28,9 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
   // Pode editar/excluir ESTA obra? Só quem não é apontador nela (canEditProject
   // olha o cargo). Antes vinha um isAdmin global sempre-true -> apontador via os botões.
   const canEdit = (p: Project) => canEditProject(undefined, p, myRoles?.[p.id]);
+  const toast = useToast();
+  const confirm = useConfirm();
+  const leaveProject = useLeaveProject();
   const [showModal, setShowModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
 
@@ -57,6 +63,33 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
     return cargo !== 'gestor' && cargo !== 'apontador';
   };
   const obrasCheias = projects.filter(p => !p.archived && ehMinha(p)).length >= ent.maxObrasAtivas;
+
+  // CONVIDADO: me puseram nesta obra, ela não é minha. É o complemento exato de
+  // ehMinha — dono vê Editar/Excluir, convidado vê "Sair".
+  const ehConvidado = (p: Project) => {
+    const cargo = myRoles?.[p.id];
+    return cargo === 'gestor' || cargo === 'apontador';
+  };
+  // Só o DONO exclui a obra (regra do banco projects_delete). O gestor conseguia
+  // editar (isso o banco deixa) mas o botão de excluir dava erro — botão que
+  // parece funcionar e não funciona é pior que botão que não existe.
+  const ehDono = (p: Project) => !ehConvidado(p);
+
+  // Sair da obra: some da MINHA lista; a obra e os dados continuam lá.
+  const sairDaObra = async (p: Project) => {
+    if (!userId) return;
+    if (!(await confirm({
+      title: `Sair da obra "${p.name}"?`,
+      message: "Você vai deixar de ver esta obra. A obra e os lançamentos continuam existindo — só o seu acesso sai.\n\nSó o dono pode te dar acesso de novo.",
+      confirmText: 'Sim, sair',
+    }))) return;
+    try {
+      await leaveProject.mutateAsync({ projectId: p.id, userId });
+      toast.success(`Você saiu da obra ${p.name}.`);
+    } catch (e: any) {
+      toast.error('Não consegui sair da obra: ' + e.message);
+    }
+  };
 
   const openAddModal = () => {
     if (obrasCheias) {
@@ -153,7 +186,8 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                   total={total}
                   onSelect={onSelect}
                   onEdit={(p) => openEditModal({ stopPropagation: () => { } } as any, p)}
-                  onDelete={(id) => requestDelete({ stopPropagation: () => { } } as any, id)}
+                  onDelete={ehDono(p) ? (id) => requestDelete({ stopPropagation: () => { } } as any, id) : undefined}
+                  onLeave={ehConvidado(p) ? () => sairDaObra(p) : undefined}
                   isAdmin={canEdit(p)}
                 />
               );
@@ -193,22 +227,30 @@ const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({ projects, onSelec
                       {p.progress}%
                     </span>
                     {canEdit(p) && (
-                      <>
-                        <button
-                          onClick={(e) => openEditModal(e, p)}
-                          className="w-8 h-8 flex items-center justify-center bg-blue-50 border border-blue-200 text-blue-600 rounded-full hover:bg-blue-100 transition"
-                          title="Editar Obra"
-                        >
-                          <i className="fa-solid fa-pen text-xs"></i>
-                        </button>
-                        <button
-                          onClick={(e) => requestDelete(e, p.id)}
-                          className="w-8 h-8 flex items-center justify-center bg-red-50 border border-red-200 text-red-600 rounded-full hover:bg-red-100 transition"
-                          title="Excluir Obra"
-                        >
-                          <i className="fa-solid fa-trash text-xs"></i>
-                        </button>
-                      </>
+                      <button
+                        onClick={(e) => openEditModal(e, p)}
+                        className="w-8 h-8 flex items-center justify-center bg-blue-50 border border-blue-200 text-blue-600 rounded-full hover:bg-blue-100 transition"
+                        title="Editar Obra"
+                      >
+                        <i className="fa-solid fa-pen text-xs"></i>
+                      </button>
+                    )}
+                    {ehDono(p) ? (
+                      <button
+                        onClick={(e) => requestDelete(e, p.id)}
+                        className="w-8 h-8 flex items-center justify-center bg-red-50 border border-red-200 text-red-600 rounded-full hover:bg-red-100 transition"
+                        title="Excluir Obra"
+                      >
+                        <i className="fa-solid fa-trash text-xs"></i>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); sairDaObra(p); }}
+                        className="w-8 h-8 flex items-center justify-center bg-slate-100 border border-slate-300 text-slate-500 rounded-full hover:bg-slate-200 hover:text-slate-700 transition"
+                        title="Sair desta obra"
+                      >
+                        <i className="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+                      </button>
                     )}
                   </div>
                 </div>

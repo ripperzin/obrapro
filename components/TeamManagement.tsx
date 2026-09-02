@@ -89,8 +89,11 @@ const TeamManagement: React.FC<Props> = ({ projects, user, myRoles }) => {
 
   useEffect(() => { carregar(); }, []);
 
-  // Muda o cargo da pessoa numa obra: 'fora' tira, senão põe/atualiza. Direto no
-  // banco (RLS members_*). Atualiza a tela na hora.
+  // Muda o cargo da pessoa numa obra: 'fora' tira, senão põe/atualiza.
+  // PÔR alguém passa pelo servidor (team-actions), porque é lá que moram a trava
+  // de plano e o teto de funcionários — inserir direto daqui deixava o "adicionar
+  // pelo apelido" virar a porta dos fundos do plano. TIRAR continua direto: a
+  // regra do banco já garante que só o dono tira, e tirar não gasta vaga nenhuma.
   const mudarCargo = async (member: TeamMember, projectId: string, alvo: Cargo | 'fora') => {
     const atual = member.memberships[projectId] as Cargo | undefined;
     if ((atual || 'fora') === alvo) return;
@@ -99,12 +102,8 @@ const TeamManagement: React.FC<Props> = ({ projects, user, myRoles }) => {
       if (alvo === 'fora') {
         const { error } = await supabase.from('project_members').delete().match({ project_id: projectId, user_id: member.id });
         if (error) throw error;
-      } else if (atual) {
-        const { error } = await supabase.from('project_members').update({ role: alvo }).match({ project_id: projectId, user_id: member.id });
-        if (error) throw error;
       } else {
-        const { error } = await supabase.from('project_members').insert({ project_id: projectId, user_id: member.id, role: alvo });
-        if (error) throw error;
+        await invokeTeam('add_to_project', { projectId, userId: member.id, role: alvo });
       }
       setTeam(prev => prev.map(m => {
         if (m.id !== member.id) return m;
@@ -341,10 +340,9 @@ const AdicionarPeloApelido: React.FC<{
     if (!achado) return;
     setBusy(true);
     try {
-      // A regra do banco (members_insert) só deixa o DONO da obra fazer isto.
-      const { error } = await supabase.from('project_members')
-        .insert({ project_id: projectId, user_id: achado.id, role: cargo });
-      if (error) throw error;
+      // Pelo servidor: além da regra do banco (só o dono da obra), é lá que valem
+      // a trava de plano e o teto de funcionários.
+      await invokeTeam('add_to_project', { projectId, userId: achado.id, role: cargo });
       toast.success(`${achado.fullName || achado.login} agora tem acesso a ${obra?.name} como ${CARGO_LABEL[cargo]}.`);
       onAdicionado(achado.id);
     } catch (e: any) {

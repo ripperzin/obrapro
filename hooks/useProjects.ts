@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { Project } from '../types';
 import { useOfflineMutation } from './useOfflineMutation';
@@ -374,6 +374,32 @@ export const useDeleteProject = () => {
             if (context?.previousData) queryClient.setQueryData(['projects'], context.previousData);
         },
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+        },
+    });
+};
+
+/**
+ * SAIR DE UMA OBRA em que me puseram.
+ *
+ * Quem é adicionado numa obra não consente com nada — o dono digita o apelido e
+ * pronto. Sem isto, a única saída era pedir pro dono te tirar. Não é o mesmo que
+ * excluir a obra: some da MINHA lista, a obra e os dados continuam lá.
+ *
+ * ⚠️ O DONO não usa isto (a tela nem oferece) e a regra do banco também não deixa:
+ * se ele saísse, a obra ficaria órfã, sem ninguém que gerencie a equipe.
+ */
+export const useLeaveProject = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ projectId, userId }: { projectId: string; userId: string }) => {
+            const { error } = await supabase.from('project_members')
+                .delete().match({ project_id: projectId, user_id: userId });
+            if (error) throw error;
+            return projectId;
+        },
+        onSuccess: (projectId) => {
+            queryClient.setQueryData<Project[]>(['projects'], (old) => old?.filter(p => p.id !== projectId) || []);
             queryClient.invalidateQueries({ queryKey: ['projects'] });
         },
     });

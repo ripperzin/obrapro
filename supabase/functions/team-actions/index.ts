@@ -49,9 +49,14 @@ Deno.serve(async (req) => {
         // Service role: ignora RLS. Usada pra checar titularidade e executar a ação.
         const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
-        const { data: me } = await admin.from("profiles").select("role, plan").eq("id", caller.id).single();
+        const { data: me } = await admin.from("profiles").select("role, plan, validador").eq("id", caller.id).single();
         const isAdmin = me?.role === "admin";
         const callerPlan = me?.plan;
+        // VALIDADOR = exceção ao sistema (decisão do Victor, 02/09). São as pessoas
+        // que estão testando o app pra valer: não podem esbarrar em teto nem em
+        // trava de plano no meio de uma validação. Marcado à mão no banco.
+        const isValidador = me?.validador === true;
+        const semLimite = isAdmin || isValidador;
 
         // O chamador é o DONO desta obra (ou o dono do app)?
         const ownsProject = async (projectId: string): Promise<boolean> => {
@@ -74,6 +79,45 @@ Deno.serve(async (req) => {
             const { data } = await admin.from("project_members")
                 .select("project_id").eq("user_id", caller.id).eq("role", "owner");
             return (data || []).map((o) => o.project_id);
+        };
+
+        // ── EQUIPE: as duas regras, num lugar só ──────────────────────────────
+        // Existem 2 jeitos de pôr alguém numa obra minha: criar uma conta nova, ou
+        // adicionar pelo APELIDO quem já usa o app. Os dois passam por aqui — se só
+        // o primeiro passasse, o apelido viraria a porta dos fundos do plano.
+
+        // "Minha equipe" pra efeito de TETO = o mesmo conjunto que a tela mostra
+        // (quem eu criei ∪ quem está nas minhas obras), sem contar eu mesmo.
+        // Contar só `created_by` deixava a conta errada dos dois lados: quem entrou
+        // pelo apelido não contava em ninguém, e as contas que o dono do app cria
+        // pra um cliente contavam no dono do app, não no cliente.
+        const equipeIds = async (): Promise<string[]> => {
+            const projIds = await minhasObras();
+            let ids: string[] = [];
+            if (projIds.length) {
+                const { data: mem } = await admin.from("project_members")
+                    .select("user_id").in("project_id", projIds).neq("user_id", caller.id);
+                ids = (mem || []).map((m) => String(m.user_id));
+            }
+            const { data: criados } = await admin.from("profiles").select("id").eq("created_by", caller.id);
+            return Array.from(new Set<string>([...ids, ...(criados || []).map((c) => String(c.id))]));
+        };
+
+        // Pode montar equipe? (trava de plano). Erro pronto, ou null se pode.
+        const barraPlano = (): string | null =>
+            semLimite || callerPlan === "business" ? null : "A equipe faz parte do plano Construtora.";
+
+        // Cabe mais uma pessoa? `jaNaEquipe` = quem já é da equipe não ocupa vaga nova
+        // (pôr a mesma pessoa numa segunda obra minha não é um funcionário a mais).
+        const barraTeto = async (novoUserId?: string): Promise<string | null> => {
+            if (semLimite) return null;
+            const teto = MAX_FUNCIONARIOS[callerPlan as string] ?? 0;
+            const atuais = await equipeIds();
+            if (novoUserId && atuais.includes(novoUserId)) return null;
+            if (atuais.length >= teto) {
+                return `Você chegou no limite de ${teto} funcionário${teto === 1 ? "" : "s"} do seu plano.`;
+            }
+            return null;
         };
 
         // ---- listar minha equipe --------------------------------------------
@@ -155,6 +199,31 @@ Deno.serve(async (req) => {
             });
         }
 
+        // ---- pôr alguém numa obra minha (dar acesso / trocar de obra) ---------
+        // Antes o navegador inseria direto em project_members: a regra do banco
+        // (members_insert) só deixa o dono da obra, então acesso indevido não havia
+        // — mas plano e teto ficavam de fora, e adicionar pelo apelido virava a
+        // porta dos fundos do plano Construtora. Agora passa por aqui.
+        if (action === "add_to_project") {
+            const projectId = String(args.projectId || "");
+            const userId = String(args.userId || "");
+            const role = String(args.role || "");
+            if (!UUID_RE.test(projectId) || !UUID_RE.test(userId)) return json({ error: "Obra ou pessoa inválida." }, 400);
+            if (role !== "gestor" && role !== "apontador") return json({ error: "Cargo inválido." }, 400);
+            if (userId === caller.id) return json({ error: "Você já é o dono desta obra." }, 400);
+            if (!(await ownsProject(projectId))) return json({ error: "Só o dono da obra pode dar acesso a ela." }, 403);
+
+            const semPlano = barraPlano();
+            if (semPlano) return json({ error: semPlano }, 403);
+            const cheio = await barraTeto(userId);
+            if (cheio) return json({ error: cheio }, 403);
+
+            const { error } = await admin.from("project_members")
+                .upsert({ project_id: projectId, user_id: userId, role }, { onConflict: "project_id,user_id" });
+            if (error) return json({ error: error.message }, 400);
+            return json({ ok: true });
+        }
+
         // ---- criar o login do funcionário (Admin API) ------------------------
         // Cria só a CONTA (login/senha). As obras e os cargos o Dono distribui
         // depois, no card da equipe (seletor por obra). Equipe é do Construtora.
@@ -164,19 +233,12 @@ Deno.serve(async (req) => {
             const full_name = String(args.fullName || "").trim();
             if (!LOGIN_RE.test(login)) return json({ error: "Login inválido (letras, números, ponto, hífen ou _; mín. 3)." }, 400);
             if (password.length < 6) return json({ error: "A senha precisa de ao menos 6 caracteres." }, 400);
-            // Trava de plano no servidor: equipe é do Construtora (não só o front esconde).
-            if (!isAdmin && callerPlan !== "business") return json({ error: "A equipe faz parte do plano Construtora." }, 403);
-
-            // Teto de funcionários por plano (trava real, não só o botão do front).
-            // Admin (dono do app) não tem teto. Conta pela espinha "minha equipe" (created_by).
-            if (!isAdmin) {
-                const teto = MAX_FUNCIONARIOS[callerPlan as string] ?? 0;
-                const { count } = await admin.from("profiles")
-                    .select("id", { count: "exact", head: true }).eq("created_by", caller.id);
-                if ((count ?? 0) >= teto) {
-                    return json({ error: `Você chegou no limite de ${teto} funcionários do plano Construtora.` }, 403);
-                }
-            }
+            // Plano e teto: as mesmas regras do "adicionar pelo apelido" (trava real
+            // no servidor, não só o botão do front).
+            const semPlano = barraPlano();
+            if (semPlano) return json({ error: semPlano }, 403);
+            const cheio = await barraTeto();
+            if (cheio) return json({ error: cheio }, 403);
 
             // O login é o "usuário" pra entrar (apelido) — precisa ser único no
             // sistema todo. O NOME pode repetir; se o login pedido já existe,
