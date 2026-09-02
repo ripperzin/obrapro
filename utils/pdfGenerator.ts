@@ -112,15 +112,43 @@ const C = {
 
 const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 }).format(v);
 
-// Abreviação IGUAL à do link (formatCurrencyAbbrev em utils.ts): >=1mi vira "X,YM",
-// >=1mil vira "Nk" (arredondado, sem casas), abaixo disso o valor cheio. Assim o
-// mesmo número aparece do mesmo jeito no link e no PDF.
-const fmtShort = (v: number): string => {
-    const sign = v < 0 ? '-' : '';
-    const abs = Math.abs(v);
-    if (abs >= 1_000_000) return `R$ ${sign}${(abs / 1_000_000).toFixed(1).replace('.', ',')}M`;
-    if (abs >= 1_000) return `R$ ${sign}${Math.round(abs / 1_000)}k`;
-    return fmt(v);
+// TEXTO QUE NÃO INVADE O VIZINHO.
+// O PDF é de largura fixa: aqui não existe "quebrar linha" nem barra de rolagem —
+// texto comprido demais passa POR CIMA do texto do lado. Então escreve no tamanho
+// pedido e, se não couber na largura reservada, diminui a fonte só o necessário.
+// É o mesmo remédio do <MoneyFit> no app.
+const fitText = (
+    doc: any, txt: string, x: number, y: number,
+    maxW: number, size: number, align: 'left' | 'center' | 'right' = 'left'
+) => {
+    doc.setFontSize(size);
+    const w = doc.getTextWidth(txt);
+    if (w > maxW && maxW > 0) doc.setFontSize(Math.max(4.5, size * (maxW / w)));
+    doc.text(txt, x, y, { align });
+    doc.setFontSize(size);   // devolve o tamanho de antes: o chamador continua igual
+};
+
+// Dinheiro por extenso, sempre. O antigo fmtShort abreviava ("R$ 199,6k" no lugar
+// de R$ 199.576,88) — e este PDF é justamente o que o sócio recebe por escrito.
+const money = (
+    doc: any, v: number, x: number, y: number,
+    o: {
+        maxW: number; size: number; align?: 'left' | 'center' | 'right';
+        prefix?: string; suffix?: string;
+        /** Sufixo que pode cair fora se, pra caber, o número virasse borrão. */
+        suffixOpcional?: boolean;
+    }
+) => {
+    const base = `${o.prefix || ''}${fmt(v)}`;
+    let txt = `${base}${o.suffix || ''}`;
+    if (o.suffix && o.suffixOpcional) {
+        doc.setFontSize(o.size);
+        const w = doc.getTextWidth(txt);
+        // O valor é o que importa: se levar o sufixo junto obrigaria a apertar a
+        // letra abaixo do legível, o sufixo sai e o número fica inteiro e visível.
+        if (w > o.maxW && o.size * (o.maxW / w) < 5.5) txt = base;
+    }
+    return fitText(doc, txt, x, y, o.maxW, o.size, o.align || 'left');
 };
 
 const fmtDate = (d: string) => { try { return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR'); } catch { return d; } };
@@ -306,8 +334,10 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         // veredito (esquerda) + "Gasto X de Y" (direita) — igual ao app
         doc.setFontSize(9); setColor(toneHex); doc.setFont('helvetica', 'bold');
         doc.text(verdito.texto, M, y);
+        const vereditoW = doc.getTextWidth(verdito.texto);
         doc.setFontSize(8); setColor(C.muted); doc.setFont('helvetica', 'normal');
-        doc.text(`Gasto ${fmtShort(f.gasto)} de ${fmtShort(f.orcamentoObra)}`, pw - M, y, { align: 'right' });
+        // o que sobra da linha depois do veredito é o espaço deste texto
+        fitText(doc, `Gasto ${fmt(f.gasto)} de ${fmt(f.orcamentoObra)}`, pw - M, y, W - vereditoW - 4, 8, 'right');
         y += 6;
         // Etapa atual só quando a foto (que já mostra a etapa) não está no relatório
         if (!fotoShown) {
@@ -335,12 +365,12 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         y += 6;
 
         const caixa = [
-            { lbl: 'APORTADO', val: fmtShort(f.aportadoTotal), c: C.emerald, brd: C.emerald },
-            { lbl: 'CONSTRUÇÃO', val: fmtShort(f.gasto), c: C.red, brd: C.red },
+            { lbl: 'APORTADO', val: f.aportadoTotal, c: C.emerald, brd: C.emerald },
+            { lbl: 'CONSTRUÇÃO', val: f.gasto, c: C.red, brd: C.red },
             ...(temAquisicaoPaga
-                ? [{ lbl: 'TERRENO + TAXAS', val: fmtShort(f.aquisicaoFinanciada), c: C.amber, brd: C.amber }]
+                ? [{ lbl: 'TERRENO + TAXAS', val: f.aquisicaoFinanciada, c: C.amber, brd: C.amber }]
                 : []),
-            { lbl: 'SALDO EM CAIXA', val: fmtShort(f.saldoCaixa), c: f.saldoCaixa >= 0 ? C.green : C.red, brd: f.saldoCaixa >= 0 ? C.green : C.red },
+            { lbl: 'SALDO EM CAIXA', val: f.saldoCaixa, c: f.saldoCaixa >= 0 ? C.green : C.red, brd: f.saldoCaixa >= 0 ? C.green : C.red },
         ];
         const cxW = (W - 4 * (caixa.length - 1)) / caixa.length, cxH = 22;
         caixa.forEach((s, i) => {
@@ -348,8 +378,8 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
             card(doc, x, y, cxW, cxH, s.brd);
             doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'bold');
             doc.text(s.lbl, x + cxW / 2, y + 6, { align: 'center' });
-            doc.setFontSize(12); setColor(s.c);
-            doc.text(s.val, x + cxW / 2, y + 15, { align: 'center' });
+            setColor(s.c);
+            money(doc, s.val, x + cxW / 2, y + 15, { maxW: cxW - 4, size: 12, align: 'center' });
         });
         y += cxH + 8;
 
@@ -376,8 +406,9 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
                 bar(doc, M + 2, y + 5.5, W - 4, 2, p2, over ? C.red : C.blue);
 
                 doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'normal');
-                doc.text(`Gasto: ${fmtShort(macro.spentValue)}`, M + 2, y + 11);
-                doc.text(`Meta: ${fmtShort(macro.estimatedValue)}`, pw - M - 2, y + 11, { align: 'right' });
+                const metadeW = (W - 4) / 2 - 2;
+                money(doc, macro.spentValue, M + 2, y + 11, { maxW: metadeW, size: 6, prefix: 'Gasto: ' });
+                money(doc, macro.estimatedValue, pw - M - 2, y + 11, { maxW: metadeW, size: 6, align: 'right' , prefix: 'Meta: ' });
                 y += 14;
             }
             y += 2;
@@ -412,8 +443,9 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
                     const nome = itemId === '__none__' ? 'Sem item' : (itemsById[itemId] || 'Item');
                     doc.setFontSize(7.5); setColor(C.text); doc.setFont('helvetica', 'bold');
                     doc.text(nome, M + 2, y + 3);
+                    const nomeW = doc.getTextWidth(nome);
                     setColor(C.text);
-                    doc.text(fmtShort(total), pw - M - 2, y + 3, { align: 'right' });
+                    money(doc, total, pw - M - 2, y + 3, { maxW: W - 4 - nomeW - 3, size: 7.5, align: 'right' });
                     bar(doc, M + 2, y + 4.5, W - 4, 2, (total / maxItem) * 100, C.amber);
                     y += 9;
                 }
@@ -511,7 +543,8 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
                         if (!cell) { setColor(C.muted2); doc.text('—', colX(i), y, { align: 'right' }); return; }
                         const pago = row.kind !== 'plan' || cell.pago;
                         setColor(row.kind === 'despesa' ? C.amber : pago ? C.emerald : C.muted);
-                        doc.text(fmtShort(cell.value) + (row.kind === 'plan' && !cell.pago ? ' (a pagar)' : ''), colX(i), y, { align: 'right' });
+                        money(doc, cell.value, colX(i), y, { maxW: colW - 2, size: 7.5, align: 'right', suffix: row.kind === 'plan' && !cell.pago ? ' (a pagar)' : '', suffixOpcional: true });
+                        // com muitos sócios a coluna some: aí o cinza da cor já diz "a pagar"
                     });
                     y += 6;
                 }
@@ -522,11 +555,11 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
                 doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'bold');
                 doc.text('APORTOU / META', M + 2, y);
                 shares.forEach((s, i) => {
-                    doc.setFontSize(8); setColor(C.emerald); doc.setFont('helvetica', 'bold');
-                    doc.text(fmtShort(s.aportado), colX(i), y, { align: 'right' });
-                    doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'normal');
-                    doc.text(`de ${fmtShort(s.meta)}`, colX(i), y + 3.5, { align: 'right' });
-                    if (s.falta > 0.5) { setColor(C.amber); doc.setFont('helvetica', 'bold'); doc.text(`falta ${fmtShort(s.falta)}`, colX(i), y + 7, { align: 'right' }); }
+                    setColor(C.emerald); doc.setFont('helvetica', 'bold');
+                    money(doc, s.aportado, colX(i), y, { maxW: colW - 2, size: 8, align: 'right' });
+                    setColor(C.muted); doc.setFont('helvetica', 'normal');
+                    money(doc, s.meta, colX(i), y + 3.5, { maxW: colW - 2, size: 6, align: 'right', prefix: 'de ' });
+                    if (s.falta > 0.5) { setColor(C.amber); doc.setFont('helvetica', 'bold'); money(doc, s.falta, colX(i), y + 7, { maxW: colW - 2, size: 6, align: 'right', prefix: 'falta ' }); }
                 });
                 y += 11;
 
@@ -570,12 +603,16 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         const col2 = M + resW + 4;
 
         // Linha label/valor dentro de um card
-        const resLine = (x: number, yy: number, w: number, label: string, val: string, valColor?: string, bold = false) => {
+        // val em número = dinheiro por extenso; em texto = frase (ex.: "3/12 casas").
+        const resLine = (x: number, yy: number, w: number, label: string, val: number | string, valColor?: string, bold = false) => {
             doc.setFontSize(7); setColor(C.muted); doc.setFont('helvetica', 'normal');
             doc.text(label, x + 3, yy);
+            const labelW = doc.getTextWidth(label);
             doc.setFont('helvetica', bold ? 'bold' : 'normal');
             setColor(valColor || C.text);
-            doc.text(val, x + w - 3, yy, { align: 'right' });
+            const sobra = w - 6 - labelW - 2;   // o rótulo fica; quem encolhe é o número
+            if (typeof val === 'number') money(doc, val, x + w - 3, yy, { maxW: sobra, size: 7, align: 'right' });
+            else fitText(doc, val, x + w - 3, yy, sobra, 7, 'right');
         };
 
         // --- PROJETADO (tudo vendido) ---
@@ -583,12 +620,12 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         doc.setFontSize(7); setColor(C.cyan); doc.setFont('helvetica', 'bold');
         doc.text('PROJETADO (tudo vendido)', M + 3, y + 6);
         if (temProjecao) {
-            resLine(M, y + 14, resW, 'Vendas estimadas', fmtShort(f.vendasEstimadasTotais));
-            resLine(M, y + 20, resW, '- Obra (orçamento)', fmtShort(f.custoObraProjetado));
-            if (f.terrenoProjetado > 0) resLine(M, y + 26, resW, '- Terreno', fmtShort(f.terrenoProjetado));
+            resLine(M, y + 14, resW, 'Vendas estimadas', f.vendasEstimadasTotais);
+            resLine(M, y + 20, resW, '- Obra (orçamento)', f.custoObraProjetado);
+            if (f.terrenoProjetado > 0) resLine(M, y + 26, resW, '- Terreno', f.terrenoProjetado);
             const py = f.terrenoProjetado > 0 ? y + 35 : y + 29;
             doc.setDrawColor(...BORDER); doc.line(M + 3, py - 4, M + resW - 3, py - 4);
-            resLine(M, py, resW, 'LUCRO PROJETADO', fmtShort(f.lucroProjetado), f.lucroProjetado >= 0 ? C.cyan : C.red, true);
+            resLine(M, py, resW, 'LUCRO PROJETADO', f.lucroProjetado, f.lucroProjetado >= 0 ? C.cyan : C.red, true);
             doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'normal');
             doc.text(`margem ${f.margemPct.toFixed(1)}%`, M + resW - 3, py + 5, { align: 'right' });
         } else {
@@ -604,11 +641,11 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         doc.text('REALIZADO (casas vendidas)', col2 + 3, y + 6);
         if (temVenda) {
             resLine(col2, y + 14, resW, 'Vendido', `${f.unidadesVendidas}/${f.unidadesTotais} casas`);
-            resLine(col2, y + 20, resW, 'Liquidado', fmtShort(f.vendasRealizadas));
+            resLine(col2, y + 20, resW, 'Liquidado', f.vendasRealizadas);
             if (isCompleted) {
-                resLine(col2, y + 26, resW, '- Custo real', fmtShort(f.custoRealVendidas));
+                resLine(col2, y + 26, resW, '- Custo real', f.custoRealVendidas);
                 doc.setDrawColor(...BORDER); doc.line(col2 + 3, y + 31, col2 + resW - 3, y + 31);
-                resLine(col2, y + 37, resW, 'LUCRO REAL', fmtShort(f.lucroReal), f.lucroReal >= 0 ? C.green : C.red, true);
+                resLine(col2, y + 37, resW, 'LUCRO REAL', f.lucroReal, f.lucroReal >= 0 ? C.green : C.red, true);
                 doc.setFontSize(6); setColor(C.muted); doc.setFont('helvetica', 'normal');
                 doc.text(`margem ${f.margemRealPct.toFixed(1)}%`, col2 + resW - 3, y + 42, { align: 'right' });
             } else {
@@ -636,7 +673,7 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
         const disponiveis = f.unidadesDisponiveis;
         if (disponiveis > 0) {
             doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'normal');
-            doc.text(`A vender: ${fmtShort(f.vendasPotencial)}  •  ${disponiveis} casa${disponiveis > 1 ? 's' : ''} disponíve${disponiveis > 1 ? 'is' : 'l'}`, M, y);
+            fitText(doc, `A vender: ${fmt(f.vendasPotencial)}  •  ${disponiveis} casa${disponiveis > 1 ? 's' : ''} disponíve${disponiveis > 1 ? 'is' : 'l'}`, M, y, W, 6.5);
             y += 6;
         }
         y += 3;
