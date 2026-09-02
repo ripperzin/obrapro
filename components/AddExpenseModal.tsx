@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { ProjectMacro, ProjectItem, TemplateStageItem, Investor } from '../types';
+import { ProjectMacro, ProjectItem, TemplateStageItem, Investor, TerrenoDraft } from '../types';
 import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import AttachmentUpload from './AttachmentUpload';
@@ -22,12 +22,22 @@ interface AddExpenseModalProps {
     // Criar ITEM inline, sem sair do modal. Retorna o id (existente, se já houver — dedupe).
     // Categoria (etapa/macro) NÃO é criada inline de propósito (criar no Orçamento).
     onCreateItem?: (name: string) => Promise<string | null>;
+    // Escolher "Terreno" na lista de etapas (pedido do Wender: lançar terreno pelo
+    // caminho normal da despesa). Terreno mora em OUTRA gaveta (`acquisition_costs`)
+    // e tem perguntas próprias (permuta, "já era meu"), então aqui a gente NÃO grava:
+    // entrega o que já foi digitado e a janela do terreno continua de onde parou.
+    // Vem indefinido para o APONTADOR — sem ele, a etapa Terreno nem aparece.
+    onPickTerreno?: (draft: TerrenoDraft) => void;
 }
+
+// Valor "de mentira" no seletor de etapa: não é etapa da obra, é a saída para a
+// janela do terreno. Nunca chega a ser gravado numa despesa.
+export const TERRENO_MACRO_OPTION = '__terreno__';
 
 // Normaliza p/ busca: ignora maiúsculas e acentos ("caç" acha "Caçamba").
 const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
-const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSave, macros, items, stageItems = [], investors = [], defaultPayerId, onCreateItem }) => {
+const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSave, macros, items, stageItems = [], investors = [], defaultPayerId, onCreateItem, onPickTerreno }) => {
     const toast = useToast();
     const confirm = useConfirm();
     const [formData, setFormData] = useState({
@@ -161,6 +171,23 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
         onClose();
     };
 
+    // Escolheu a etapa "Terreno": não é despesa, é aquisição. Fecha esta janela e
+    // abre a do terreno já com o que ele digitou — ninguém redigita nada. O rascunho
+    // da despesa é jogado fora aqui, senão a Nova Despesa reabriria com esses dados.
+    const handleTerreno = () => {
+        if (!onPickTerreno) return;
+        const draft: TerrenoDraft = {
+            description: formData.description.trim() || undefined,
+            value: formData.value || undefined,
+            date: formData.date,
+            attachments: formData.attachments,
+            paidByInvestorId: formData.paidByInvestorId || undefined,
+        };
+        localStorage.removeItem(DRAFT_KEY);
+        onClose();
+        onPickTerreno(draft);
+    };
+
     if (!isOpen) return null;
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -282,13 +309,28 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSa
                             required
                             className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-green-500 rounded-2xl outline-none font-bold text-white text-xs appearance-none cursor-pointer"
                             value={formData.macroId}
-                            onChange={e => setFormData({ ...formData, macroId: e.target.value })}
+                            onChange={e => {
+                                // Terreno não é etapa da obra: manda pra janela dele
+                                // e o seletor NÃO guarda esse valor.
+                                if (e.target.value === TERRENO_MACRO_OPTION) { handleTerreno(); return; }
+                                setFormData({ ...formData, macroId: e.target.value });
+                            }}
                         >
                             <option value="" disabled>Selecione a etapa...</option>
                             {macros.map(m => (
                                 <option key={m.id} value={m.id}>{m.name}</option>
                             ))}
+                            {/* Fora dos 100% da obra de propósito: terra não é avanço
+                                de construção. Só aparece pra quem enxerga dinheiro. */}
+                            {onPickTerreno && (
+                                <option value={TERRENO_MACRO_OPTION}>Terreno (compra, escritura, registro…)</option>
+                            )}
                         </select>
+                        {onPickTerreno && (
+                            <p className="text-[10px] text-slate-500 ml-3">
+                                Terreno é lançado à parte — não entra no custo por m² da construção.
+                            </p>
+                        )}
                     </div>
 
                     {/* Item da obra — buscável. Sugere primeiro os itens típicos da etapa.

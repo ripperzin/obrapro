@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useLayoutEffect } from 'react';
-import { Project, User, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense, AcquisitionCost, ProjectMacro, ProjectItem, TemplateStageItem, getProjectStages, getStageName, getStageIndex } from '../types';
+import { Project, User, ProgressStage, STAGE_NAMES, STAGE_ICONS, STAGE_ABBREV, Unit, Expense, AcquisitionCost, ProjectMacro, ProjectItem, TemplateStageItem, TerrenoDraft, getProjectStages, getStageName, getStageIndex } from '../types';
 import { canEditProject, ProjectRole } from '../lib/permissions';
 import { useInflation } from '../hooks/useInflation';
 import { PROGRESS_STAGES } from '../constants';
@@ -791,7 +791,7 @@ const ExpensesSection: React.FC<{
     ...terrenoFiltrado.map((c) => ({ kind: 'ter' as const, date: c.date || '', c })),
   ]).sort((a, b) => b.date.localeCompare(a.date)), [filteredExpenses, terrenoFiltrado]);
 
-  const [terrenoModal, setTerrenoModal] = useState<{ open: boolean; editing?: AcquisitionCost }>({ open: false });
+  const [terrenoModal, setTerrenoModal] = useState<{ open: boolean; editing?: AcquisitionCost; prefill?: TerrenoDraft }>({ open: false });
   const deleteTerreno = useDeleteAcquisitionCost();
   const apagarTerreno = async (c: AcquisitionCost) => {
     if (await confirm('Excluir este lançamento de terreno?')) deleteTerreno.mutate(c.id);
@@ -1109,6 +1109,9 @@ const ExpensesSection: React.FC<{
         investors={project.investors || []}
         defaultPayerId={project.financedByInvestorId}
         onCreateItem={handleCreateItem}
+        // Etapa "Terreno" na Nova Despesa (pedido do Wender). Some pro apontador,
+        // que não pode ver dinheiro de terreno.
+        onPickTerreno={canSeeMoney ? (draft) => setTerrenoModal({ open: true, prefill: draft }) : undefined}
       />
 
       {/* Lançar/editar terreno — mesma janela de sempre, agora chamada de dentro
@@ -1118,6 +1121,7 @@ const ExpensesSection: React.FC<{
           project={project}
           user={user}
           editing={terrenoModal.editing}
+          prefill={terrenoModal.prefill}
           onClose={() => setTerrenoModal({ open: false })}
         />
       )}

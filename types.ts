@@ -310,6 +310,16 @@ export interface Contribution {
 
 export type AcquisitionCategory = 'terreno' | 'escritura' | 'registro' | 'imposto' | 'comissao' | 'outros';
 
+// Ponte entre a Nova Despesa e a janela do Terreno: quando a pessoa escolhe a
+// etapa "Terreno", o que ela já digitou viaja daqui pra lá (ninguém redigita).
+export interface TerrenoDraft {
+  description?: string;
+  value?: number;
+  date?: string;
+  attachments?: string[];
+  paidByInvestorId?: string;
+}
+
 export const ACQUISITION_CATEGORY_LABELS: Record<AcquisitionCategory, string> = {
   terreno: 'Terreno',
   escritura: 'Escritura',

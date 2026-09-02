@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Project, User, AcquisitionCost, ACQUISITION_CATEGORY_LABELS, AcquisitionCategory } from '../types';
+import { Project, User, AcquisitionCost, ACQUISITION_CATEGORY_LABELS, AcquisitionCategory, TerrenoDraft } from '../types';
 import MoneyInput from './MoneyInput';
 import DateInput from './DateInput';
 import AttachmentUpload from './AttachmentUpload';
@@ -13,6 +13,9 @@ interface Props {
     project: Project;
     user: User;
     editing?: AcquisitionCost;   // quando presente: modo edição (mesma tela, salva por cima)
+    // Veio da Nova Despesa (escolheu a etapa "Terreno"): abre com o que já foi
+    // digitado lá, pra ninguém redigitar. Ignorado em modo edição.
+    prefill?: TerrenoDraft;
     onClose: () => void;
 }
 
@@ -29,22 +32,29 @@ const payerFromCost = (c?: AcquisitionCost): string => {
     return c.paidFromProject ? 'caixa' : '__fora__';
 };
 
-const AddAcquisitionModal: React.FC<Props> = ({ project, user, editing, onClose }) => {
+const AddAcquisitionModal: React.FC<Props> = ({ project, user, editing, prefill, onClose }) => {
     const investors = project.investors || [];
     const isEditing = !!editing;
+    const pre = isEditing ? undefined : prefill;   // edição manda; prefill só em lançamento novo
 
     const [category, setCategory] = useState<AcquisitionCategory>((editing?.category as AcquisitionCategory) || 'terreno');
-    const [value, setValue] = useState(editing?.value || 0);
-    const [date, setDate] = useState(editing?.date || todayIso());
-    const [description, setDescription] = useState(editing?.description || '');
+    const [value, setValue] = useState(editing?.value || pre?.value || 0);
+    const [date, setDate] = useState(editing?.date || pre?.date || todayIso());
+    const [description, setDescription] = useState(editing?.description || pre?.description || '');
     // Fonte única de "quem pagou": 'caixa' | '__fora__' | <id do sócio>
     //   caixa     → saiu do caixa (dos aportes)
     //   __fora__  → fora do caixa, sem sócio ("já era meu")
     //   <id>      → sócio pagou do próprio bolso → conta como aporte dele
-    const [payer, setPayer] = useState<string>(payerFromCost(editing));
+    // "Pago por" herdado da Nova Despesa — só se aquele sócio ainda existir na obra.
+    const [payer, setPayer] = useState<string>(() => {
+        if (!isEditing && pre?.paidByInvestorId && investors.some(i => i.id === pre.paidByInvestorId)) {
+            return pre.paidByInvestorId;
+        }
+        return payerFromCost(editing);
+    });
     // PERMUTA: terreno pago com casas (não é dinheiro). Anula o "pago por" (não mexe no caixa).
     const [paidWithUnits, setPaidWithUnits] = useState(editing?.paidWithUnits || false);
-    const [attachment, setAttachment] = useState<string | undefined>(editing?.attachments?.[0]);
+    const [attachment, setAttachment] = useState<string | undefined>(editing?.attachments?.[0] || pre?.attachments?.[0]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
