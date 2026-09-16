@@ -239,8 +239,46 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
         });
     };
 
-    const removeAvulso = async (contribIds: string[]) => {
-        if (busy || !(await confirm('Apagar este aporte?'))) return;
+    // Excluir UM aporte (de um sócio só), pela janela "Corrigir aporte". Pedido do
+    // Davidson: a lixeira da linha avulsa apaga a data inteira (todos os sócios),
+    // e não havia como tirar só o lançamento de um. Fecha a janela antes de
+    // perguntar (as duas janelas disputam a frente da tela); cancelou, ela volta.
+    const excluirAporte = async () => {
+        const cell = confirmCell;
+        if (!cell?.contribId || busy) return;
+        const real = contribById.get(cell.contribId);
+        const quanto = formatCurrency(real?.value ?? (parseFloat(String(cell.value).replace(',', '.')) || 0));
+        setConfirmCell(null);
+        if (!(await confirm({ title: 'Excluir aporte?', message: `Excluir o aporte de ${cell.socioName} (${quanto})?\n\nSó este lançamento sai do caixa e do extrato. Os aportes dos outros sócios continuam.`, confirmText: 'Excluir' }))) {
+            setConfirmCell(cell);
+            return;
+        }
+        setBusy(true);
+        try {
+            await deleteContribution.mutateAsync(cell.contribId);
+            // Se era parcela do cronograma, desliga o "pago" daquele sócio.
+            if (cell.parcelaId) {
+                const next = parcelas.map((p) => {
+                    if (p.id !== cell.parcelaId) return p;
+                    const np = { ...(p.paidContrib || {}) }; delete np[cell.investorId];
+                    return { ...p, paidContrib: np };
+                });
+                setPlan({ parcelas: next });
+                onUpdate?.(project.id, { aportePlan: { parcelas: next } });
+            }
+            toast.success('Aporte excluído.');
+        } catch (e: any) {
+            toast.error('Erro ao excluir o aporte: ' + (e?.message || e));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const removeAvulso = async (contribIds: string[], nSocios: number) => {
+        const msg = nSocios > 1
+            ? { title: 'Apagar a linha inteira?', message: `Isso apaga os aportes de TODOS os ${nSocios} sócios nesta data.\n\nPra apagar só o de um sócio, clique no valor dele e use "Excluir este aporte".`, confirmText: 'Apagar todos' }
+            : { title: 'Apagar aporte?', message: 'O lançamento sai do caixa e do extrato.', confirmText: 'Apagar' };
+        if (busy || !(await confirm(msg))) return;
         setBusy(true);
         try { for (const id of contribIds) await deleteContribution.mutateAsync(id); }
         catch (e: any) { toast.error('Erro ao apagar: ' + (e?.message || e)); }
@@ -421,7 +459,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                         })}
                                         <td className="px-2 py-1.5 text-center">
                                             {row.kind === 'plan' && <button onClick={() => removeParcela(row.parcela!.id)} className="text-slate-500 hover:text-rose-400" title="Remover parcela"><i className="fa-solid fa-trash text-xs"></i></button>}
-                                            {row.kind === 'avulso' && <button onClick={() => removeAvulso(Object.values(row.cells).flatMap((c) => c.contribIds))} className="text-slate-500 hover:text-rose-400" title="Apagar aporte"><i className="fa-solid fa-trash text-xs"></i></button>}
+                                            {row.kind === 'avulso' && <button onClick={() => removeAvulso(Object.values(row.cells).flatMap((c) => c.contribIds), Object.keys(row.cells).length)} className="text-slate-500 hover:text-rose-400" title="Apagar aporte"><i className="fa-solid fa-trash text-xs"></i></button>}
                                         </td>
                                     </tr>
                                 ))}
@@ -533,6 +571,12 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                 {busy ? 'Salvando…' : confirmCell.contribId ? 'Salvar correção' : 'Confirmar'}
                             </button>
                         </div>
+                        {confirmCell.contribId && (
+                            <button onClick={excluirAporte} disabled={busy}
+                                className="w-full px-4 py-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 disabled:opacity-50 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
+                                <i className="fa-solid fa-trash text-xs"></i> Excluir este aporte
+                            </button>
+                        )}
                     </div>
                 </div>,
                 document.getElementById('modal-root') || document.body
