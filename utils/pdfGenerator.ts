@@ -4,7 +4,7 @@ import autoTable from 'jspdf-autotable';
 import { Project, getStageName, getCurrentStageEvidence } from '../types';
 import { supabase } from '../supabaseClient';
 import { computeProjectFinance, computeGastoAvancoVerdito, computeAporteShares } from './projectFinance';
-import { buildAporteMatrix, labelMesAporte } from './aportePlan';
+import { buildAporteMatrix } from './aportePlan';
 import { daysSince, lastUpdatedLabel, mostRecentDate } from '../utils';
 import { ReportOptions, DEFAULT_REPORT_OPTIONS } from './reportOptions';
 
@@ -532,10 +532,17 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
 
                     // Coluna Data
                     doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'normal');
-                    const label = row.kind === 'despesa'
-                        ? `${labelMesAporte(row.ym || '')} · em despesas`
-                        : `${row.date && row.date !== '—' ? new Date(row.date + 'T00:00:00').toLocaleDateString('pt-BR') : 'sem data'}${row.kind === 'avulso' ? ' · avulso' : ''}`;
-                    doc.text(label, M + 2, y);
+                    const dia = row.date && row.date !== '—' ? new Date(row.date + 'T00:00:00').toLocaleDateString('pt-BR') : 'sem data';
+                    if (row.kind === 'despesa') {
+                        // Data em cima, descrição embaixo (cortada pra caber na coluna).
+                        doc.text(dia, M + 2, y - 1);
+                        doc.setFontSize(5.5); setColor(C.amber);
+                        let d = row.descricao || '';
+                        while (d.length > 1 && doc.getTextWidth(d) > dataW - 2) d = d.slice(0, -2) + '…';
+                        doc.text(d, M + 2, y + 1.6);
+                    } else {
+                        doc.text(`${dia}${row.kind === 'avulso' ? ' · avulso' : ''}`, M + 2, y);
+                    }
 
                     shares.forEach((s, i) => {
                         const cell = row.cells[s.investorId || ''];
@@ -575,7 +582,7 @@ export const generateProjectPDF = async (projectPartial: Project, userName: stri
                 }
                 if (mRows.some(r => r.kind === 'despesa')) {
                     doc.setFontSize(6.5); setColor(C.muted); doc.setFont('helvetica', 'normal');
-                    doc.text('"em despesas" = compras e taxas do terreno que o sócio pagou do próprio bolso (também contam como aporte).', M + 2, y + 1);
+                    doc.text('Linhas em laranja = compras e taxas do terreno que o sócio pagou do próprio bolso, uma por lançamento (também contam como aporte).', M + 2, y + 1);
                     y += 5;
                 }
                 if (foraDaMatriz.total > 0.5) {

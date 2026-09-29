@@ -1,5 +1,4 @@
 import * as XLSX from 'xlsx';
-import { labelMesAporte } from './aportePlan';
 import type { AporteMatrixRow } from './aportePlan';
 // `import type` de propósito: o componente importa este arquivo, então trazer o
 // módulo de verdade fecharia um ciclo. Tipo some na compilação.
@@ -14,13 +13,12 @@ import { formatDateBR, safeFileName } from './expenseExport';
 // Os valores vão como NÚMERO (não texto): o sócio abre no Excel e soma/filtra.
 
 const rowLabel = (row: AporteMatrixRow): string => {
-  if (row.kind === 'despesa') return labelMesAporte(row.ym!);
   if (row.date && row.date !== '—') return formatDateBR(row.date);
   return 'sem data';
 };
 
 const rowSituacao = (row: AporteMatrixRow): string => {
-  if (row.kind === 'despesa') return `Pago em despesas (${row.qtd})`;
+  if (row.kind === 'despesa') return `Pago em despesa: ${row.descricao || ''}`;
   if (row.kind === 'avulso') return 'Aporte avulso';
   // Linha de plano: pago se TODA célula com valor previsto já entrou.
   const cells = Object.values(row.cells);
@@ -85,7 +83,7 @@ export const exportAportesToXlsx = (rows: AporteMatrixRow[], socios: SocioCol[],
       if (cell && typeof cell.v === 'number') cell.z = money;
     }
   }
-  ws['!cols'] = [{ wch: 14 }, { wch: 22 }, ...socios.map(() => ({ wch: 16 })), { wch: 16 }];
+  ws['!cols'] = [{ wch: 14 }, { wch: 36 }, ...socios.map(() => ({ wch: 16 })), { wch: 16 }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Aportes');

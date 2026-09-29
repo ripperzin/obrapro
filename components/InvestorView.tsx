@@ -5,7 +5,7 @@ import StageThumbnail from './StageThumbnail';
 import ResultadoEmpreendimento from './ResultadoEmpreendimento';
 import { daysSince, lastUpdatedLabel, mostRecentDate } from '../utils';
 import { computeProjectFinance, computeGastoAvancoVerdito, computeAporteShares } from '../utils/projectFinance';
-import { buildAporteMatrix, labelMesAporte } from '../utils/aportePlan';
+import { buildAporteMatrix } from '../utils/aportePlan';
 import { parseReportOptionsFromHash, clampReportOptions } from '../utils/reportOptions';
 import { entitlementsFor } from '../hooks/useEntitlements';
 
@@ -650,7 +650,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
                                                 <tr key={row.key} className="border-t border-slate-800">
                                                     <td className="px-2 py-1.5 whitespace-nowrap text-xs text-slate-400">
                                                         {row.kind === 'despesa'
-                                                            ? <>{labelMesAporte(row.ym!)} <span className="text-amber-500/80">· em despesas ({row.qtd})</span></>
+                                                            ? <span className="flex items-baseline gap-1">{fmtDia(row.date)} <span className="text-amber-500/80 truncate max-w-[11rem]" title={row.descricao}>· {row.descricao}</span></span>
                                                             : <>{fmtDia(row.date)}{row.kind === 'avulso' && <span className="text-emerald-500/70"> · avulso</span>}</>}
                                                     </td>
                                                     {shares.map((s, i) => {
@@ -685,7 +685,7 @@ const InvestorView: React.FC<InvestorViewProps> = ({ projectId }) => {
 
                             {rows.some(r => r.kind === 'despesa') && (
                                 <p className="text-[10px] text-slate-500 leading-snug mb-3">
-                                    As linhas <span className="text-amber-500/90">em despesas</span> são compras e taxas do terreno que o sócio pagou do próprio bolso — também contam como aporte.
+                                    As linhas em <span className="text-amber-500/90">laranja</span> são compras e taxas do terreno que o sócio pagou do próprio bolso, uma por lançamento — também contam como aporte.
                                 </p>
                             )}
 

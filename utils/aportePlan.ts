@@ -2,7 +2,7 @@
 // planejado com o que cada sócio JÁ aportou. Funciona nos dois modos de divisão
 // (% e por casa) porque parte da META por sócio, que o computeAporteShares já
 // calcula certo nos dois.
-import { AportePlan, AporteParcela, Project } from '../types';
+import { AportePlan, AporteParcela, Project, ACQUISITION_CATEGORY_LABELS, AcquisitionCategory } from '../types';
 import { AporteShare, computeAporteShares } from './projectFinance';
 import { generateId } from '../utils';
 
@@ -145,8 +145,7 @@ export interface AporteMatrixRow {
   kind: 'plan' | 'avulso' | 'despesa';
   key: string;
   date: string;                       // 'YYYY-MM-DD' — chave de ordenação e exibição
-  ym?: string;                        // só 'despesa': o mês agrupado
-  qtd?: number;                       // só 'despesa': quantos lançamentos no mês
+  descricao?: string;                 // só 'despesa': a descrição do lançamento
   parcela?: AporteParcela;            // só 'plan': a parcela original (edição no app)
   cells: { [investorId: string]: AporteMatrixCell };
 }
@@ -211,29 +210,30 @@ export const buildAporteMatrix = (
     kind: 'avulso', key: `av-${date}-${i}`, date, cells,
   }));
 
-  // --- despesa que o sócio pagou do bolso: também é aporte. Agrupada por MÊS
-  //     (há obra com 151 lançamentos — uma linha por despesa afogaria a tabela).
-  const porMes = new Map<string, { cells: { [id: string]: AporteMatrixCell }; qtd: number }>();
-  const somaNoMes = (sid: string, date: string, value: number) => {
-    const ym = (date || '').slice(0, 7);
-    if (!ym) return;
-    if (!porMes.has(ym)) porMes.set(ym, { cells: {}, qtd: 0 });
-    const g = porMes.get(ym)!;
-    if (!g.cells[sid]) g.cells[sid] = novaCell();
-    g.cells[sid].value += value || 0;
-    g.qtd += 1;
+  // --- despesa que o sócio pagou do bolso: também é aporte. UMA LINHA POR DESPESA,
+  //     com data e descrição. Era somado por mês e o sócio lia a soma como se fosse
+  //     um lançamento ("cadê a despesa de 43 mil da Angela?") — o Davidson pediu
+  //     separado em 29/09.
+  const despesaRows: AporteMatrixRow[] = [];
+  const linhaDespesa = (key: string, sid: string, date: string, value: number, descricao: string) => {
+    const cell = novaCell();
+    cell.value = value || 0;
+    despesaRows.push({ kind: 'despesa', key, date: (date || '').slice(0, 10) || '—', descricao, cells: { [sid]: cell } });
   };
-  (project.expenses || []).forEach((e: any) => {
-    if (e.paidByInvestorId && temColuna.has(e.paidByInvestorId)) somaNoMes(e.paidByInvestorId, e.date, e.value || 0);
+  (project.expenses || []).forEach((e: any, i: number) => {
+    if (e.paidByInvestorId && temColuna.has(e.paidByInvestorId)) {
+      linhaDespesa(`ds-${e.id || i}`, e.paidByInvestorId, e.date, e.value, (e.description || '').trim() || 'Despesa');
+    }
   });
-  // Custos de terreno que o sócio pagou do bolso TAMBÉM contam como aporte dele —
-  // aparecem na mesma linha mensal "em despesas" (senão só entravam no total de baixo).
-  (project.acquisitionCosts || []).forEach((a: any) => {
-    if (a.paidByInvestorId && temColuna.has(a.paidByInvestorId)) somaNoMes(a.paidByInvestorId, a.date, a.value || 0);
+  // Custos de terreno que o sócio pagou do bolso TAMBÉM contam como aporte dele
+  // (senão só entravam no total de baixo).
+  (project.acquisitionCosts || []).forEach((a: any, i: number) => {
+    if (a.paidByInvestorId && temColuna.has(a.paidByInvestorId)) {
+      const cat = ACQUISITION_CATEGORY_LABELS[a.category as AcquisitionCategory] || a.category || '';
+      const det = (a.description || '').trim() || cat;
+      linhaDespesa(`tr-${a.id || i}`, a.paidByInvestorId, a.date, a.value, det ? `Terreno · ${det}` : 'Terreno');
+    }
   });
-  const despesaRows: AporteMatrixRow[] = [...porMes.entries()].map(([ym, g]) => ({
-    kind: 'despesa', key: `ds-${ym}`, date: `${ym}-31`, ym, qtd: g.qtd, cells: g.cells,
-  }));
 
   // --- rede de segurança: dinheiro de quem ficou de fora das colunas
   const porSocioFora = new Map<string, number>();
@@ -257,11 +257,4 @@ export const buildAporteMatrix = (
       nomes: [...porSocioFora.keys()].map((id) => (project.investors || []).find((i) => i.id === id)?.name || 'sócio sem nome'),
     },
   };
-};
-
-const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-/** '2026-02' -> 'fev/26' */
-export const labelMesAporte = (ym: string): string => {
-  const [y, m] = (ym || '').split('-');
-  return `${MESES_CURTOS[(parseInt(m) || 1) - 1]}/${(y || '').slice(2)}`;
 };

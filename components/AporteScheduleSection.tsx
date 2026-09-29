@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Project, AportePlan, AporteParcela } from '../types';
 import { formatCurrency, formatAmount, generateId } from '../utils';
-import { generateAporteSchedule, buildAporteMatrix, labelMesAporte } from '../utils/aportePlan';
+import { generateAporteSchedule, buildAporteMatrix } from '../utils/aportePlan';
 import { openAttachment } from '../utils/storage';
 import { exportAportesToXlsx } from '../utils/aporteExport';
 import { useAddContribution, useDeleteContribution, useUpdateContribution } from '../hooks/useAportes';
@@ -387,7 +387,10 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                                                 <span className="text-slate-400 text-xs">{row.date !== '—' ? new Date(row.date + 'T00:00:00').toLocaleDateString('pt-BR') : 'sem data'} <span className="text-emerald-500/70">· avulso</span></span>
                                             )}
                                             {row.kind === 'despesa' && (
-                                                <span className="text-slate-400 text-xs">{labelMesAporte(row.ym!)} <span className="text-amber-500/80">· em despesas ({row.qtd})</span></span>
+                                                <span className="text-slate-400 text-xs flex items-baseline gap-1">
+                                                    {row.date !== '—' ? new Date(row.date + 'T00:00:00').toLocaleDateString('pt-BR') : 'sem data'}
+                                                    <span className="text-amber-500/80 truncate max-w-[11rem]" title={row.descricao}>· {row.descricao}</span>
+                                                </span>
                                             )}
                                         </td>
                                         {socios.map((s) => {
@@ -496,7 +499,7 @@ const AporteScheduleSection: React.FC<Props> = ({ project, socios, onUpdate, onR
                         <p className="text-[10px] text-slate-500 leading-snug">
                             {parcelas.length > 0 && <>Clique no ✓ de cada valor para dar como <b>pago</b> — isso registra o aporte de verdade (entra no caixa). Aportes fora do plano aparecem como linhas <span className="text-emerald-500">avulso</span>. </>}
                             <>Clique em qualquer <span className="text-emerald-400 font-bold">valor verde</span> para <b>corrigir</b> o valor ou a data daquele aporte. </>
-                            {temDespesaRow && <>As linhas <span className="text-amber-500/90">em despesas</span> são as compras e as <b>taxas do terreno</b> que o sócio pagou do próprio bolso (também contam como aporte) — some o mês inteiro; para mexer, vá na aba <b>Despesas</b> ou <b>Terreno</b>.</>}
+                            {temDespesaRow && <>As linhas em <span className="text-amber-500/90">laranja</span> são as compras e as <b>taxas do terreno</b> que o sócio pagou do próprio bolso, uma por lançamento (também contam como aporte); para mexer, vá na aba <b>Despesas</b> ou <b>Terreno</b>.</>}
                         </p>
                     )}
                     {foraDaMatriz.total > 0 && (
